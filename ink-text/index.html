@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>InkText</title>
+  <link id="gfont" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700&display=swap" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { background: #F9FFEB; color: #221143; font-family: monospace; }
+
+    #controls {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      background: #F9FFEB; border-bottom: 1px solid #221143;
+      padding: 10px 20px; display: flex; align-items: center; gap: 12px;
+    }
+    #text-input {
+      font-size: 13px; border: 1px solid #221143; background: #F9FFEB; color: #221143;
+      padding: 5px 10px; flex: 1; max-width: 480px; outline: none;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    #text-input::placeholder { color: rgba(34,17,67,0.3); }
+    #update-btn {
+      font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+      border: 1px solid #221143; background: #221143; color: #F9FFEB;
+      padding: 6px 14px; cursor: pointer;
+    }
+    #update-btn:hover { background: #F9FFEB; color: #221143; }
+    #hint {
+      font-size: 10px; color: rgba(34,17,67,0.35); letter-spacing: 0.05em;
+    }
+
+    #ink-wrap { margin-top: 47px; height: calc(100vh - 47px); position: relative; overflow: hidden; }
+    #root { position: absolute; inset: 0; }
+
+    #tabs { border-top: 1px solid #221143; display: flex; }
+    .tab-btn {
+      font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+      border: none; border-right: 1px solid #221143;
+      background: #F9FFEB; color: rgba(34,17,67,0.4);
+      padding: 12px 20px; cursor: pointer;
+    }
+    .tab-btn.active { color: #221143; }
+
+    #grid-section { display: none; padding: 48px 40px 80px; background: #F9FFEB; }
+    #grid-section.visible { display: block; }
+    #grid-label { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #221143; opacity: 0.35; margin-bottom: 28px; }
+    #char-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 2px; }
+    .char-cell { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 8px 10px; border: 1px solid rgba(34,17,67,0.1); }
+    .char-canvas { width: 56px; height: 56px; display: block; cursor: crosshair; }
+    .char-name { font-size: 9px; color: #221143; opacity: 0.3; letter-spacing: 0.05em; font-family: monospace; }
+  </style>
+</head>
+<body>
+
+  <div id="controls">
+    <input id="text-input" type="text" placeholder="Type your text… use | for new line" />
+    <button id="update-btn">Update</button>
+    <span id="hint">Enter / | = new line</span>
+  </div>
+
+  <div id="ink-wrap"><div id="root"></div></div>
+
+  <div id="tabs">
+    <button class="tab-btn active" data-tab="none">Hide</button>
+    <button class="tab-btn" data-tab="chars">Character set</button>
+  </div>
+  <div id="grid-section">
+    <div id="grid-label">Character set — hover to ripple</div>
+    <div id="char-grid"></div>
+  </div>
+
+  <script>
+  const INK = "#221143"
+  const BG  = "#F9FFEB"
+  const FONT = "Plus Jakarta Sans"
+  let currentLines = ["Feeling isn't accidental.", "It's designed."]
+
+  // ── Text update ──────────────────────────────────────────────────────
+  function applyText() {
+    const val = document.getElementById("text-input").value.trim()
+    currentLines = val
+      ? val.split(/[|\n]/).map(s => s.trim()).filter(Boolean)
+      : ["Feeling isn't accidental.", "It's designed."]
+    buildText()
+  }
+  document.getElementById("update-btn").addEventListener("click", applyText)
+  document.getElementById("text-input").addEventListener("keydown", e => { if (e.key === "Enter") applyText() })
+
+  // ── Tabs ─────────────────────────────────────────────────────────────
+  document.querySelectorAll(".tab-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"))
+      btn.classList.add("active")
+      document.getElementById("grid-section").classList.toggle("visible", btn.dataset.tab === "chars")
+    })
+  })
+
+  // ── Per-char live ink ────────────────────────────────────────────────
+  const CS = 7, CHAR_SIZE = 112
+
+  function makeInkChar(ch) {
+    const cv = document.createElement("canvas")
+    cv.className = "char-canvas"
+    cv.width = CHAR_SIZE; cv.height = CHAR_SIZE
+    const ctx = cv.getContext("2d")
+    let buf, count = 0
+    let mx = -999, my = -999, pmx = -999, pmy = -999
+    let dirty = true
+    const S = CS, MAX = 3000
+    const spacing = 1.8, baseR = spacing * 1.05
+    const rippleR = 28, rr2 = rippleR * rippleR
+    const blurWrap = document.createElement("canvas")
+    blurWrap.width = CHAR_SIZE; blurWrap.height = CHAR_SIZE
+    const bctx = blurWrap.getContext("2d")
+
+    function buildBuf() {
+      const off = document.createElement("canvas"); off.width = CHAR_SIZE; off.height = CHAR_SIZE
+      const octx = off.getContext("2d")
+      octx.fillStyle = "#000"
+      octx.font = "700 " + (CHAR_SIZE * 0.60) + "px '" + FONT + "', sans-serif"
+      octx.textAlign = "center"; octx.textBaseline = "middle"
+      octx.fillText(ch, CHAR_SIZE/2, CHAR_SIZE/2)
+      const data = octx.getImageData(0,0,CHAR_SIZE,CHAR_SIZE).data
+      const step = Math.max(spacing,1)
+      let n = 0
+      for (let py=0;py<CHAR_SIZE&&n<MAX;py+=step)
+        for (let px=0;px<CHAR_SIZE&&n<MAX;px+=step)
+          if (data[((py|0)*CHAR_SIZE+(px|0))*4+3]>=70) n++
+      buf = new Float32Array(n*S); count = n; let idx = 0
+      for (let py=0;py<CHAR_SIZE&&idx<n;py+=step) {
+        for (let px=0;px<CHAR_SIZE&&idx<n;px+=step) {
+          if (data[((py|0)*CHAR_SIZE+(px|0))*4+3]<70) continue
+          const o=idx*S
+          buf[o]=px;buf[o+1]=py;buf[o+2]=px;buf[o+3]=py
+          buf[o+4]=0;buf[o+5]=0;buf[o+6]=baseR*(0.85+Math.random()*0.3)
+          idx++
+        }
+      }
+      dirty = true
+    }
+
+    function loop() {
+      const dvx=mx-pmx,dvy=my-pmy; let moving=false
+      if (buf) {
+        for (let i=0,o=0;i<count;i++,o+=S) {
+          let x=buf[o+2],y=buf[o+3],vx=buf[o+4],vy=buf[o+5]
+          const dx=x-mx,dy=y-my,d2=dx*dx+dy*dy
+          if (d2<rr2&&d2>0.01) {
+            const d=Math.sqrt(d2),push=(1-d/rippleR)*18/d
+            vx+=dx*push*0.15+dvx*((1-d/rippleR)*18)*0.08
+            vy+=dy*push*0.15+dvy*((1-d/rippleR)*18)*0.08
+          }
+          vx+=(buf[o]-x)*0.016;vy+=(buf[o+1]-y)*0.016
+          vx*=0.80;vy*=0.80;x+=vx;y+=vy
+          buf[o+2]=x;buf[o+3]=y;buf[o+4]=vx;buf[o+5]=vy
+          if (vx*vx+vy*vy>0.0005) moving=true
+        }
+      }
+      if ((moving||dirty)&&buf) {
+        bctx.fillStyle="#fff";bctx.fillRect(0,0,CHAR_SIZE,CHAR_SIZE)
+        bctx.fillStyle="#000";bctx.beginPath()
+        for (let i=0,o=0;i<count;i++,o+=S) {
+          const x=buf[o+2],y=buf[o+3],r=buf[o+6]
+          bctx.moveTo(x+r,y);bctx.arc(x,y,r,0,6.2832)
+        }
+        bctx.fill()
+        ctx.fillStyle=BG;ctx.fillRect(0,0,CHAR_SIZE,CHAR_SIZE)
+        ctx.save();ctx.filter="blur(1px) contrast(30)"
+        ctx.globalCompositeOperation="multiply";ctx.drawImage(blurWrap,0,0);ctx.restore()
+        ctx.globalCompositeOperation="lighten";ctx.fillStyle=INK;ctx.fillRect(0,0,CHAR_SIZE,CHAR_SIZE)
+        ctx.globalCompositeOperation="source-over"
+        dirty=moving
+      }
+      requestAnimationFrame(loop)
+    }
+
+    cv.addEventListener("mouseenter", e => {
+      const r=cv.getBoundingClientRect(),sc=CHAR_SIZE/cv.offsetWidth
+      mx=pmx=(e.clientX-r.left)*sc;my=pmy=(e.clientY-r.top)*sc;dirty=true
+    })
+    cv.addEventListener("mousemove", e => {
+      const r=cv.getBoundingClientRect(),sc=CHAR_SIZE/cv.offsetWidth
+      pmx=mx;pmy=my;mx=(e.clientX-r.left)*sc;my=(e.clientY-r.top)*sc;dirty=true
+    })
+    cv.addEventListener("mouseleave", () => { mx=-999;my=-999;pmx=-999;pmy=-999 })
+
+    document.fonts.ready.then(() => { buildBuf(); loop() })
+    return cv
+  }
+
+  const CHARS = [
+    ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+    ..."abcdefghijklmnopqrstuvwxyz",
+    ..."0123456789",
+    ..."!@#$%&*()_+-=[]{}|;:,./<>?",
+    ..."ÁáÉéÍíÓóÚúÄäÖöÜüÑñÇč",
+  ]
+
+  function buildCharGrid() {
+    const grid = document.getElementById("char-grid"); grid.innerHTML = ""
+    CHARS.forEach(ch => {
+      const cell = document.createElement("div"); cell.className = "char-cell"
+      const cv = makeInkChar(ch)
+      const name = document.createElement("div"); name.className = "char-name"
+      name.textContent = "U+" + ch.codePointAt(0).toString(16).toUpperCase().padStart(4,"0")
+      cell.appendChild(cv); cell.appendChild(name); grid.appendChild(cell)
+    })
+  }
+  buildCharGrid()
+
+  // ── Main hero ────────────────────────────────────────────────────────
+  const S = 7
+  let buf = new Float32Array(0), count = 0
+  let mx = -9999, my = -9999, pmx = -9999, pmy = -9999
+  let vars = {}, dirty = true
+  const MAX_DOTS = 25000
+  const container = document.getElementById("root")
+
+  const patternCanvas = document.createElement("canvas")
+  patternCanvas.style.cssText = "position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0;"
+  container.appendChild(patternCanvas)
+  const noiseCanvas = document.createElement("canvas")
+  noiseCanvas.style.cssText = "position:absolute;top:0;left:0;pointer-events:none;z-index:1;image-rendering:pixelated;"
+  container.appendChild(noiseCanvas)
+  const wrapDiv = document.createElement("div")
+  wrapDiv.style.cssText = "position:absolute;inset:0;z-index:2;mix-blend-mode:multiply;"
+  container.appendChild(wrapDiv)
+  const mainCanvas = document.createElement("canvas")
+  mainCanvas.style.display = "block"; wrapDiv.appendChild(mainCanvas)
+  const overlay = document.createElement("div")
+  overlay.style.cssText = "position:absolute;inset:0;z-index:3;background-color:"+INK+";mix-blend-mode:lighten;pointer-events:none;"
+  container.appendChild(overlay)
+  container.style.cssText = "position:absolute;inset:0;width:100%;height:100%;background:linear-gradient(180deg,"+BG+" 0%,#fff 100%);isolation:isolate;"
+
+  const ctx  = mainCanvas.getContext("2d")
+  const nctx = noiseCanvas.getContext("2d")
+  const pctx = patternCanvas.getContext("2d")
+
+  function getSize() { return { w: container.clientWidth, h: container.clientHeight } }
+
+  function computeVars() {
+    const W=getSize().w, t=Math.max(0,Math.min(1,(W-320)/(1600-320)))
+    const ss=[[320,1.4],[700,1.6],[1000,1.85],[1200,2.1],[1600,2.4]]
+    let spacing=ss[ss.length-1][1]
+    for(let i=0;i<ss.length-1;i++){
+      const [w0,s0]=ss[i],[w1,s1]=ss[i+1]
+      if(W<=w0){spacing=s0;break}if(W<w1){spacing=s0+(s1-s0)*(W-w0)/(w1-w0);break}
+    }
+    const baseR=spacing*1.05, blur=Math.max(baseR*0.65,0.3+(2.0-0.3)*t)
+    vars={baseR,spacing,blur,rippleR:Math.round(60+(140-60)*t)}
+    wrapDiv.style.filter="blur("+blur+"px) contrast(30)"
+  }
+
+  function resize(){
+    const {w,h}=getSize()
+    mainCanvas.width=w;mainCanvas.height=h;patternCanvas.width=w;patternCanvas.height=h
+    computeVars();dirty=true
+  }
+
+  function buildText(){
+    const {baseR,spacing}=vars,W=mainCanvas.width,H=mainCanvas.height
+    const off=document.createElement("canvas");off.width=W;off.height=H
+    const octx=off.getContext("2d")
+    const fs_stops=[[320,40],[500,56],[720,72],[944,84],[1200,94],[1400,100],[1600,104]]
+    let fontSize=fs_stops[fs_stops.length-1][1]
+    for(let i=0;i<fs_stops.length-1;i++){
+      const [w0,s0]=fs_stops[i],[w1,s1]=fs_stops[i+1]
+      if(W<=w0){fontSize=s0;break}if(W<w1){fontSize=Math.round(s0+(s1-s0)*(W-w0)/(w1-w0));break}
+    }
+    octx.fillStyle="#000"
+    octx.font="700 "+fontSize+"px '"+FONT+"', sans-serif"
+    octx.textAlign="center";octx.textBaseline="middle"
+    const lineH=fontSize*1.2,totalH=currentLines.length*lineH
+    const startY=H/2-totalH/2+lineH/2
+    currentLines.forEach((line,i)=>{octx.fillText(line,W/2,startY+i*lineH)})
+    const data=octx.getImageData(0,0,W,H).data,step=Math.max(spacing,1)
+    let n=0
+    for(let py=0;py<H&&n<MAX_DOTS;py+=step)
+      for(let px=0;px<W&&n<MAX_DOTS;px+=step)
+        if(data[((py|0)*W+(px|0))*4+3]>=70) n++
+    buf=new Float32Array(n*S);count=n;let idx=0
+    for(let py=0;py<H&&idx<n;py+=step){
+      for(let px=0;px<W&&idx<n;px+=step){
+        if(data[((py|0)*W+(px|0))*4+3]<70) continue
+        const o=idx*S
+        buf[o]=px;buf[o+1]=py;buf[o+2]=px;buf[o+3]=py
+        buf[o+4]=0;buf[o+5]=0;buf[o+6]=baseR*(0.85+Math.random()*0.3);idx++
+      }
+    }
+    dirty=true
+  }
+
+  function drawPattern(W,H){
+    pctx.clearRect(0,0,W,H);pctx.strokeStyle="rgba(34,17,67,0.07)";pctx.lineWidth=1
+    const STEP=Math.round(Math.min(W,H)/5);pctx.beginPath()
+    for(let x=0;x<=W;x+=STEP){pctx.moveTo(x,0);pctx.lineTo(x,H)}
+    for(let y=0;y<=H;y+=STEP){pctx.moveTo(0,y);pctx.lineTo(W,y)}
+    pctx.stroke()
+  }
+
+  function initNoise(){
+    const {w,h}=getSize(),NS=2,nW=Math.ceil(w/NS),nH=Math.ceil(h/NS)
+    noiseCanvas.width=nW;noiseCanvas.height=nH
+    noiseCanvas.style.width="100%";noiseCanvas.style.height="100%"
+    const img=nctx.createImageData(nW,nH)
+    for(let i=0;i<img.data.length;i+=4){img.data[i]=img.data[i+1]=img.data[i+2]=255;img.data[i+3]=Math.random()*20|0}
+    nctx.putImageData(img,0,0)
+  }
+
+  resize();initNoise()
+  document.fonts.ready.then(()=>buildText())
+  drawPattern(patternCanvas.width,patternCanvas.height)
+
+  const ro=new ResizeObserver(()=>{resize();drawPattern(patternCanvas.width,patternCanvas.height);document.fonts.ready.then(()=>buildText())})
+  ro.observe(container)
+
+  document.addEventListener("mousemove",e=>{
+    const r=container.getBoundingClientRect()
+    pmx=mx;pmy=my;mx=e.clientX-r.left;my=e.clientY-r.top;dirty=true
+  })
+  document.addEventListener("touchmove",e=>{
+    e.preventDefault();const t=e.touches[0],r=container.getBoundingClientRect()
+    pmx=mx;pmy=my;mx=t.clientX-r.left;my=t.clientY-r.top;dirty=true
+  },{passive:false})
+  document.addEventListener("touchstart",e=>{
+    const t=e.touches[0],r=container.getBoundingClientRect()
+    mx=pmx=t.clientX-r.left;my=pmy=t.clientY-r.top;dirty=true
+  },{passive:true})
+
+  function loop(){
+    const {rippleR}=vars,rr2=rippleR*rippleR,W=mainCanvas.width,H=mainCanvas.height
+    const dvx=mx-pmx,dvy=my-pmy;let moving=false
+    for(let i=0,o=0;i<count;i++,o+=S){
+      let x=buf[o+2],y=buf[o+3],vx=buf[o+4],vy=buf[o+5]
+      const dx=x-mx,dy=y-my,d2=dx*dx+dy*dy
+      if(d2<rr2&&d2>0.01){
+        const d=Math.sqrt(d2),push=(1-d/rippleR)*22/d
+        vx+=dx*push*0.15+dvx*((1-d/rippleR)*22)*0.08
+        vy+=dy*push*0.15+dvy*((1-d/rippleR)*22)*0.08
+      }
+      vx+=(buf[o]-x)*0.014;vy+=(buf[o+1]-y)*0.014
+      vx*=0.80;vy*=0.80;x+=vx;y+=vy
+      buf[o+2]=x;buf[o+3]=y;buf[o+4]=vx;buf[o+5]=vy
+      if(vx*vx+vy*vy>0.0005) moving=true
+    }
+    if(moving||dirty){
+      ctx.fillStyle="#fff";ctx.fillRect(0,0,W,H)
+      ctx.fillStyle="#000";ctx.beginPath()
+      for(let i=0,o=0;i<count;i++,o+=S){const x=buf[o+2],y=buf[o+3],r=buf[o+6];ctx.moveTo(x+r,y);ctx.arc(x,y,r,0,6.2832)}
+      ctx.fill();dirty=moving
+    }
+    requestAnimationFrame(loop)
+  }
+  loop()
+  </script>
+</body>
+</html>
