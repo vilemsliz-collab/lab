@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>lab</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;1,400&display=swap');
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0d0d0d;
+      --fg: #e8e8e0;
+      --muted: #555;
+      --accent: #c8ff00;
+    }
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 14px;
+      line-height: 1.6;
+      min-height: 100vh;
+      padding: 60px 40px;
+      max-width: 680px;
+    }
+    header { margin-bottom: 64px; }
+    .label {
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    h1 { font-size: 18px; font-weight: 500; letter-spacing: -0.01em; }
+    h1 span { color: var(--accent); }
+    .list { list-style: none; border-top: 1px solid #222; }
+    .list li { border-bottom: 1px solid #1a1a1a; }
+    .list a {
+      display: flex;
+      align-items: baseline;
+      gap: 20px;
+      padding: 16px 0;
+      text-decoration: none;
+      color: var(--fg);
+      transition: color 0.15s;
+    }
+    .list a:hover { color: var(--accent); }
+    .list a:hover .num { color: var(--accent); }
+    .num { color: var(--muted); font-size: 11px; min-width: 24px; transition: color 0.15s; }
+    .name { flex: 1; }
+    .date { color: var(--muted); font-size: 11px; font-style: italic; }
+    footer { margin-top: 64px; color: var(--muted); font-size: 11px; }
+  </style>
+</head>
+<body>
+  <header>
+    <p class="label">Vilem — Lab</p>
+    <h1>Experiments &amp; <span>Claude Code</span> builds</h1>
+  </header>
+  <ul class="list">
+    <li>
+      <a href="./meta-dither/" target="_blank">
+        <span class="num">001</span>
+        <span class="name">Meta Dither</span>
+        <span class="date">2025-03</span>
+      </a>
+    </li>
+  </ul>
+  <footer>
+    <p>&#8594; <a href="https://vilem.design" style="color: inherit;">vilem.design</a></p>
+  </footer>
+</body>
+</html>
