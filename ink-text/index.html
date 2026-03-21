@@ -7,7 +7,7 @@
   <link id="gfont" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700&display=swap" />
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { background: #F9FFEB; color: #221143; font-family: monospace; }
+    html, body { background: #F9FFEB; color: #221143; font-family: monospace; overflow: hidden; height: 100%; }
 
     #controls {
       position: fixed; top: 0; left: 0; right: 0; z-index: 100;
@@ -40,19 +40,12 @@
     #slider-panel input[type="range"] { width: 110px; accent-color: #221143; cursor: pointer; }
     #slider-panel .sv { min-width: 40px; text-align: right; font-variant-numeric: tabular-nums; color: rgba(34,17,67,0.3); }
 
-    #ink-wrap { margin-top: 88px; height: calc(100vh - 88px - 90px); position: relative; overflow: hidden; }
+    #ink-wrap { margin-top: 88px; height: calc(100vh - 88px); position: relative; overflow: hidden; }
     #bg-noise {
       position: absolute; top: 0; left: 0; width: 100%; height: 100%;
       pointer-events: none; z-index: 0; image-rendering: pixelated;
     }
     #root { position: absolute; inset: 0; z-index: 1; }
-
-    #grid-section { display: block; padding: 24px 20px; background: #F9FFEB; position: relative; z-index: 10; }
-    .grid-header { font-family: monospace; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(34,17,67,0.35); margin-bottom: 12px; }
-    #char-grid { display: flex; flex-wrap: wrap; gap: 0; }
-    .char-cell { width: 64px; text-align: center; border: 1px solid rgba(34,17,67,0.07); padding: 6px 2px 2px; }
-    .char-cell canvas { width: 52px; height: 52px; display: block; margin: 0 auto; }
-    .char-name { font-size: 8px; color: rgba(34,17,67,0.25); margin-top: 2px; letter-spacing: 0.04em; }
   </style>
 </head>
 <body>
@@ -72,11 +65,6 @@
   <div id="ink-wrap">
     <canvas id="bg-noise"></canvas>
     <div id="root"></div>
-  </div>
-
-  <div id="grid-section">
-    <div class="grid-header">Character set &mdash; hover to ripple</div>
-    <div id="char-grid"></div>
   </div>
 
 <script>
@@ -110,6 +98,7 @@ function applyText() {
 document.getElementById("update-btn").addEventListener("click", applyText)
 document.getElementById("text-input").addEventListener("keydown", e => { if (e.key === "Enter") applyText() })
 
+// ── White noise background ─────────────────────────────────────────
 const bgNoise = document.getElementById("bg-noise")
 let bgNoiseCtx, bgNW, bgNH
 
@@ -130,120 +119,7 @@ function drawBgNoise() {
   bgNoiseCtx.putImageData(img, 0, 0)
 }
 
-const CS = 7, CHAR_SIZE = 112
-
-function makeInkChar(ch) {
-  const cv = document.createElement("canvas")
-  cv.className = "char-canvas"
-  cv.width = CHAR_SIZE; cv.height = CHAR_SIZE
-  const ctx = cv.getContext("2d")
-  let cbuf, ccount = 0
-  let cmx = -999, cmy = -999, cpmx = -999, cpmy = -999
-  let cdirty = true
-  const cS = CS, MAX = 3000
-  const spacing = 1.8, baseR = spacing * 1.05
-  const rippleR = 28, rr2 = rippleR * rippleR
-  const blurWrap = document.createElement("canvas")
-  blurWrap.width = CHAR_SIZE; blurWrap.height = CHAR_SIZE
-  const bctx = blurWrap.getContext("2d")
-
-  function buildBuf() {
-    const off = document.createElement("canvas"); off.width = CHAR_SIZE; off.height = CHAR_SIZE
-    const octx = off.getContext("2d")
-    octx.fillStyle = "#000"
-    octx.font = "700 " + (CHAR_SIZE * 0.60) + "px '" + FONT + "', sans-serif"
-    octx.textAlign = "center"; octx.textBaseline = "middle"
-    octx.fillText(ch, CHAR_SIZE/2, CHAR_SIZE/2)
-    const data = octx.getImageData(0,0,CHAR_SIZE,CHAR_SIZE).data
-    const step = Math.max(spacing,1)
-    let n = 0
-    for (let py=0;py<CHAR_SIZE&&n<MAX;py+=step)
-      for (let px=0;px<CHAR_SIZE&&n<MAX;px+=step)
-        if (data[((py|0)*CHAR_SIZE+(px|0))*4+3]>=70) n++
-    cbuf = new Float32Array(n*cS); ccount = n; let idx = 0
-    for (let py=0;py<CHAR_SIZE&&idx<n;py+=step) {
-      for (let px=0;px<CHAR_SIZE&&idx<n;px+=step) {
-        if (data[((py|0)*CHAR_SIZE+(px|0))*4+3]<70) continue
-        const o=idx*cS
-        cbuf[o]=px;cbuf[o+1]=py;cbuf[o+2]=px;cbuf[o+3]=py
-        cbuf[o+4]=0;cbuf[o+5]=0;cbuf[o+6]=baseR*(0.85+Math.random()*0.3)
-        idx++
-      }
-    }
-    cdirty = true
-  }
-
-  function cloop() {
-    const dvx = cmx - cpmx, dvy = cmy - cpmy
-    const spread = _ctrl.spread, spring = _ctrl.recall
-    const dragAmt = spread * 0.5
-    const damping = 0.76 + spread * 0.20
-    const radialStr = 18 * (1 - spread * 0.6)
-    let moving = false
-    if (cbuf) {
-      for (let i=0,o=0;i<ccount;i++,o+=cS) {
-        let x=cbuf[o+2],y=cbuf[o+3],vx=cbuf[o+4],vy=cbuf[o+5]
-        const dx=x-cmx,dy=y-cmy,d2=dx*dx+dy*dy
-        if (d2<rr2&&d2>0.01) {
-          const d=Math.sqrt(d2),falloff=1-d/rippleR,f2=falloff*falloff
-          vx+=dx*(f2*radialStr/d)*0.12; vy+=dy*(f2*radialStr/d)*0.12
-          vx+=dvx*f2*dragAmt; vy+=dvy*f2*dragAmt
-        }
-        if(spring > 0){ vx+=(cbuf[o]-x)*spring; vy+=(cbuf[o+1]-y)*spring }
-        vx*=damping;vy*=damping;x+=vx;y+=vy
-        cbuf[o+2]=x;cbuf[o+3]=y;cbuf[o+4]=vx;cbuf[o+5]=vy
-        if (vx*vx+vy*vy>0.0005) moving=true
-      }
-    }
-    if ((moving||cdirty)&&cbuf) {
-      bctx.fillStyle="#fff";bctx.fillRect(0,0,CHAR_SIZE,CHAR_SIZE)
-      bctx.fillStyle="#000";bctx.beginPath()
-      for (let i=0,o=0;i<ccount;i++,o+=cS) {
-        const x=cbuf[o+2],y=cbuf[o+3],r=cbuf[o+6]
-        bctx.moveTo(x+r,y);bctx.arc(x,y,r,0,6.2832)
-      }
-      bctx.fill()
-      ctx.fillStyle=BG;ctx.fillRect(0,0,CHAR_SIZE,CHAR_SIZE)
-      ctx.save();ctx.filter="blur("+Math.max(0.3,_ctrl.metaball*0.5)+"px) contrast(30)"
-      ctx.globalCompositeOperation="multiply";ctx.drawImage(blurWrap,0,0);ctx.restore()
-      ctx.globalCompositeOperation="lighten";ctx.fillStyle=INK;ctx.fillRect(0,0,CHAR_SIZE,CHAR_SIZE)
-      ctx.globalCompositeOperation="source-over"
-      cdirty=moving
-    }
-    requestAnimationFrame(cloop)
-  }
-
-  cv.addEventListener("mouseenter", e => {
-    const r=cv.getBoundingClientRect(),sc=CHAR_SIZE/cv.offsetWidth
-    cmx=cpmx=(e.clientX-r.left)*sc;cmy=cpmy=(e.clientY-r.top)*sc;cdirty=true
-  })
-  cv.addEventListener("mousemove", e => {
-    const r=cv.getBoundingClientRect(),sc=CHAR_SIZE/cv.offsetWidth
-    cpmx=cmx;cpmy=cmy;cmx=(e.clientX-r.left)*sc;cmy=(e.clientY-r.top)*sc;cdirty=true
-  })
-  cv.addEventListener("mouseleave", () => { cmx=-999;cmy=-999;cpmx=-999;cpmy=-999 })
-  document.fonts.ready.then(() => { buildBuf(); cloop() })
-  return cv
-}
-
-const CHARS = [
-  ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ", ..."abcdefghijklmnopqrstuvwxyz",
-  ..."0123456789", ..."!@#$%&*()_+-=[]{}|;:,./<>?",
-  ..."ÁáÉéÍíÓóÚúÄäÖöÜüÑñÇč",
-]
-
-function buildCharGrid() {
-  const grid = document.getElementById("char-grid"); grid.innerHTML = ""
-  CHARS.forEach(ch => {
-    const cell = document.createElement("div"); cell.className = "char-cell"
-    const cv = makeInkChar(ch)
-    const name = document.createElement("div"); name.className = "char-name"
-    name.textContent = "U+" + ch.codePointAt(0).toString(16).toUpperCase().padStart(4,"0")
-    cell.appendChild(cv); cell.appendChild(name); grid.appendChild(cell)
-  })
-}
-buildCharGrid()
-
+// ── Main hero ──────────────────────────────────────────────────────
 const S = 7
 let buf = new Float32Array(0), count = 0
 let mx = -9999, my = -9999, pmx = -9999, pmy = -9999
@@ -330,7 +206,7 @@ function buildText(){
   dirty=true
 }
 
-// ── Warped field-line grid — SQUARE cells, big ─────────────────────
+// ── Warped field-line grid — square cells, big ─────────────────────
 function drawPattern(W, H) {
   pctx.clearRect(0, 0, W, H)
   pctx.strokeStyle = "rgba(34,17,67,0.07)"
@@ -349,18 +225,12 @@ function drawPattern(W, H) {
   }
 
   const STEPS = 150
-
-  // Square grid: use same cell size for both directions
-  // Pick a big cell size, compute how many lines fit
-  const cellSize = Math.max(W, H) / 5  // ~5 cells across the larger dimension
-  const hCount = Math.ceil(H / cellSize) + 2  // +2 for overshoot
+  const cellSize = Math.max(W, H) / 5
+  const hCount = Math.ceil(H / cellSize) + 2
   const vCount = Math.ceil(W / cellSize) + 2
-
-  // Center the grid
   const hStart = cy - Math.floor(hCount / 2) * cellSize
   const vStart = cx - Math.floor(vCount / 2) * cellSize
 
-  // Horizontal lines
   for (let i = 0; i < hCount; i++) {
     const y0 = hStart + i * cellSize
     pctx.beginPath()
@@ -370,8 +240,6 @@ function drawPattern(W, H) {
     }
     pctx.stroke()
   }
-
-  // Vertical lines
   for (let i = 0; i < vCount; i++) {
     const x0 = vStart + i * cellSize
     pctx.beginPath()
