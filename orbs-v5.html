@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400&display=swap" rel="stylesheet">
+<title>Orbs</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  background: #fff;
+  overflow: hidden;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  font-family: "Plus Jakarta Sans", sans-serif;
+}
+canvas { display: block; width: 100vw; height: 100dvh; }
+.toolbar {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 14px 22px;
+  background: rgba(255,255,255,0.65);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 40px;
+  border: 1px solid rgba(0,0,0,0.06);
+  z-index: 10;
+  pointer-events: none;
+}
+.orb-dot {
+  pointer-events: auto;
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  border: 2px solid rgba(0,0,0,0.08);
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+.orb-dot:hover { transform: scale(1.15); }
+.orb-dot .remove {
+  position: absolute; top: -6px; right: -6px;
+  width: 15px; height: 15px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.5);
+  color: #fff; font-size: 9px;
+  line-height: 15px; text-align: center;
+  cursor: pointer; display: none;
+  pointer-events: auto;
+}
+.orb-dot:hover .remove { display: block; }
+.orb-ctrl {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: auto;
+}
+.orb-slider, .hue-slider {
+  width: 56px;
+  height: 3px;
+  -webkit-appearance: none;
+  appearance: none;
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+  pointer-events: auto;
+  margin: 0;
+  padding: 0;
+}
+.orb-slider { background: rgba(0,0,0,0.1); }
+.hue-slider { background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00); }
+.orb-slider::-webkit-slider-thumb,
+.hue-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1.5px solid rgba(0,0,0,0.15);
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+}
+.orb-slider::-moz-range-thumb,
+.hue-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1.5px solid rgba(0,0,0,0.15);
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+}
+.tbtn {
+  pointer-events: auto;
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  border: 2px dashed rgba(0,0,0,0.15);
+  background: transparent;
+  color: rgba(0,0,0,0.3);
+  font-size: 16px; line-height: 24px;
+  text-align: center; cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.tbtn:hover { border-color: rgba(0,0,0,0.3); color: rgba(0,0,0,0.5); }
+.tbtn.hidden { display: none; }
+.tb-sep {
+  width: 1px;
+  height: 28px;
+  background: rgba(0,0,0,0.08);
+  flex-shrink: 0;
+  margin: 0 4px;
+}
+.blend-btn {
+  pointer-events: auto;
+  padding: 5px 11px;
+  border-radius: 14px;
+  border: 1.5px solid rgba(0,0,0,0.08);
+  background: transparent;
+  color: rgba(0,0,0,0.35);
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.blend-btn:hover { border-color: rgba(0,0,0,0.2); color: rgba(0,0,0,0.5); }
+.blend-btn.active {
+  background: rgba(0,0,0,0.06);
+  border-color: rgba(0,0,0,0.15);
+  color: rgba(0,0,0,0.6);
+}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="toolbar" id="toolbar">
+  <button class="tbtn" id="addBtn" title="Add orb">+</button>
+  <div class="tb-sep"></div>
+  <button class="blend-btn active" data-mode="0">Multiply</button>
+  <button class="blend-btn" data-mode="1">Difference</button>
+</div>
+
+<script>
+"use strict";
+
+// ============================================================
+//  CONSTANTS
+// ============================================================
+const MAX_ORBS = 6;
+const PPO = 16;
+const TOTAL_P = MAX_ORBS * PPO;       // 96
+const DPR = Math.min(devicePixelRatio, 2);
+const RDPR = Math.min(DPR, 1.0);      // render at max 1× — big perf win on retina
+const INNER_SIZES = [72, 64, 58, 52, 48, 42, 38];
+const RING_SIZES  = [44, 40, 38, 36, 34, 32, 30, 28];
+const NI = INNER_SIZES.length;
+const NR = RING_SIZES.length;
+const WB = 0.15;
+const MAX_ALONE = 67;
+const PAIR_K = 0.004;
+
+// ============================================================
+//  WEBGL SETUP
+// ============================================================
+const canvas = document.getElementById("c");
+const gl = canvas.getContext("webgl", { antialias: false, depth: false, stencil: false, alpha: false })
+  || canvas.getContext("experimental-webgl", { antialias: false, depth: false, stencil: false, alpha: false });
+
+let W = innerWidth, H = innerHeight;
+
+function resize() {
+  W = innerWidth; H = innerHeight;
+  canvas.width = W * RDPR; canvas.height = H * RDPR;
+  gl.viewport(0, 0, canvas.width, canvas.height);
+}
+resize();
+
+function compile(src, type) {
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { console.error(gl.getShaderInfoLog(s)); return null; }
+  return s;
+}
+
+// ============================================================
+//  SHADERS
+//  Optimizations vs v4:
+//    1. Polynomial blob: t=max(1-dd/(4r²),0), b=t³  — ~5× cheaper than exp()
+//    2. Finite support: t≤0 → skip gradient+accumulate (free per-particle culling)
+//    3. No vnoise / caustic shimmer
+//    4. Render at RDPR (capped at 1.0) — 4× fewer pixels on retina
+// ============================================================
+const VERT = "attribute vec2 a;void main(){gl_Position=vec4(a,0,1);}";
+
+const FRAG = `
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+
+uniform vec2 uR;
+uniform float uD;
+uniform float uT;
+uniform vec3 uP[96];
+uniform vec3 uL[6];
+uniform vec3 uK[6];
+uniform sampler2D uB;
+uniform float uM;
+
+void main() {
+  vec2 p = gl_FragCoord.xy / uD;
+  p.y = uR.y - p.y;
+
+  // ---- Metaball field: polynomial blob with finite support ----
+  // blob = max(1 - |d|²/(4r²), 0)³   — smooth C1, zero beyond 2r
+  // grad = -1.5·t²/r²·d              — free to accumulate when t>0
+  float f[6];
+  f[0]=0.; f[1]=0.; f[2]=0.; f[3]=0.; f[4]=0.; f[5]=0.;
+  vec2 wc[6];
+  wc[0]=vec2(0.); wc[1]=vec2(0.); wc[2]=vec2(0.);
+  wc[3]=vec2(0.); wc[4]=vec2(0.); wc[5]=vec2(0.);
+  float w[6];
+  w[0]=0.; w[1]=0.; w[2]=0.; w[3]=0.; w[4]=0.; w[5]=0.;
+  vec2 grad = vec2(0.0);
+
+  for (int i = 0; i < 16; i++) {
+    // Orb 0
+    vec2 d = p - uP[i].xy;
+    float ir2 = 1.0 / (uP[i].z * uP[i].z);
+    float t = 1.0 - dot(d, d) * ir2 * 0.25;
+    if (t > 0.0) {
+      float b = t * t * t;
+      f[0] += b; wc[0] += uP[i].xy * b; w[0] += b;
+      grad -= 1.5 * t * t * ir2 * d;
+    }
+    // Orb 1
+    d = p - uP[16+i].xy; ir2 = 1.0 / (uP[16+i].z * uP[16+i].z);
+    t = 1.0 - dot(d, d) * ir2 * 0.25;
+    if (t > 0.0) {
+      float b = t * t * t;
+      f[1] += b; wc[1] += uP[16+i].xy * b; w[1] += b;
+      grad -= 1.5 * t * t * ir2 * d;
+    }
+    // Orb 2
+    d = p - uP[32+i].xy; ir2 = 1.0 / (uP[32+i].z * uP[32+i].z);
+    t = 1.0 - dot(d, d) * ir2 * 0.25;
+    if (t > 0.0) {
+      float b = t * t * t;
+      f[2] += b; wc[2] += uP[32+i].xy * b; w[2] += b;
+      grad -= 1.5 * t * t * ir2 * d;
+    }
+    // Orb 3
+    d = p - uP[48+i].xy; ir2 = 1.0 / (uP[48+i].z * uP[48+i].z);
+    t = 1.0 - dot(d, d) * ir2 * 0.25;
+    if (t > 0.0) {
+      float b = t * t * t;
+      f[3] += b; wc[3] += uP[48+i].xy * b; w[3] += b;
+      grad -= 1.5 * t * t * ir2 * d;
+    }
+    // Orb 4
+    d = p - uP[64+i].xy; ir2 = 1.0 / (uP[64+i].z * uP[64+i].z);
+    t = 1.0 - dot(d, d) * ir2 * 0.25;
+    if (t > 0.0) {
+      float b = t * t * t;
+      f[4] += b; wc[4] += uP[64+i].xy * b; w[4] += b;
+      grad -= 1.5 * t * t * ir2 * d;
+    }
+    // Orb 5
+    d = p - uP[80+i].xy; ir2 = 1.0 / (uP[80+i].z * uP[80+i].z);
+    t = 1.0 - dot(d, d) * ir2 * 0.25;
+    if (t > 0.0) {
+      float b = t * t * t;
+      f[5] += b; wc[5] += uP[80+i].xy * b; w[5] += b;
+      grad -= 1.5 * t * t * ir2 * d;
+    }
+  }
+
+  float tF = f[0]+f[1]+f[2]+f[3]+f[4]+f[5];
+
+  // Early out
+  if (tF < 0.05) {
+    gl_FragColor = vec4(texture2D(uB, p / uR).rgb, 1.0);
+    return;
+  }
+
+  // ---- Surface normal ----
+  vec2 n2 = grad * inversesqrt(max(dot(grad, grad), 1e-6));
+
+  // ---- Background refraction ----
+  float surf = smoothstep(0.3, 1.2, tF);
+  vec2 pull = vec2(0.0);
+  for (int k = 0; k < 6; k++) {
+    if (w[k] > 0.01) pull += (wc[k] / w[k] - p) * smoothstep(0.3, 1.5, f[k]);
+  }
+  vec2 uvBg = (p + pull * smoothstep(0.2, 1.0, tF) * 0.15 + n2 * surf * 18.0) / uR;
+  vec3 bg = texture2D(uB, uvBg).rgb;
+
+  // ---- Per-orb color blending ----
+  vec3 tx = vec3(1.0);
+  float totalO = 0.0;
+  for (int k = 0; k < 6; k++) {
+    float sat = smoothstep(0.85, 3.5, f[k]);
+    float a   = smoothstep(0.45, 0.85, f[k]);
+    float o   = a * (0.38 + 0.32 * sat);
+    if (o > 0.001) {
+      vec3 c = mix(uL[k], uK[k], sat);
+      if (uM < 0.5) {
+        tx *= mix(vec3(1.0), c, o);
+      } else {
+        tx = abs(tx - mix(vec3(1.0), c, o));
+      }
+    }
+    totalO += o;
+  }
+  totalO = min(totalO, 1.0);
+
+  float gray = dot(tx, vec3(0.333));
+  tx = clamp(mix(vec3(gray), tx, 1.6), 0.0, 1.0);
+
+  vec3 col = mix(bg, tx, totalO);
+
+  // ---- Fresnel edge glow ----
+  col += (smoothstep(0.4, 0.75, tF) - smoothstep(0.75, 2.5, tF)) * 0.35;
+
+  // ---- Specular highlight ----
+  vec3 n3 = normalize(vec3(n2, 1.0));
+  float spec = pow(max(dot(n3, vec3(0.298, -0.373, 0.745)), 0.0), 24.0);
+  col += spec * surf * 0.4;
+
+  gl_FragColor = vec4(min(col, 1.0), 1.0);
+}
+`;
+
+// ============================================================
+//  PROGRAM + UNIFORMS
+// ============================================================
+const vs = compile(VERT, gl.VERTEX_SHADER);
+const fs = compile(FRAG, gl.FRAGMENT_SHADER);
+const prog = gl.createProgram();
+gl.attachShader(prog, vs); gl.attachShader(prog, fs);
+gl.linkProgram(prog);
+if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) console.error(gl.getProgramInfoLog(prog));
+gl.useProgram(prog);
+
+const buf = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+const aP = gl.getAttribLocation(prog, "a");
+gl.enableVertexAttribArray(aP);
+gl.vertexAttribPointer(aP, 2, gl.FLOAT, false, 0, 0);
+
+const uR    = gl.getUniformLocation(prog, "uR");
+const uD    = gl.getUniformLocation(prog, "uD");
+const uT    = gl.getUniformLocation(prog, "uT");
+const uBg   = gl.getUniformLocation(prog, "uB");
+const uMloc = gl.getUniformLocation(prog, "uM");
+
+// Batch uniform locations — single uniform3fv call per frame
+const uPLoc = gl.getUniformLocation(prog, "uP[0]");
+const uLLoc = gl.getUniformLocation(prog, "uL[0]");
+const uKLoc = gl.getUniformLocation(prog, "uK[0]");
+
+// Batch buffers
+const pBuf = new Float32Array(TOTAL_P * 3);  // 288 floats for particle data
+const lBuf = new Float32Array(MAX_ORBS * 3); // 18 floats for light colors
+const kBuf = new Float32Array(MAX_ORBS * 3); // 18 floats for deep colors
+
+// Init particles offscreen
+for (let i = 0; i < TOTAL_P; i++) { pBuf[i*3] = -9999; pBuf[i*3+1] = -9999; pBuf[i*3+2] = 0.001; }
+// Init colors neutral
+for (let i = 0; i < MAX_ORBS; i++) { lBuf[i*3] = 1; lBuf[i*3+1] = 1; lBuf[i*3+2] = 1; kBuf[i*3] = 0.5; kBuf[i*3+1] = 0.5; kBuf[i*3+2] = 0.5; }
+gl.uniform3fv(uPLoc, pBuf);
+gl.uniform3fv(uLLoc, lBuf);
+gl.uniform3fv(uKLoc, kBuf);
+
+// ============================================================
+//  BACKGROUND TEXTURE (full DPR for sharp text)
+// ============================================================
+const BG_TEXT = "Feeling isn\u2019t\naccidental.\nIt\u2019s designed.";
+let bgTex = null;
+
+function rebuildBg() {
+  const c = document.createElement("canvas");
+  c.width = W * DPR; c.height = H * DPR;
+  const x = c.getContext("2d");
+  x.setTransform(DPR, 0, 0, DPR, 0, 0);
+  x.fillStyle = "#fff";
+  x.fillRect(0, 0, W, H);
+
+  const sz = W >= 1200 ? 163 : W >= 768 ? Math.round(W * 0.115) : Math.round(W * 0.1);
+  const lh = sz * 1.15;
+  x.font = `400 ${sz}px "Plus Jakarta Sans", sans-serif`;
+  if (x.letterSpacing !== undefined) x.letterSpacing = `${sz * -0.02}px`;
+  x.fillStyle = "#111"; x.textAlign = "left"; x.textBaseline = "top";
+  const lines = BG_TEXT.split("\n");
+  let mw = 0;
+  for (let i = 0; i < lines.length; i++) { const w = x.measureText(lines[i]).width; if (w > mw) mw = w; }
+  const bx = (W - mw) / 2, by = (H - lines.length * lh) / 2;
+  for (let i = 0; i < lines.length; i++) x.fillText(lines[i], bx, by + i * lh);
+
+  if (bgTex) gl.deleteTexture(bgTex);
+  bgTex = gl.createTexture();
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, bgTex);
+  gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.uniform1i(uBg, 0);
+}
+rebuildBg();
+document.fonts.ready.then(rebuildBg);
+addEventListener("resize", () => { resize(); rebuildBg(); });
+
+// ============================================================
+//  INPUT
+// ============================================================
+const ptrs = new Map();
+
+document.addEventListener("mousemove", e => {
+  let p = ptrs.get("m");
+  if (!p) { p = { x: e.clientX, y: e.clientY, px: e.clientX, py: e.clientY }; ptrs.set("m", p); }
+  else { p.px = p.x; p.py = p.y; p.x = e.clientX; p.y = e.clientY; }
+});
+document.addEventListener("mouseleave", () => ptrs.delete("m"));
+document.addEventListener("touchstart", e => {
+  if (e.target.closest(".toolbar")) return;
+  e.preventDefault();
+  for (const t of e.changedTouches) ptrs.set(t.identifier, { x: t.clientX, y: t.clientY, px: t.clientX, py: t.clientY });
+}, { passive: false });
+document.addEventListener("touchmove", e => {
+  if (e.target.closest(".toolbar")) return;
+  e.preventDefault();
+  for (const t of e.changedTouches) { const p = ptrs.get(t.identifier); if (p) { p.px = p.x; p.py = p.y; p.x = t.clientX; p.y = t.clientY; } }
+}, { passive: false });
+document.addEventListener("touchend", e => { for (const t of e.changedTouches) ptrs.delete(t.identifier); });
+document.addEventListener("touchcancel", e => { for (const t of e.changedTouches) ptrs.delete(t.identifier); });
+
+// ============================================================
+//  PHYSICS
+// ============================================================
+const _t = new Float64Array(4);
+
+function push(px, py, vx, vy, r) {
+  for (const pt of ptrs.values()) {
+    const dx = pt.x - px, dy = pt.y - py;
+    const d = Math.sqrt(dx * dx + dy * dy);
+    const h = r + 55;
+    if (d < h && d > 0.1) {
+      const inv = 1 / d, o = h - d, nx = dx * inv, ny = dy * inv;
+      px -= nx * o * 0.19; py -= ny * o * 0.19;
+      vx -= nx * o * 0.0003; vy -= ny * o * 0.0003;
+    }
+  }
+  _t[0] = px; _t[1] = py; _t[2] = vx; _t[3] = vy;
+}
+
+function wall(px, py, vx, vy, r) {
+  if (px < r) { px = r; vx = Math.abs(vx) * WB; }
+  else if (px > W - r) { px = W - r; vx = -Math.abs(vx) * WB; }
+  if (py < r) { py = r; vy = Math.abs(vy) * WB; }
+  else if (py > H - r) { py = H - r; vy = -Math.abs(vy) * WB; }
+  _t[0] = px; _t[1] = py; _t[2] = vx; _t[3] = vy;
+}
+
+function makeOrb(sx, sy) {
+  const sc = Math.min(W, H) < 500 ? 0.5 : 1;
+  const core = { x: sx + (Math.random() - 0.5) * 107 * sc, y: sy + (Math.random() - 0.5) * 107 * sc, vx: 0, vy: 0, r: 87, fr: 0.9992, rr: 120 };
+
+  const inner = new Array(NI);
+  for (let i = 0; i < NI; i++) {
+    const r = INNER_SIZES[i] / 2;
+    inner[i] = { x: sx + (Math.random() - 0.5) * 187 * sc, y: sy + (Math.random() - 0.5) * 187 * sc,
+      vx: (Math.random() - 0.5) * 0.3, vy: (Math.random() - 0.5) * 0.3,
+      r, rr: r * 2.95, cp: 3e-4 + Math.random() * 6e-4, fr: 0.9985 + Math.random() * 1e-3, mass: 0.8 + Math.random() };
+  }
+
+  const ring = new Array(NR);
+  for (let i = 0; i < NR; i++) {
+    const r = RING_SIZES[i] / 2;
+    const a = (Math.PI * 2 / NR) * i + (Math.random() - 0.5) * 1.5;
+    const d = 80 + Math.random() * 67;
+    ring[i] = { x: sx + Math.cos(a) * d * sc + (Math.random() - 0.5) * 40 * sc, y: sy + Math.sin(a) * d * sc + (Math.random() - 0.5) * 40 * sc,
+      vx: (Math.random() - 0.5) * 0.2, vy: (Math.random() - 0.5) * 0.2,
+      r, rr: r * 2.68, cp: 2e-4 + Math.random() * 3e-4, fr: 0.9988 + Math.random() * 1e-3, mass: 1 + Math.random() * 1.5 };
+  }
+
+  return { core, inner, ring, _all: new Array(1 + NI + NR), scale: 1 };
+}
+
+function setOrbScale(ph, s) {
+  ph.scale = s;
+  ph.core.r = 87 * s;
+  ph.core.rr = 120 * s;
+  for (let i = 0; i < NI; i++) {
+    const br = INNER_SIZES[i] / 2;
+    ph.inner[i].r = br * s;
+    ph.inner[i].rr = br * 2.95 * s;
+  }
+  for (let i = 0; i < NR; i++) {
+    const br = RING_SIZES[i] / 2;
+    ph.ring[i].r = br * s;
+    ph.ring[i].rr = br * 2.68 * s;
+  }
+}
+
+function stepPart(s, cx, cy, maxD, elas) {
+  push(s.x, s.y, s.vx, s.vy, s.r);
+  s.x = _t[0]; s.y = _t[1]; s.vx = _t[2]; s.vy = _t[3];
+  const im = 1 / s.mass;
+  s.vx += (cx - s.x) * s.cp * im;
+  s.vy += (cy - s.y) * s.cp * im;
+  const dx = s.x - cx, dy = s.y - cy, dc = Math.sqrt(dx * dx + dy * dy);
+  if (dc > maxD) { const e = (dc - maxD) * elas / dc; s.vx -= dx * e; s.vy -= dy * e; }
+  s.vx *= s.fr; s.vy *= s.fr;
+  s.x += s.vx; s.y += s.vy;
+  wall(s.x, s.y, s.vx, s.vy, s.r);
+  s.x = _t[0]; s.y = _t[1]; s.vx = _t[2]; s.vy = _t[3];
+}
+
+function stepOrb(o) {
+  const c = o.core;
+  push(c.x, c.y, c.vx, c.vy, c.r);
+  c.x = _t[0]; c.y = _t[1]; c.vx = _t[2]; c.vy = _t[3];
+  c.vx *= c.fr; c.vy *= c.fr;
+  c.x += c.vx; c.y += c.vy;
+  wall(c.x, c.y, c.vx, c.vy, c.r);
+  c.x = _t[0]; c.y = _t[1]; c.vx = _t[2]; c.vy = _t[3];
+
+  const sc = o.scale;
+  for (let i = 0; i < NI; i++) stepPart(o.inner[i], c.x, c.y, 200 * sc, 0.0024);
+  for (let i = 0; i < NR; i++) stepPart(o.ring[i], c.x, c.y, 240 * sc, 0.001);
+
+  // Cohesion
+  const all = o._all;
+  all[0] = c;
+  for (let i = 0; i < NI; i++) all[1 + i] = o.inner[i];
+  for (let i = 0; i < NR; i++) all[1 + NI + i] = o.ring[i];
+  const sMA = MAX_ALONE * sc;
+  const len = all.length, t2 = sMA * 1.3;
+
+  for (let i = 0; i < len; i++) {
+    const a = all[i];
+    let d1 = Infinity, d2 = Infinity, n1x = 0, n1y = 0, n2x = 0, n2y = 0;
+    for (let j = 0; j < len; j++) {
+      if (i === j) continue;
+      const dx = all[j].x - a.x, dy = all[j].y - a.y;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d < d1) { d2 = d1; n2x = n1x; n2y = n1y; d1 = d; n1x = all[j].x; n1y = all[j].y; }
+      else if (d < d2) { d2 = d; n2x = all[j].x; n2y = all[j].y; }
+    }
+    if (d1 > sMA) { const f = (d1 - sMA) * PAIR_K / d1; a.vx += (n1x - a.x) * f; a.vy += (n1y - a.y) * f; }
+    if (d2 > t2) { const f = (d2 - t2) * PAIR_K * 0.5 / d2; a.vx += (n2x - a.x) * f; a.vy += (n2y - a.y) * f; }
+    a.vx += (Math.random() - 0.5) * 0.15;
+    a.vy += (Math.random() - 0.5) * 0.15;
+  }
+}
+
+function collide(a, b) {
+  const dx = b.core.x - a.core.x, dy = b.core.y - a.core.y;
+  const d = Math.sqrt(dx * dx + dy * dy), m = a.core.r + b.core.r + 27;
+  if (d < m && d > 0.1) {
+    const f = (m - d) * 0.02 / d;
+    a.core.vx -= dx * f; a.core.vy -= dy * f;
+    b.core.vx += dx * f; b.core.vy += dy * f;
+  }
+}
+
+// ============================================================
+//  ORB MANAGER
+// ============================================================
+const PRESET_HUES = [230, 45, 20, 340, 150, 270];
+
+function hue2col(h) {
+  const x = 1 - Math.abs((h / 60) % 2 - 1);
+  let r, g, b;
+  if (h < 60)       { r = 1; g = x; b = 0; }
+  else if (h < 120) { r = x; g = 1; b = 0; }
+  else if (h < 180) { r = 0; g = 1; b = x; }
+  else if (h < 240) { r = 0; g = x; b = 1; }
+  else if (h < 300) { r = x; g = 0; b = 1; }
+  else              { r = 1; g = 0; b = x; }
+  return { l: [r * 0.6 + 0.4, g * 0.6 + 0.4, b * 0.6 + 0.4], d: [r, g, b] };
+}
+
+function setColor(i, l, d) {
+  lBuf[i*3] = l[0]; lBuf[i*3+1] = l[1]; lBuf[i*3+2] = l[2];
+  kBuf[i*3] = d[0]; kBuf[i*3+1] = d[1]; kBuf[i*3+2] = d[2];
+}
+
+const orbs = [];
+const toolbar = document.getElementById("toolbar");
+const addBtn = document.getElementById("addBtn");
+
+function rndPos(idx) {
+  if (W < 600) return [W * 0.5, H * (0.15 + 0.7 * idx / Math.max(orbs.length, 3))];
+  const cols = Math.min(orbs.length + 1, 3), col = idx % cols, row = Math.floor(idx / cols);
+  return [W * (0.15 + 0.7 * col / cols) + (Math.random() - 0.5) * W * 0.1,
+          H * (0.25 + 0.5 * row) + (Math.random() - 0.5) * H * 0.15];
+}
+
+function addOrb(hueIn) {
+  if (orbs.length >= MAX_ORBS) return;
+  const i = orbs.length;
+  const hue = hueIn != null ? hueIn : PRESET_HUES[i % PRESET_HUES.length];
+  const cd = hue2col(hue);
+  const [sx, sy] = rndPos(i);
+  orbs.push({ phys: makeOrb(sx, sy), hue, l: cd.l, d: cd.d, scale: 1 });
+  setColor(i, cd.l, cd.d);
+  buildBar();
+  if (orbs.length >= MAX_ORBS) addBtn.classList.add("hidden");
+}
+
+function removeOrb(idx) {
+  if (orbs.length <= 1) return;
+  orbs.splice(idx, 1);
+  for (let i = 0; i < orbs.length; i++) setColor(i, orbs[i].l, orbs[i].d);
+  for (let i = orbs.length; i < MAX_ORBS; i++) {
+    const base = i * PPO * 3;
+    for (let j = 0; j < PPO; j++) { pBuf[base+j*3] = -9999; pBuf[base+j*3+1] = -9999; pBuf[base+j*3+2] = 0.001; }
+    lBuf[i*3] = 1; lBuf[i*3+1] = 1; lBuf[i*3+2] = 1;
+    kBuf[i*3] = 0.5; kBuf[i*3+1] = 0.5; kBuf[i*3+2] = 0.5;
+  }
+  buildBar();
+  addBtn.classList.remove("hidden");
+}
+
+function buildBar() {
+  toolbar.querySelectorAll(".orb-ctrl").forEach(el => el.remove());
+  orbs.forEach((orb, i) => {
+    const ctrl = document.createElement("div");
+    ctrl.className = "orb-ctrl";
+
+    const dot = document.createElement("div");
+    dot.className = "orb-dot";
+    dot.style.background = `hsl(${orb.hue}, 100%, 50%)`;
+    if (orbs.length > 1) {
+      const rm = document.createElement("div"); rm.className = "remove"; rm.textContent = "\u00d7";
+      rm.addEventListener("click", e => { e.stopPropagation(); removeOrb(i); });
+      dot.appendChild(rm);
+    }
+    ctrl.appendChild(dot);
+
+    const hueSlider = document.createElement("input");
+    hueSlider.type = "range"; hueSlider.className = "hue-slider";
+    hueSlider.min = "0"; hueSlider.max = "360"; hueSlider.step = "1";
+    hueSlider.value = String(orb.hue);
+    hueSlider.addEventListener("input", e => {
+      const h = parseFloat(e.target.value);
+      orb.hue = h;
+      const cd = hue2col(h);
+      orb.l = cd.l; orb.d = cd.d;
+      setColor(i, cd.l, cd.d);
+      dot.style.background = `hsl(${h}, 100%, 50%)`;
+    });
+    ctrl.appendChild(hueSlider);
+
+    const sizeSlider = document.createElement("input");
+    sizeSlider.type = "range"; sizeSlider.className = "orb-slider";
+    sizeSlider.min = "0.3"; sizeSlider.max = "2.0"; sizeSlider.step = "0.05";
+    sizeSlider.value = String(orb.scale);
+    sizeSlider.addEventListener("input", e => {
+      const s = parseFloat(e.target.value);
+      orb.scale = s;
+      setOrbScale(orb.phys, s);
+    });
+    ctrl.appendChild(sizeSlider);
+
+    toolbar.insertBefore(ctrl, addBtn);
+  });
+}
+
+addBtn.addEventListener("click", () => addOrb());
+
+let blendMode = 0;
+const blendBtns = toolbar.querySelectorAll(".blend-btn");
+blendBtns.forEach(btn => {
+  btn.addEventListener("click", () => {
+    blendMode = parseInt(btn.dataset.mode);
+    blendBtns.forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+  });
+});
+
+addOrb(); addOrb(); addOrb();
+
+// ============================================================
+//  RENDER LOOP
+// ============================================================
+function tick() {
+  const n = orbs.length;
+  for (let i = 0; i < n; i++) stepOrb(orbs[i].phys);
+  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) collide(orbs[i].phys, orbs[j].phys);
+
+  // Pack particle data into batch buffer
+  for (let i = 0; i < n; i++) {
+    const ph = orbs[i].phys, base = i * PPO * 3;
+    pBuf[base] = ph.core.x; pBuf[base+1] = ph.core.y; pBuf[base+2] = ph.core.rr;
+    for (let j = 0; j < NI; j++) {
+      const off = base + (1 + j) * 3;
+      pBuf[off] = ph.inner[j].x; pBuf[off+1] = ph.inner[j].y; pBuf[off+2] = ph.inner[j].rr;
+    }
+    for (let j = 0; j < NR; j++) {
+      const off = base + (1 + NI + j) * 3;
+      pBuf[off] = ph.ring[j].x; pBuf[off+1] = ph.ring[j].y; pBuf[off+2] = ph.ring[j].rr;
+    }
+  }
+
+  gl.uniform2f(uR, W, H);
+  gl.uniform1f(uD, RDPR);
+  gl.uniform1f(uT, performance.now() * 0.001);
+  gl.uniform1f(uMloc, blendMode);
+  gl.uniform3fv(uPLoc, pBuf);   // 1 call instead of 96
+  gl.uniform3fv(uLLoc, lBuf);   // 1 call instead of 6
+  gl.uniform3fv(uKLoc, kBuf);   // 1 call instead of 6
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, bgTex);
+
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
