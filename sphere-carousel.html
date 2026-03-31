@@ -137,11 +137,11 @@
       position: fixed;
       top: 0; right: 0; bottom: 0;
       width: 260px;
-      background: rgba(10,10,12,0.93);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
+      background: transparent;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
       z-index: 200;
-      transform: translateX(100%);
+      transform: translateX(0);
       transition: transform 0.28s ease;
       display: flex;
       flex-direction: column;
@@ -752,6 +752,7 @@
     });
 
     /* ── Init ── */
+    document.body.classList.add('dev-open');
     checkBreakpoint();
     applyTransforms(0);
 
