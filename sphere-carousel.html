@@ -11,7 +11,7 @@
 
     html, body {
       width: 100%; height: 100%;
-      background: #0d0d0d;
+      background: #F3F4F9;
       overflow: hidden;
       touch-action: none;
       user-select: none;
@@ -25,11 +25,11 @@
       position: fixed;
       top: 24px; left: 28px;
       font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
-      color: #555; text-decoration: none;
+      color: #aaa; text-decoration: none;
       z-index: 100;
       transition: color 0.2s;
     }
-    .back:hover { color: #e8e8e0; }
+    .back:hover { color: #222; }
 
     /* ── Stage: CSS 3D perspective container ── */
     #stage {
@@ -99,20 +99,20 @@
     }
     .info-title {
       font-size: 13px; font-weight: 500;
-      color: #e8e8e0;
+      color: #222;
       margin-bottom: 3px;
     }
-    .info-counter { font-size: 11px; color: #555; letter-spacing: 0.08em; }
+    .info-counter { font-size: 11px; color: #aaa; letter-spacing: 0.08em; }
 
     /* ── Scrubber ── */
     #scrubber {
       position: fixed;
       bottom: 0; left: 0; right: 0; height: 65px;
       z-index: 40;
-      background: #0d0d0d;
+      background: #F3F4F9;
       cursor: grab;
       touch-action: none;
-      border-top: 1px solid #1a1a1a;
+      border-top: 1px solid #e2e3ea;
     }
     #scrubber:active { cursor: grabbing; }
     #scrubber canvas { display: block; }
@@ -229,7 +229,7 @@
         const rx      = lerp(0,   r.rx,      st);
         const ry      = lerp(0,   r.ry,      st);
         const rz      = lerp(0,   r.rz,      st);
-        const scale   = lerp(0.9, r.scale,   st);
+        const scale   = lerp(0.72, r.scale,  st);
         const opacity = lerp(1,   r.opacity, st);
         const blur    = lerp(0,   r.blur,    st);
 
@@ -321,46 +321,54 @@
         const distToCard  = Math.abs(lineCardPos - nearest);
         const hl          = Math.max(0, 1 - distToCard * N * 0.9);
 
-        const dark   = 38;
-        const bright = 180;
-        const col    = Math.round(dark + (bright - dark) * hl);
+        // Light mode: dark lines on light background
+        const dark   = 200;
+        const bright = 100;
+        const col    = Math.round(dark - (dark - bright) * hl);
         sctx.fillStyle = `rgb(${col},${col},${col})`;
         sctx.fillRect(x - LINE_W / 2, cy - LINE_H / 2, LINE_W, LINE_H);
       }
     }
 
-    /* ── Input: stage drag ── */
-    // How many card-widths per pixel of drag
-    const dragK = () => 1 / (innerWidth * 0.60);
+    /* ── Input: stage swipe — discrete step on release ──
+       Cards don't move during the drag gesture; direction is detected on
+       touchend/mouseup and a velocity is applied to spring to next/prev card.
+       This keeps non-active scattered cards completely stationary.          */
+    const SWIPE_THRESHOLD = 40; // px needed to trigger a step
 
-    let stageTouch = null;
+    function triggerStep(delta) {
+      if (Math.abs(delta) < SWIPE_THRESHOLD) return;
+      velY = delta < 0 ? 0.35 : -0.35;
+      kick();
+    }
+
+    let stageTouch = null, stageTouchX = 0;
     stage.addEventListener('touchstart', e => {
-      stageTouch = e.touches[0].clientX;
+      stageTouch = stageTouchX = e.touches[0].clientX;
       velY = 0;
     }, { passive: true });
     stage.addEventListener('touchmove', e => {
       if (stageTouch === null) return;
-      const dx   = e.touches[0].clientX - stageTouch;
-      const dPos = -dx * dragK();
-      velY  = dPos * 0.6;
-      posY += dPos;
-      stageTouch = e.touches[0].clientX;
-      applyTransforms(posY);
+      stageTouchX = e.touches[0].clientX; // track without updating posY
     }, { passive: true });
-    stage.addEventListener('touchend', () => { stageTouch = null; kick(); }, { passive: true });
+    stage.addEventListener('touchend', () => {
+      triggerStep(stageTouchX - stageTouch);
+      stageTouch = null;
+    }, { passive: true });
 
-    let stageMouse = null;
-    stage.addEventListener('mousedown', e => { stageMouse = e.clientX; velY = 0; });
+    let stageMouse = null, stageMouseX = 0;
+    stage.addEventListener('mousedown', e => {
+      stageMouse = stageMouseX = e.clientX;
+      velY = 0;
+    });
     window.addEventListener('mousemove', e => {
       if (stageMouse === null) return;
-      const dx   = e.clientX - stageMouse;
-      const dPos = -dx * dragK();
-      velY  = dPos * 0.6;
-      posY += dPos;
-      stageMouse = e.clientX;
-      applyTransforms(posY);
+      stageMouseX = e.clientX;
     });
-    window.addEventListener('mouseup', () => { stageMouse = null; kick(); });
+    window.addEventListener('mouseup', () => {
+      if (stageMouse !== null) triggerStep(stageMouseX - stageMouse);
+      stageMouse = null;
+    });
 
     /* ── Input: scrubber drag (horizontal only) ── */
     const scrubK = () => 1 / (innerWidth * 0.45);
