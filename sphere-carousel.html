@@ -261,32 +261,40 @@
     /* ══════════════════════════════════════════════════════════
        CFG — single source of truth for all tweak-able values
     ══════════════════════════════════════════════════════════ */
-    const CFG = {
-      // Sphere geometry
-      R_MULT:       1.5,    // sphere radius = vw * R_MULT (capped at R_MAX)
-      R_MAX:        1010,   // px
-      PERSPECTIVE:  590,    // CSS perspective px
-
-      // Card placement
-      LAT:          [-8, 32, -29, 42, 24],  // per-card latitude degrees
-      LON_SPREAD:   0.56,   // fraction of full circle (1 = 360°)
-
-      // Card rotation
-      ROT_MULT:     0,      // how much cards rotate to face outward
-      ROLL_MAX:     0,      // max organic tilt degrees (seeded per card)
-
-      // Appearance
-      SCALE_ACTIVE: 1.29,
-      SCALE_SPHERE: 0.83,
-      OPACITY_MULT: 0.46,
-      OPACITY_BASE: 1,
-      BLUR_MAX:     0,      // px
-
-      // Physics
-      FRICTION:     0.90,   // velocity decay per frame
-      SPRING:       0.10,   // snap spring strength
-      DRAG_SENS:    0.60,   // drag: divisor of innerWidth for sensitivity
+    const PRESETS = {
+      mobile: {
+        R_MULT: 0.82, R_MAX: 580, PERSPECTIVE: 700,
+        LAT: [0, 32, -28, 42, -35], LON_SPREAD: 1.0,
+        ROT_MULT: 0.45, ROLL_MAX: 12,
+        SCALE_ACTIVE: 1.0, SCALE_SPHERE: 0.9,
+        OPACITY_MULT: 0.9, OPACITY_BASE: 0.15, BLUR_MAX: 3.0,
+        FRICTION: 0.90, SPRING: 0.10, DRAG_SENS: 0.60,
+      },
+      desktop: {
+        R_MULT: 1.5, R_MAX: 1010, PERSPECTIVE: 590,
+        LAT: [-8, 32, -29, 42, 24], LON_SPREAD: 0.56,
+        ROT_MULT: 0, ROLL_MAX: 0,
+        SCALE_ACTIVE: 1.29, SCALE_SPHERE: 0.83,
+        OPACITY_MULT: 0.46, OPACITY_BASE: 1, BLUR_MAX: 0,
+        FRICTION: 0.90, SPRING: 0.10, DRAG_SENS: 0.60,
+      },
     };
+
+    // CFG is the live object — always mutate this, never the presets
+    const CFG = Object.assign({}, PRESETS.mobile);
+
+    function loadPreset(name) {
+      const p = PRESETS[name];
+      Object.keys(p).forEach(k => {
+        CFG[k] = Array.isArray(p[k]) ? [...p[k]] : p[k];
+      });
+      syncPerspective();
+      syncDevPanel();
+    }
+
+    function checkBreakpoint() {
+      loadPreset(innerWidth >= 768 ? 'desktop' : 'mobile');
+    }
 
     /* ── Card data ── */
     const CARDS = [
@@ -556,6 +564,7 @@
 
     /* ── Resize ── */
     window.addEventListener('resize', () => {
+      checkBreakpoint();
       resizeScrubber();
       applyTransforms(posY);
     });
@@ -564,10 +573,25 @@
        DEV PANEL
     ══════════════════════════════════════════════════════════ */
 
-    const devPanel  = document.getElementById('dev-panel');
-    const devInner  = document.getElementById('dev-panel-inner');
-    const devToggle = document.getElementById('dev-toggle');
-    const devCopy   = document.getElementById('dev-copy');
+    const devPanel   = document.getElementById('dev-panel');
+    const devInner   = document.getElementById('dev-panel-inner');
+    const devToggle  = document.getElementById('dev-toggle');
+    const devCopy    = document.getElementById('dev-copy');
+    const devBpLabel = document.createElement('div');
+    devBpLabel.style.cssText = 'font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:#555;padding:14px 16px 0;';
+    devPanel.insertBefore(devBpLabel, devInner);
+
+    // rowMap: key → { range, num } — populated after panel is built
+    const rowMap = {};
+
+    function syncDevPanel() {
+      devBpLabel.textContent = innerWidth >= 768 ? 'breakpoint: desktop' : 'breakpoint: mobile';
+      Object.entries(rowMap).forEach(([key, { range, num }]) => {
+        const v = cfgGet(key);
+        range.value = v;
+        num.value   = v;
+      });
+    }
 
     function toggleDev() {
       document.body.classList.toggle('dev-open');
@@ -685,6 +709,7 @@
         range.addEventListener('mousedown',  e => e.stopPropagation());
         range.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
 
+        rowMap[row.key] = { range, num };
         rowEl.appendChild(label);
         rowEl.appendChild(range);
         rowEl.appendChild(num);
@@ -693,6 +718,9 @@
 
       devInner.appendChild(secEl);
     });
+
+    // Sync sliders to initial breakpoint (panel built, CFG already set by checkBreakpoint in init)
+    syncDevPanel();
 
     /* ── Copy config ── */
     devCopy.addEventListener('click', () => {
@@ -724,6 +752,7 @@
     });
 
     /* ── Init ── */
+    checkBreakpoint();
     applyTransforms(0);
 
   })();
