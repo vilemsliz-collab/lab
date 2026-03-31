@@ -18,7 +18,7 @@
     }
     #cv { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
 
-    /* ── UI chrome ────────────────────────────────── */
+    /* ── UI chrome ──────────────────────────────── */
     .ui {
       position: fixed; z-index: 20;
       font-family: 'IBM Plex Mono', monospace;
@@ -32,21 +32,28 @@
       transition: color 0.2s;
     }
     .back:hover { color: #333; }
-    .info { bottom: 32px; left: 32px; }
+    /* Info sits above the scrubber */
+    .info { bottom: 90px; left: 32px; }
     .info-title {
       font-size: 13px; font-weight: 500; color: #222;
-      margin-bottom: 4px;
-      transition: opacity 0.3s;
+      margin-bottom: 3px;
     }
     .info-counter { font-size: 11px; color: #aaa; letter-spacing: 0.08em; }
-    .hint {
-      bottom: 32px; right: 32px;
-      font-size: 11px; color: #bbb; letter-spacing: 0.06em;
-      transition: opacity 1.4s ease;
-    }
-    .hint.gone { opacity: 0; }
 
-    /* ── CSS 3D fallback ──────────────────────────── */
+    /* ── Bottom scrubber ────────────────────────── */
+    #scrubber {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 65px;
+      z-index: 30;
+      background: #f0eeeb;
+      cursor: grab;
+      touch-action: none;
+    }
+    #scrubber:active { cursor: grabbing; }
+    #scrubber canvas { display: block; }
+
+    /* ── CSS 3D fallback ────────────────────────── */
     #fb {
       display: none;
       position: fixed; inset: 0;
@@ -58,26 +65,33 @@
     .fbc {
       position: absolute;
       top: 50%; left: 50%;
-      width: 180px; height: 240px;
-      margin: -120px -90px;
-      border-radius: 14px;
+      width: 200px; height: 305px; /* 364:555 ratio */
+      margin: -152px -100px;
+      border-radius: 8px;
       display: flex; flex-direction: column;
       padding: 20px;
       font-family: 'IBM Plex Mono', monospace;
       transition: transform 0.58s cubic-bezier(0.22,1,0.36,1), opacity 0.58s ease;
       cursor: default;
     }
-    /* Positions mimic left/right/back of sphere */
-    .fbc[data-o="0"] { transform: none; opacity: 1; cursor: pointer; z-index: 5; }
-    .fbc[data-o="1"] { transform: translateX(240px) translateZ(-90px)  rotateY(28deg)  scale(0.76); opacity: 0.72; }
-    .fbc[data-o="2"] { transform: translateX(-240px) translateZ(-90px) rotateY(-28deg) scale(0.76); opacity: 0.72; }
-    .fbc[data-o="3"] { transform: translateX(330px) translateZ(-190px)  rotateY(38deg) scale(0.56); opacity: 0.40; }
-    .fbc[data-o="4"] { transform: translateX(-330px) translateZ(-190px) rotateY(-38deg) scale(0.56); opacity: 0.40; }
+    /* Scrubber strip in fallback */
+    #fb-scrubber {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 65px;
+      background: #f0eeeb;
+      z-index: 10;
+    }
+    .fbc[data-o="0"] { transform: translateY(-30px); opacity: 1; cursor: pointer; z-index: 5; }
+    .fbc[data-o="1"] { transform: translateY(-30px) translateX(250px) translateZ(-80px)  rotateY(28deg)  scale(0.76); opacity: 0.65; }
+    .fbc[data-o="2"] { transform: translateY(-30px) translateX(-250px) translateZ(-80px) rotateY(-28deg) scale(0.76); opacity: 0.65; }
+    .fbc[data-o="3"] { transform: translateY(-30px) translateX(340px) translateZ(-170px)  rotateY(38deg) scale(0.56); opacity: 0.35; }
+    .fbc[data-o="4"] { transform: translateY(-30px) translateX(-340px) translateZ(-170px) rotateY(-38deg) scale(0.56); opacity: 0.35; }
     .fbc-id    { font-size: 11px; color: rgba(255,255,255,0.3); letter-spacing: 0.1em; text-transform: uppercase; }
     .fbc-spacer { flex: 1; }
-    .fbc-title { font-size: 20px; font-weight: 500; color: #f0eeeb; line-height: 1.1; }
-    .fbc-sub   { font-size: 12px; color: rgba(255,255,255,0.5); font-style: italic; margin-top: 5px; }
-    .fbc-tag   { font-size: 11px; color: rgba(255,255,255,0.25); margin-top: 8px; }
+    .fbc-title { font-size: 22px; font-weight: 500; color: #f0eeeb; line-height: 1.1; }
+    .fbc-sub   { font-size: 12px; color: rgba(255,255,255,0.5); font-style: italic; margin-top: 4px; }
+    .fbc-tag   { font-size: 11px; color: rgba(255,255,255,0.25); margin-top: 6px; }
   </style>
 </head>
 <body>
@@ -87,9 +101,9 @@
     <div class="info-title"   id="info-title">Ink Text</div>
     <div class="info-counter" id="info-counter">01 / 05</div>
   </div>
-  <div class="ui hint" id="hint">drag to explore</div>
 
   <canvas id="cv"></canvas>
+  <div id="scrubber"></div>
   <div id="fb"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
@@ -110,18 +124,13 @@
     /* ── UI refs ───────────────────────────────────── */
     const titleEl   = document.getElementById('info-title');
     const counterEl = document.getElementById('info-counter');
-    const hintEl    = document.getElementById('hint');
     let   activeIdx = 0;
-    let   hintGone  = false;
 
     function setActive(i) {
       if (i === activeIdx) return;
       activeIdx = i;
       titleEl.textContent   = CARDS[i].title;
       counterEl.textContent = `${String(i+1).padStart(2,'0')} / ${String(N).padStart(2,'0')}`;
-    }
-    function fadeHint() {
-      if (!hintGone) { hintGone = true; hintEl.classList.add('gone'); }
     }
 
     /* ── WebGL detection ──────────────────────────── */
@@ -150,9 +159,9 @@
       document.getElementById('cv').style.display = 'none';
       const fb = document.getElementById('fb');
       fb.classList.add('on');
+      fb.insertAdjacentHTML('beforeend', '<div id="fb-scrubber"></div>');
       let curr = 0;
 
-      // offset → CSS class: 0=front, 1=right, 2=left, 3=far-right, 4=far-left
       function offsetClass(raw) {
         const o = ((raw % N) + N) % N;
         if (o === 0) return 0;
@@ -160,11 +169,12 @@
         if (o === N-1) return 2;
         if (o === 2) return 3;
         if (o === N-2) return 4;
-        return -1; // hidden
+        return -1;
       }
 
       function render() {
-        fb.innerHTML = '';
+        // Remove old cards (keep scrubber)
+        [...fb.querySelectorAll('.fbc')].forEach(el => el.remove());
         for (let i = 0; i < N; i++) {
           const oc = offsetClass(i - curr);
           if (oc < 0) continue;
@@ -172,8 +182,7 @@
           const el = document.createElement('div');
           el.className = 'fbc';
           el.dataset.o = oc;
-          el.style.background = card.bg;
-          el.style.borderTop = `3px solid ${card.ac}`;
+          el.style.cssText = `background:${card.bg}; border-top:3px solid ${card.ac};`;
           el.innerHTML = `
             <div class="fbc-id">${card.id}</div>
             <div class="fbc-spacer"></div>
@@ -188,14 +197,12 @@
       }
 
       function go(dir) {
-        fadeHint();
         curr = (curr + dir + N) % N;
         render();
       }
 
       render();
 
-      // ── Fallback input ──
       let wAcc = 0;
       window.addEventListener('wheel', e => {
         e.preventDefault();
@@ -205,24 +212,24 @@
 
       let ftx = null;
       window.addEventListener('touchstart', e => ftx = e.touches[0].clientX, { passive: true });
-      window.addEventListener('touchend',   e => {
+      window.addEventListener('touchend', e => {
         if (ftx === null) return;
         const dx = e.changedTouches[0].clientX - ftx;
         if (Math.abs(dx) > 40) go(dx < 0 ? 1 : -1);
         ftx = null;
       }, { passive: true });
-
       window.addEventListener('keydown', e => {
         if (e.key === 'ArrowRight' || e.key === ' ') go(1);
-        if (e.key === 'ArrowLeft')  go(-1);
+        if (e.key === 'ArrowLeft') go(-1);
       });
     }
 
     /* ═════════════════════════════════════════════════
-       THREE.JS — PHASE 1: Structure
+       THREE.JS
     ═════════════════════════════════════════════════ */
     function initGL() {
       const canvas = document.getElementById('cv');
+      const SCRUBBER_H = 65; // px — matches CSS
 
       const R = new THREE.WebGLRenderer({ canvas, antialias: true });
       R.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -231,24 +238,24 @@
 
       const scene = new THREE.Scene();
 
-      /* Responsive config */
+      /* Responsive config — card ratio 364:555 = 0.656 from Figma */
       function cfg() {
         const a = innerWidth / innerHeight;
-        // Card ratio matches Figma sketch: 327×473 ≈ 0.691
-        if (a < 0.75) return { r:3.0, z:6.5, fov:58, cw:1.35, ch:1.95 }; // portrait mobile
-        if (a < 1.3)  return { r:3.3, z:6.2, fov:54, cw:1.55, ch:2.24 }; // landscape / tablet
-        return              { r:3.7, z:6.0, fov:50, cw:1.85, ch:2.68 }; // desktop
+        if (a < 0.75) return { r:3.0, z:6.5, fov:58, cw:1.30, ch:1.98 }; // portrait mobile
+        if (a < 1.3)  return { r:3.3, z:6.2, fov:54, cw:1.50, ch:2.29 }; // landscape / tablet
+        return              { r:3.7, z:6.0, fov:50, cw:1.80, ch:2.75 }; // desktop
       }
 
       let C = cfg();
       const cam = new THREE.PerspectiveCamera(C.fov, innerWidth / innerHeight, 0.1, 100);
       cam.position.z = C.z;
 
-      /* Sphere group */
+      /* Sphere group — shifted up to visually center above scrubber */
       const group = new THREE.Group();
+      group.position.y = 0.15;
       scene.add(group);
 
-      /* Seeded LCG random — deterministic organic tilts */
+      /* Seeded LCG random */
       function makeRng(seed) {
         let s = seed | 0;
         return () => {
@@ -257,7 +264,7 @@
         };
       }
 
-      /* Fibonacci sphere — even surface distribution */
+      /* Fibonacci sphere */
       function fibSphere(n, radius) {
         const pts = [], phi = Math.PI * (3 - Math.sqrt(5));
         for (let i = 0; i < n; i++) {
@@ -272,141 +279,121 @@
         return pts;
       }
 
-      /* ── Phase 3: Shaders ──────────────────────── */
+      /* ── Shaders ───────────────────────────────── */
       const VS = /* glsl */`
         varying vec2  vUv;
         varying float vFacing;
         void main() {
           vUv = uv;
-          // World-space normal: card's +Z (face direction) after all transforms
           vec3 wn = normalize((modelMatrix * vec4(0.0, 0.0, 1.0, 0.0)).xyz);
-          // Dot with camera's view direction (+Z world = toward camera)
           vFacing = dot(wn, vec3(0.0, 0.0, 1.0));
           gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         }
       `;
-
       const FS = /* glsl */`
         uniform sampler2D uTex;
         uniform float     uSpin;
         varying vec2      vUv;
         varying float     vFacing;
-
         void main() {
-          // Fade out back-facing cards
           float opacity = smoothstep(-0.12, 0.40, vFacing);
-
-          // Chromatic aberration scales with spin speed
           float ca = abs(uSpin) * 0.014;
           float r = texture2D(uTex, vec2(vUv.x + ca, vUv.y)).r;
           float g = texture2D(uTex, vUv).g;
           float b = texture2D(uTex, vec2(vUv.x - ca, vUv.y)).b;
           float a = texture2D(uTex, vUv).a;
-
-          // Desaturate side / back cards
           float gray = 0.299*r + 0.587*g + 0.114*b;
           float sat  = smoothstep(0.0, 0.55, vFacing);
-          vec3  col  = mix(vec3(gray), vec3(r, g, b), sat);
-
-          gl_FragColor = vec4(col, a * opacity);
+          gl_FragColor = vec4(mix(vec3(gray), vec3(r,g,b), sat), a * opacity);
         }
       `;
 
-      /* ── Phase 3: Texture generation ──────────── */
+      /* ── Texture generation — 364:555 ratio, 8px radius ── */
       function rrect(ctx, x, y, w, h, rad) {
         ctx.beginPath();
-        ctx.moveTo(x + rad, y);
-        ctx.lineTo(x + w - rad, y);
+        ctx.moveTo(x+rad, y);
+        ctx.lineTo(x+w-rad, y);
         ctx.arcTo(x+w, y,   x+w, y+rad,   rad);
-        ctx.lineTo(x + w, y + h - rad);
+        ctx.lineTo(x+w, y+h-rad);
         ctx.arcTo(x+w, y+h, x+w-rad, y+h, rad);
-        ctx.lineTo(x + rad, y + h);
+        ctx.lineTo(x+rad, y+h);
         ctx.arcTo(x, y+h, x, y+h-rad,     rad);
-        ctx.lineTo(x, y + rad);
+        ctx.lineTo(x, y+rad);
         ctx.arcTo(x, y,   x+rad, y,        rad);
         ctx.closePath();
       }
 
       function makeTexture(card) {
-        const TW = 460, TH = 666; // 327:473 ratio from Figma sketch
+        // 364×555 → scaled 2× for crispness
+        const TW = 728, TH = 1110;
+        const RAD = 16; // 8px at 1× → 16px at 2×
         const oc = document.createElement('canvas');
         oc.width = TW; oc.height = TH;
         const ctx = oc.getContext('2d');
 
-        // Clip to rounded rect
-        rrect(ctx, 0, 0, TW, TH, 24);
+        rrect(ctx, 0, 0, TW, TH, RAD);
         ctx.fillStyle = card.bg;
         ctx.fill();
         ctx.save();
-        rrect(ctx, 0, 0, TW, TH, 24);
+        rrect(ctx, 0, 0, TW, TH, RAD);
         ctx.clip();
 
-        // Bottom gradient for text legibility
-        const grd = ctx.createLinearGradient(0, TH * 0.45, 0, TH);
+        // Bottom gradient
+        const grd = ctx.createLinearGradient(0, TH * 0.5, 0, TH);
         grd.addColorStop(0, 'rgba(0,0,0,0)');
-        grd.addColorStop(1, 'rgba(0,0,0,0.78)');
+        grd.addColorStop(1, 'rgba(0,0,0,0.82)');
         ctx.fillStyle = grd;
         ctx.fillRect(0, 0, TW, TH);
 
-        // Accent strip
+        // Accent top strip
         ctx.fillStyle = card.ac;
-        ctx.fillRect(0, 0, TW, 4);
+        ctx.fillRect(0, 0, TW, 6);
 
         ctx.restore();
 
-        // Card ID
+        // ID
         ctx.fillStyle = 'rgba(255,255,255,0.22)';
-        ctx.font = '400 14px "IBM Plex Mono", monospace';
-        ctx.fillText(card.id, 38, 52);
+        ctx.font = '400 26px "IBM Plex Mono", monospace';
+        ctx.fillText(card.id, 60, 88);
 
         // Title
-        const tsz = card.title.length > 9 ? 42 : 52;
+        const tsz = card.title.length > 9 ? 72 : 88;
         ctx.fillStyle = '#f0eeeb';
         ctx.font = `500 ${tsz}px "IBM Plex Mono", monospace`;
-        ctx.fillText(card.title, 38, TH - 94);
+        ctx.fillText(card.title, 60, TH - 160);
 
-        // Subtitle
+        // Sub
         ctx.fillStyle = card.ac;
-        ctx.font = 'italic 18px "IBM Plex Mono", monospace';
-        ctx.fillText(card.sub, 38, TH - 62);
+        ctx.font = 'italic 32px "IBM Plex Mono", monospace';
+        ctx.fillText(card.sub, 60, TH - 108);
 
         // Tag
         ctx.fillStyle = 'rgba(255,255,255,0.22)';
-        ctx.font = '400 13px "IBM Plex Mono", monospace';
-        ctx.fillText(card.tag, 38, TH - 34);
+        ctx.font = '400 26px "IBM Plex Mono", monospace';
+        ctx.fillText(card.tag, 60, TH - 60);
 
-        // Link indicator
+        // Link arrow
         if (card.href) {
           ctx.fillStyle = 'rgba(255,255,255,0.18)';
-          ctx.font = '400 13px "IBM Plex Mono", monospace';
           ctx.textAlign = 'right';
-          ctx.fillText('→', TW - 38, TH - 34);
+          ctx.fillText('→', TW - 60, TH - 60);
           ctx.textAlign = 'left';
         }
 
-        // Subtle border
-        rrect(ctx, 0.5, 0.5, TW - 1, TH - 1, 24);
+        rrect(ctx, 1, 1, TW-2, TH-2, RAD);
         ctx.strokeStyle = 'rgba(255,255,255,0.07)';
-        ctx.lineWidth = 1;
+        ctx.lineWidth = 2;
         ctx.stroke();
 
         return new THREE.CanvasTexture(oc);
       }
 
-      /* ── Shared uSpin uniform (all cards reference same object) */
       const spinUniform = { value: 0 };
-
-      /* ── Build sphere (called on init + resize) ─ */
       let meshes = [];
 
       function buildSphere() {
-        meshes.forEach(m => {
-          group.remove(m);
-          m.geometry.dispose();
-          m.material.dispose();
-        });
+        meshes.forEach(m => { group.remove(m); m.geometry.dispose(); m.material.dispose(); });
         meshes = [];
-
         C = cfg();
         cam.fov = C.fov;
         cam.aspect = innerWidth / innerHeight;
@@ -415,30 +402,20 @@
         R.setSize(innerWidth, innerHeight);
 
         const positions = fibSphere(N, C.r);
-        const rng = makeRng(42); // deterministic seed
+        const rng = makeRng(42);
 
         CARDS.forEach((card, i) => {
           const geo = new THREE.PlaneGeometry(C.cw, C.ch, 1, 1);
           const mat = new THREE.ShaderMaterial({
-            vertexShader:   VS,
-            fragmentShader: FS,
-            uniforms: {
-              uTex:  { value: makeTexture(card) },
-              uSpin: spinUniform,               // shared reference
-            },
-            transparent: true,
-            depthWrite:  false,
-            side:        THREE.FrontSide,
+            vertexShader: VS, fragmentShader: FS,
+            uniforms: { uTex: { value: makeTexture(card) }, uSpin: spinUniform },
+            transparent: true, depthWrite: false, side: THREE.FrontSide,
           });
-
           const m = new THREE.Mesh(geo, mat);
           m.position.copy(positions[i]);
-          m.lookAt(new THREE.Vector3(0, 0, 0)); // face outward from sphere center
-
-          // Seeded random tilt — organic, non-grid feel
+          m.lookAt(new THREE.Vector3(0, 0, 0));
           m.rotateZ((rng() - 0.5) * 0.22);
           m.rotateY((rng() - 0.5) * 0.14);
-
           m.scale.setScalar(0.8);
           group.add(m);
           meshes.push(m);
@@ -447,28 +424,71 @@
 
       buildSphere();
 
-      /* ═══════════════════════════════════════════════
-         PHASE 2: Rotation state + snap
-      ═══════════════════════════════════════════════ */
+      /* ── Rotation state ─────────────────────────── */
       let velX = 0, velY = 0;
       let rotX = 0, rotY = 0;
-      let snapping = false;
-      let snapIdx  = -1;
+      let snapping = false, snapIdx = -1;
+      const tmpV = new THREE.Vector3();
+      const CAM_DIR = new THREE.Vector3(0, 0, 1);
 
-      const tmpV  = new THREE.Vector3();
-      const CAM_DIR = new THREE.Vector3(0, 0, 1); // toward camera
+      /* ── Scrubber canvas ────────────────────────── */
+      const scrubEl = document.getElementById('scrubber');
+      const sc = document.createElement('canvas');
+      scrubEl.appendChild(sc);
+      const DPR = Math.min(devicePixelRatio, 2);
 
-      /* ── Render loop ──────────────────────────── */
+      function resizeScrubber() {
+        sc.width  = innerWidth * DPR;
+        sc.height = SCRUBBER_H * DPR;
+        sc.style.width  = innerWidth + 'px';
+        sc.style.height = SCRUBBER_H + 'px';
+      }
+      resizeScrubber();
+
+      const sctx = sc.getContext('2d');
+      const LINE_SPACING = 7 * DPR; // px between lines
+      const LINE_H       = 28 * DPR;
+      const LINE_W       = 1  * DPR;
+
+      function drawScrubber() {
+        const w = sc.width, h = sc.height;
+        sctx.clearRect(0, 0, w, h);
+
+        const centerY   = h / 2;
+        const totalLines = Math.ceil(w / LINE_SPACING) + 1;
+
+        // Offset lines continuously with rotY (infinite scroll feel)
+        const offsetPx = (-rotY * (w / (Math.PI * 2))) % LINE_SPACING;
+
+        // Active card's angular position → highlight region
+        const cardAngle  = -rotY % (Math.PI * 2);
+        const winW       = w / N;
+
+        for (let i = -1; i < totalLines; i++) {
+          const x = i * LINE_SPACING + ((offsetPx % LINE_SPACING) + LINE_SPACING) % LINE_SPACING;
+          // Normalised 0..1 across the scrubber width
+          const norm = x / w;
+          // Map to rotY range to see if near active card
+          const lineRot = norm * Math.PI * 2;
+          const delta   = Math.abs(((lineRot - (-rotY % (Math.PI*2))) + Math.PI * 3) % (Math.PI * 2) - Math.PI);
+          const highlight = Math.max(0, 1 - delta / (Math.PI / N));
+
+          const base  = 196; // #c4c4c4 on #f0eeeb
+          const dark  = 80;
+          const col   = Math.round(base - (base - dark) * highlight);
+          sctx.fillStyle = `rgb(${col},${col},${col})`;
+          sctx.fillRect(x - LINE_W / 2, centerY - LINE_H / 2, LINE_W, LINE_H);
+        }
+      }
+
+      /* ── Render loop ────────────────────────────── */
       function tick() {
         requestAnimationFrame(tick);
 
-        // Inertia decay
-        velX *= 0.92;
-        velY *= 0.92;
+        velX *= 0.92; velY *= 0.92;
+        const spin = Math.sqrt(velX*velX + velY*velY);
 
-        const spin = Math.sqrt(velX * velX + velY * velY);
-
-        // Snap trigger: when spin nearly settles
+        // Snap trigger
         if (spin < 0.0022 && spin > 0.0001 && !snapping) {
           let maxDot = -Infinity;
           meshes.forEach((m, i) => {
@@ -478,65 +498,49 @@
           });
           snapping = true;
         }
-
-        // Snap spring: gently pull front card toward center
         if (snapping && snapIdx >= 0) {
           meshes[snapIdx].getWorldPosition(tmpV);
-          velY -= (tmpV.x / C.r) * 0.032; // bring X error → 0
-          velX += (tmpV.y / C.r) * 0.032; // bring Y error → 0
+          velY -= (tmpV.x / C.r) * 0.032;
+          velX += (tmpV.y / C.r) * 0.032;
           if (spin < 0.00008) snapping = false;
         }
 
-        rotX += velX;
-        rotY += velY;
+        rotX += velX; rotY += velY;
         group.rotation.x = rotX;
         group.rotation.y = rotY;
 
-        // Motion blur (Phase 3)
         spinUniform.value = spin;
-        canvas.style.filter = spin > 0.006
-          ? `blur(${Math.min(spin * 55, 7).toFixed(1)}px)`
-          : '';
+        canvas.style.filter = spin > 0.006 ? `blur(${Math.min(spin*55,7).toFixed(1)}px)` : '';
 
-        // Per-card: scale by facing, track active
         let frontIdx = 0, maxDot = -Infinity;
         meshes.forEach((m, i) => {
           m.getWorldPosition(tmpV);
           const dot = tmpV.normalize().dot(CAM_DIR);
-
-          // Scale: active card larger, back cards smaller
           const tScale = 0.52 + Math.max(0, dot) * 0.66;
           m.scale.setScalar(m.scale.x + (tScale - m.scale.x) * 0.09);
-
-          // Render back-to-front for correct alpha blending
           m.renderOrder = Math.round((dot + 1) * 50);
-
           if (dot > maxDot) { maxDot = dot; frontIdx = i; }
         });
 
         setActive(frontIdx);
+        drawScrubber();
         R.render(scene, cam);
       }
       tick();
 
-      /* ═══════════════════════════════════════════════
-         PHASE 2: All input handlers
-         Convention:
-           velY += dx → drag right = sphere turns right (natural globe feel)
-           velX += dy → drag down  = sphere tilts down
-      ═══════════════════════════════════════════════ */
+      /* ── Input helpers ──────────────────────────── */
       const INPUT_K = 0.013;
+      function inScrubber(y) { return y > innerHeight - SCRUBBER_H; }
+      function onDragStart() { snapping = false; }
 
-      function onDragStart() { snapping = false; fadeHint(); }
-
-      /* Touch */
+      /* ── Main canvas: full sphere drag (X + Y) ─── */
       let tx = null, ty = null;
       window.addEventListener('touchstart', e => {
+        if (inScrubber(e.touches[0].clientY)) return; // scrubber handles its own
         tx = e.touches[0].clientX;
         ty = e.touches[0].clientY;
         onDragStart();
       }, { passive: true });
-
       window.addEventListener('touchmove', e => {
         if (tx === null) return;
         velY += (e.touches[0].clientX - tx) * INPUT_K;
@@ -544,22 +548,12 @@
         tx = e.touches[0].clientX;
         ty = e.touches[0].clientY;
       }, { passive: true });
-
       window.addEventListener('touchend', () => { tx = ty = null; }, { passive: true });
 
-      /* Wheel */
-      window.addEventListener('wheel', e => {
-        e.preventDefault();
-        velY += e.deltaX * 0.004;
-        velY += e.deltaY * 0.004;
-        onDragStart();
-      }, { passive: false });
-
-      /* Mouse drag */
       let mx = null, my = null;
       window.addEventListener('mousedown', e => {
-        mx = e.clientX; my = e.clientY;
-        onDragStart();
+        if (inScrubber(e.clientY)) return;
+        mx = e.clientX; my = e.clientY; onDragStart();
       });
       window.addEventListener('mousemove', e => {
         if (mx === null) return;
@@ -568,6 +562,39 @@
         mx = e.clientX; my = e.clientY;
       });
       window.addEventListener('mouseup', () => { mx = my = null; });
+
+      /* ── Scrubber: Y-axis only ───────────────────── */
+      let stx = null;
+      scrubEl.addEventListener('touchstart', e => {
+        e.stopPropagation();
+        stx = e.touches[0].clientX;
+        onDragStart();
+      }, { passive: true });
+      scrubEl.addEventListener('touchmove', e => {
+        if (stx === null) return;
+        velY += (e.touches[0].clientX - stx) * INPUT_K * 1.4;
+        stx = e.touches[0].clientX;
+      }, { passive: true });
+      scrubEl.addEventListener('touchend', () => { stx = null; }, { passive: true });
+
+      let smx = null;
+      scrubEl.addEventListener('mousedown', e => {
+        smx = e.clientX; onDragStart();
+      });
+      window.addEventListener('mousemove', e => {
+        if (smx === null) return;
+        velY += (e.clientX - smx) * INPUT_K * 1.4;
+        smx = e.clientX;
+      });
+      window.addEventListener('mouseup', () => { smx = null; });
+
+      /* Wheel */
+      window.addEventListener('wheel', e => {
+        e.preventDefault();
+        velY += e.deltaX * 0.004;
+        velY += e.deltaY * 0.004;
+        onDragStart();
+      }, { passive: false });
 
       /* Keyboard */
       window.addEventListener('keydown', e => {
@@ -578,7 +605,7 @@
         if (e.key === 'ArrowUp')    { velX -= k; onDragStart(); }
       });
 
-      /* Click active card → navigate */
+      /* Click active card */
       canvas.addEventListener('click', () => {
         if (Math.sqrt(velX*velX + velY*velY) > 0.007) return;
         const card = CARDS[activeIdx];
@@ -586,7 +613,7 @@
       });
 
       /* Resize */
-      window.addEventListener('resize', () => { buildSphere(); });
+      window.addEventListener('resize', () => { resizeScrubber(); buildSphere(); });
     }
 
   })();
