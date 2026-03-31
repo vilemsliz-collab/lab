@@ -51,6 +51,14 @@
     }
     #dev-toggle:hover { color: #c8ff00; border-color: #c8ff00; }
     .dev-open #dev-toggle { color: #c8ff00; border-color: #c8ff00; }
+    @media (max-width: 767px) {
+      #dev-toggle {
+        min-width: 96px; height: 108px;
+        font-size: 13px; letter-spacing: 0.14em;
+        border-radius: 28px;
+        bottom: 88px;
+      }
+    }
 
     /* ── Stage: CSS 3D perspective container ── */
     #stage {
@@ -602,8 +610,16 @@
       // resize scrubber after transition so it fills correct width
       setTimeout(() => { resizeScrubber(); applyTransforms(posY); }, 300);
     }
-    devToggle.addEventListener('click', toggleDev);
-    devToggle.addEventListener('touchend', e => { e.stopPropagation(); toggleDev(); }, { passive: true });
+    let devTouchFired = false;
+    devToggle.addEventListener('touchend', e => {
+      e.stopPropagation();
+      devTouchFired = true;
+      toggleDev();
+    }, { passive: true });
+    devToggle.addEventListener('click', () => {
+      if (devTouchFired) { devTouchFired = false; return; }
+      toggleDev();
+    });
 
     /* ── Build controls ── */
     const SECTIONS = [
