@@ -167,81 +167,77 @@
       return el;
     });
 
-    /* ── Seeded RNG for deterministic random card positions ── */
-    function seededRng(seed) {
-      let s = seed | 0;
-      return () => { s = (Math.imul(s, 1664525) + 1013904223) | 0; return (s >>> 0) / 0xFFFFFFFF; };
-    }
+    /* ── Sphere layout helpers ── */
 
-    /* Pre-compute a unique random 3D resting position for each non-active card.
-       These are expressed as fractions of vw/vh; resolved to px at render time. */
-    const randPos = CARDS.map((_, i) => {
-      const r = seededRng(i * 6271 + 3491);
-      return {
-        tx:     (r() - 0.5) * 1.7,   // ±0.85 × vw  (spread left / right)
-        ty:     (r() - 0.5) * 0.80,  // ±0.40 × vh  (spread up / down)
-        tz:     -(110 + r() * 300),   // -110 → -410 px  (behind active card)
-        rx:     (r() - 0.5) * 30,    // ±15 deg pitch
-        ry:     (r() - 0.5) * 70,    // ±35 deg yaw
-        rz:     (r() - 0.5) * 26,    // ±13 deg roll
-        scale:  0.20 + r() * 0.28,   // 0.20 → 0.48
-        opacity:0.25 + r() * 0.38,   // 0.25 → 0.63
-        blur:   1.5  + r() * 5.5,    // 1.5  → 7 px
-      };
-    });
+    // Subtle latitude offsets per card so cards aren't all on the same equatorial ring.
+    // Expressed as fraction of R; card i always has the same latitude.
+    const Y_OFFSETS = [0, 0.18, -0.15, 0.22, -0.20, 0.10, -0.12];
 
     function lerp(a, b, t) { return a + (b - a) * t; }
     function smoothstep(t)  { return t * t * (3 - 2 * t); }
 
-    /* ── Continuous position state ──
-       posY is a float; integer posY = card at that index is centered.
-       Dragging changes posY continuously; inertia + spring snaps to integer. */
+    /* ── Continuous position state ── */
     let posY = 0;
     let velY = 0;
     let rafId = null;
 
     /* ── Transform function ──
-       Active card (abs=0): centered, scale 0.9, no blur.
-       Non-active cards: lerp toward their pre-computed random 3D position. */
+       Cards live on an invisible sphere of radius R (CSS px).
+       The front of the sphere (angle=0) is placed at translateZ(0) so the
+       active card appears at its natural CSS size, centered in the stage.
+       As posY changes the sphere "rotates" — every card's angle changes
+       continuously and transforms update each RAF frame.
+
+       Active card  (abs≈0): scale 0.9, opacity 1, no blur, centered.
+       Side cards   (abs≈1): offset along sphere surface, turned, slightly blurred.
+       Back cards   (abs≥N/2): opacity → 0, hidden behind the sphere.          */
     function applyTransforms(pos) {
       const vw = innerWidth;
-      const vh = innerHeight - 65;
+      const R  = Math.min(vw * 0.65, 520); // sphere radius, scales with viewport
 
       CARDS.forEach((_, i) => {
         let off = i - pos;
         while (off >  N / 2) off -= N;
         while (off < -N / 2) off += N;
 
-        const abs = Math.abs(off);
-        const el  = cardEls[i];
-        const r   = randPos[i];
+        const el    = cardEls[i];
+        const angle = off * (2 * Math.PI / N);   // angular position on equator
+        const yN    = Y_OFFSETS[i % Y_OFFSETS.length]; // card's fixed latitude
+        const abs   = Math.abs(off);
+        const t     = Math.min(1, abs);
+        const st    = smoothstep(t);              // 0 = active, 1 = fully non-active
 
-        // t: 0 = fully active, 1 = fully in random position
-        const t  = Math.min(1, abs);
-        const st = smoothstep(t);
+        // --- sphere surface position (CSS px) ---
+        // Z-shift: front card (angle=0) sits at translateZ(0).
+        const sx = Math.sin(angle) * R;
+        const sy = yN * R * st;                   // lerp y from 0 (active) to full offset
+        const sz = (Math.cos(angle) - 1) * R;    // 0 at front, ≈-2R at back
 
-        const tx      = lerp(0,   r.tx * vw, st);
-        const ty      = lerp(0,   r.ty * vh, st);
-        const tz      = lerp(0,   r.tz,      st);
-        const rx      = lerp(0,   r.rx,      st);
-        const ry      = lerp(0,   r.ry,      st);
-        const rz      = lerp(0,   r.rz,      st);
-        const scale   = lerp(0.9, r.scale,   st);
-        const opacity = lerp(1,   r.opacity, st);
-        const blur    = lerp(0,   r.blur,    st);
+        // --- facing: how much the card faces the camera ---
+        const facing = Math.cos(angle);           // 1=front, 0=edge, -1=back
+
+        // --- rotation: cards turn to face outward (partial — avoids edge-on look) ---
+        const ry = -(angle * 180 / Math.PI) * 0.45;
+        const rx = -yN * 18 * st;               // slight pitch for latitude cards
+
+        // --- scale: active=0.9, others=1.0 (CSS perspective provides depth scaling) ---
+        const scale = lerp(0.9, 1.0, st);
+
+        // --- opacity & blur: fade and soften as cards face away ---
+        const opacity = Math.max(0, Math.min(1, facing * 0.85 + 0.2));
+        const blur    = Math.max(0, (1 - facing) * 4);
 
         el.style.transform = [
-          `translateX(${tx.toFixed(1)}px)`,
-          `translateY(${ty.toFixed(1)}px)`,
-          `translateZ(${tz.toFixed(1)}px)`,
+          `translateX(${sx.toFixed(1)}px)`,
+          `translateY(${sy.toFixed(1)}px)`,
+          `translateZ(${sz.toFixed(1)}px)`,
           `rotateX(${rx.toFixed(1)}deg)`,
           `rotateY(${ry.toFixed(1)}deg)`,
-          `rotateZ(${rz.toFixed(1)}deg)`,
           `scale(${scale.toFixed(3)})`,
         ].join(' ');
         el.style.opacity = opacity.toFixed(3);
         el.style.filter  = blur < 0.2 ? 'none' : `blur(${blur.toFixed(1)}px)`;
-        el.style.zIndex  = abs < 0.5 ? '20' : '5';
+        el.style.zIndex  = abs < 0.5 ? '20' : String(Math.max(1, Math.round(facing * 12 + 4)));
         el.classList.toggle('is-active', abs < 0.5);
       });
 
