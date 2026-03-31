@@ -190,41 +190,49 @@
     let velY = 0;
     let rafId = null;
 
+    function lerp(a, b, t) { return a + (b - a) * t; }
+    function smoothstep(t)  { return t * t * (3 - 2 * t); }
+
     /* ── Transform function ──
-       All cards are on one sphere. Swiping rotates it around the Y-axis.
-       Each card's longitude θ = (i − pos) × 2π/N (changes with rotation).
-       Each card's latitude φ is fixed — this creates real 3D depth.      */
+       st = smoothstep(abs):  0 = active (front, face-on), 1 = sphere surface.
+       Position lerps from (0,0,0) → sphere surface as card leaves active slot.
+       Rotation lerps from face-on → outward-facing as card leaves active slot.
+       Because ALL cards' theta = (i−pos)×2π/N updates every frame, the whole
+       sphere rotates as one rigid unit while the front card is always flat.  */
     function applyTransforms(pos) {
       const vw = innerWidth;
-      const R  = Math.min(vw * 0.82, 580); // large sphere = dramatic depth
+      const R  = Math.min(vw * 0.82, 580);
 
       CARDS.forEach((_, i) => {
         let off = i - pos;
         while (off >  N / 2) off -= N;
         while (off < -N / 2) off += N;
 
-        const el  = cardEls[i];
-        const phi = LAT[i % LAT.length];           // fixed latitude
-        const theta = off * (2 * Math.PI / N);     // longitude (rotates with sphere)
-        const abs = Math.abs(off);
+        const el    = cardEls[i];
+        const phi   = LAT[i % LAT.length];
+        const theta = off * (2 * Math.PI / N);
+        const abs   = Math.abs(off);
+        const st    = smoothstep(Math.min(1, abs)); // 0=active, 1=on sphere
 
         const cosPhi = Math.cos(phi);
         const sinPhi = Math.sin(phi);
 
-        // True 3D sphere surface position.
-        // z-shifted so the front-equatorial point (phi=0, theta=0) sits at translateZ(0).
-        const tx = cosPhi * Math.sin(theta) * R;
-        const ty = sinPhi * R;                              // fixed height per card
-        const tz = (cosPhi * Math.cos(theta) - 1) * R;    // 0 at front, deep negative at back
+        // Position: active card stays at (0,0,0); others on sphere surface
+        const tx = cosPhi * Math.sin(theta) * R * st;
+        const ty = sinPhi  * R * st;
+        const tz = (cosPhi * Math.cos(theta) - 1) * R * st;
+        //   st=0 → (0,0,0) perfectly centered
+        //   st=1 → full sphere surface, tz from 0 (front) to −2R (back)
 
-        // How much this card faces the camera (dot product of outward normal with Z-axis)
+        // Facing (for opacity/blur)
         const facing = cosPhi * Math.cos(theta);
 
-        // Partial yaw + pitch so cards turn toward their sphere position without going edge-on
-        const ry = -(theta  * 180 / Math.PI) * 0.45;
-        const rx = -(phi    * 180 / Math.PI) * 0.45;
+        // Rotation: face-on when active (st=0), outward from sphere when st=1
+        const ry = -(theta * 180 / Math.PI) * 0.45 * st;
+        const rx = -(phi   * 180 / Math.PI) * 0.45 * st;
 
-        const scale   = abs < 0.01 ? 0.9 : 1.0;
+        // Scale: 0.9 at active, 1.0 on sphere (CSS perspective adds depth scaling)
+        const scale   = lerp(0.9, 1.0, st);
         const opacity = Math.max(0, Math.min(1, facing * 0.9 + 0.15));
         const blur    = Math.max(0, (1 - facing) * 3);
 
@@ -235,7 +243,7 @@
           `rotateX(${rx.toFixed(1)}deg)`,
           `rotateY(${ry.toFixed(1)}deg)`,
           `rotateZ(${ROLL[i].toFixed(1)}deg)`,
-          `scale(${scale})`,
+          `scale(${scale.toFixed(3)})`,
         ].join(' ');
         el.style.opacity = opacity.toFixed(3);
         el.style.filter  = blur < 0.1 ? 'none' : `blur(${blur.toFixed(1)}px)`;
