@@ -39,7 +39,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      perspective: 1100px;
+      perspective: 700px;
       perspective-origin: 50% 50%;
       overflow: hidden;
     }
@@ -167,19 +167,22 @@
       return el;
     });
 
-    /* ── Seeded per-card decoration ── */
+    /* ── Per-card fixed latitude + organic roll ──────────────────────────
+       Each card has a fixed latitude (φ) on the sphere so cards are spread
+       in true 3D: some above the equator, some below, some on the sides.
+       Longitude (θ) rotates with posY so the whole sphere moves as one.  */
+    const TO_RAD = Math.PI / 180;
+    // Card 0 sits on the equator (φ=0) so it faces the camera cleanly at start.
+    // Others are scattered across the sphere at various latitudes.
+    const LAT = [0, 32, -28, 42, -35].map(d => d * TO_RAD);
+    // Fixed organic roll per card (seeded)
     function seededRng(seed) {
       let s = seed | 0;
       return () => { s = (Math.imul(s, 1664525) + 1013904223) | 0; return (s >>> 0) / 0xFFFFFFFF; };
     }
-    // Fixed Y-offset and roll per card — gives the scattered organic look
-    // while all cards still rotate as one sphere unit
-    const cardDecor = CARDS.map((_, i) => {
+    const ROLL = CARDS.map((_, i) => {
       const r = seededRng(i * 6271 + 3491);
-      return {
-        yN: (r() - 0.5) * 0.40,  // ±0.20 × R vertical scatter
-        rz: (r() - 0.5) * 22,    // ±11° organic roll tilt
-      };
+      return (r() - 0.5) * 24; // ±12° roll
     });
 
     /* ── Continuous position state ── */
@@ -188,38 +191,42 @@
     let rafId = null;
 
     /* ── Transform function ──
-       All cards are glued to one invisible sphere of radius R.
-       Swiping rotates the sphere (posY changes) → every card moves together.
-       Card with angular offset ≈ 0 is the active front card.             */
+       All cards are on one sphere. Swiping rotates it around the Y-axis.
+       Each card's longitude θ = (i − pos) × 2π/N (changes with rotation).
+       Each card's latitude φ is fixed — this creates real 3D depth.      */
     function applyTransforms(pos) {
       const vw = innerWidth;
-      const R  = Math.min(vw * 0.52, 420); // sphere radius
+      const R  = Math.min(vw * 0.82, 580); // large sphere = dramatic depth
 
       CARDS.forEach((_, i) => {
         let off = i - pos;
         while (off >  N / 2) off -= N;
         while (off < -N / 2) off += N;
 
-        const el    = cardEls[i];
-        const d     = cardDecor[i];
-        const angle = off * (2 * Math.PI / N); // angular position on sphere equator
-        const abs   = Math.abs(off);
+        const el  = cardEls[i];
+        const phi = LAT[i % LAT.length];           // fixed latitude
+        const theta = off * (2 * Math.PI / N);     // longitude (rotates with sphere)
+        const abs = Math.abs(off);
 
-        // Sphere surface position — front card (angle=0) sits at translateZ(0)
-        const tx = Math.sin(angle) * R;
-        const ty = d.yN * R;                       // fixed Y scatter per card
-        const tz = (Math.cos(angle) - 1) * R;     // 0 at front, ≈−2R at back
+        const cosPhi = Math.cos(phi);
+        const sinPhi = Math.sin(phi);
 
-        const facing = Math.cos(angle);            // 1=front, 0=edge, −1=back
+        // True 3D sphere surface position.
+        // z-shifted so the front-equatorial point (phi=0, theta=0) sits at translateZ(0).
+        const tx = cosPhi * Math.sin(theta) * R;
+        const ty = sinPhi * R;                              // fixed height per card
+        const tz = (cosPhi * Math.cos(theta) - 1) * R;    // 0 at front, deep negative at back
 
-        // Cards yaw as they curve around the sphere
-        const ry = -(angle * 180 / Math.PI) * 0.50;
-        const rx = -d.yN * 20;                     // slight pitch to match Y offset
+        // How much this card faces the camera (dot product of outward normal with Z-axis)
+        const facing = cosPhi * Math.cos(theta);
 
-        // Active card slightly larger; CSS perspective handles depth scaling
-        const scale   = abs < 0.001 ? 0.9 : 1.0;
+        // Partial yaw + pitch so cards turn toward their sphere position without going edge-on
+        const ry = -(theta  * 180 / Math.PI) * 0.45;
+        const rx = -(phi    * 180 / Math.PI) * 0.45;
+
+        const scale   = abs < 0.01 ? 0.9 : 1.0;
         const opacity = Math.max(0, Math.min(1, facing * 0.9 + 0.15));
-        const blur    = Math.max(0, (1 - facing) * 3.5);
+        const blur    = Math.max(0, (1 - facing) * 3);
 
         el.style.transform = [
           `translateX(${tx.toFixed(1)}px)`,
@@ -227,7 +234,7 @@
           `translateZ(${tz.toFixed(1)}px)`,
           `rotateX(${rx.toFixed(1)}deg)`,
           `rotateY(${ry.toFixed(1)}deg)`,
-          `rotateZ(${d.rz.toFixed(1)}deg)`,
+          `rotateZ(${ROLL[i].toFixed(1)}deg)`,
           `scale(${scale})`,
         ].join(' ');
         el.style.opacity = opacity.toFixed(3);
