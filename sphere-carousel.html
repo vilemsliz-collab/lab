@@ -11,7 +11,7 @@
 
     html, body {
       width: 100%; height: 100%;
-      background: #0d0d0d;
+      background: #F3F4F9;
       overflow: hidden;
       touch-action: none;
       user-select: none;
@@ -25,11 +25,11 @@
       position: fixed;
       top: 24px; left: 28px;
       font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
-      color: #555; text-decoration: none;
+      color: #aaa; text-decoration: none;
       z-index: 100;
       transition: color 0.2s;
     }
-    .back:hover { color: #e8e8e0; }
+    .back:hover { color: #222; }
 
     /* ── Stage: CSS 3D perspective container ── */
     #stage {
@@ -99,20 +99,20 @@
     }
     .info-title {
       font-size: 13px; font-weight: 500;
-      color: #e8e8e0;
+      color: #222;
       margin-bottom: 3px;
     }
-    .info-counter { font-size: 11px; color: #555; letter-spacing: 0.08em; }
+    .info-counter { font-size: 11px; color: #aaa; letter-spacing: 0.08em; }
 
     /* ── Scrubber ── */
     #scrubber {
       position: fixed;
       bottom: 0; left: 0; right: 0; height: 65px;
       z-index: 40;
-      background: #0d0d0d;
+      background: #F3F4F9;
       cursor: grab;
       touch-action: none;
-      border-top: 1px solid #1a1a1a;
+      border-top: 1px solid #e2e3ea;
     }
     #scrubber:active { cursor: grabbing; }
     #scrubber canvas { display: block; }
@@ -321,9 +321,9 @@
         const distToCard  = Math.abs(lineCardPos - nearest);
         const hl          = Math.max(0, 1 - distToCard * N * 0.9);
 
-        const dark   = 38;
-        const bright = 180;
-        const col    = Math.round(dark + (bright - dark) * hl);
+        const dark   = 200;
+        const bright = 100;
+        const col    = Math.round(dark - (dark - bright) * hl);
         sctx.fillStyle = `rgb(${col},${col},${col})`;
         sctx.fillRect(x - LINE_W / 2, cy - LINE_H / 2, LINE_W, LINE_H);
       }
