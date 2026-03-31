@@ -90,6 +90,19 @@
       -webkit-backface-visibility: hidden;
     }
     .card.is-active { cursor: default; }
+    .card-video {
+      position: absolute;
+      inset: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      z-index: 0;
+      pointer-events: none;
+    }
+    .card-content {
+      position: relative;
+      z-index: 1;
+      display: contents;
+    }
 
     .card-id {
       font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
@@ -317,7 +330,7 @@
 
     /* ── Card data ── */
     const CARDS = [
-      { id:'001', title:'Ink Text',  sub:'typographic', tag:'2025-03', href:'./ink-text/',    bg:'#12131a', ac:'#c8ff00' },
+      { id:'001', title:'Ink Text',  sub:'typographic', tag:'2025-03', href:'./ink-text/',    bg:'#12131a', ac:'#c8ff00', video:'./assets/portfolio-reel.mp4' },
       { id:'002', title:'Orbs v5',   sub:'generative',  tag:'2025-03', href:'./orbs-v5.html', bg:'#080e1c', ac:'#4dd0e1' },
       { id:'003', title:'Signal',    sub:'audio viz',   tag:'wip',     href:null,             bg:'#1e0a0a', ac:'#ff5252' },
       { id:'004', title:'Terrain',   sub:'procedural',  tag:'wip',     href:null,             bg:'#071207', ac:'#66ff99' },
@@ -336,11 +349,14 @@
       el.style.background = card.bg;
       el.style.borderTop  = `3px solid ${card.ac}`;
       el.innerHTML = `
-        <div class="card-id">${card.id}</div>
-        <div class="card-spacer"></div>
-        <div class="card-title">${card.title}</div>
-        <div class="card-sub" style="color:${card.ac}">${card.sub}</div>
-        <div class="card-tag">${card.tag}</div>
+        ${card.video ? `<video class="card-video" src="${card.video}" autoplay loop muted playsinline></video>` : ''}
+        <div class="card-content">
+          <div class="card-id">${card.id}</div>
+          <div class="card-spacer"></div>
+          <div class="card-title">${card.title}</div>
+          <div class="card-sub" style="color:${card.ac}">${card.sub}</div>
+          <div class="card-tag">${card.tag}</div>
+        </div>
       `;
       stage.appendChild(el);
       return el;
