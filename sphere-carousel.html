@@ -31,23 +31,40 @@
     }
     .back:hover { color: #222; }
 
+    /* ── Dev toggle button ── */
+    #dev-toggle {
+      position: fixed;
+      top: 20px; right: 20px;
+      width: 30px; height: 30px;
+      background: rgba(0,0,0,0.12);
+      border: none; border-radius: 6px;
+      font-size: 14px; cursor: pointer;
+      color: #888;
+      z-index: 300;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s, color 0.15s;
+      touch-action: auto;
+    }
+    #dev-toggle:hover { background: rgba(0,0,0,0.22); color: #222; }
+    .dev-open #dev-toggle { background: rgba(0,0,0,0.7); color: #c8ff00; }
+
     /* ── Stage: CSS 3D perspective container ── */
     #stage {
       position: fixed;
-      /* leave 65px at bottom for scrubber */
       top: 0; left: 0; right: 0; bottom: 65px;
       display: flex;
       align-items: center;
       justify-content: center;
-      perspective: 700px;
+      /* perspective set dynamically from CFG */
       perspective-origin: 50% 50%;
       overflow: hidden;
+      transition: right 0.28s ease;
     }
+    .dev-open #stage { right: 260px; }
 
     /* ── Cards ── */
     .card {
       position: absolute;
-      /* 364:555 ratio from Figma; width fills ~92 vw on iPhone */
       width: min(92vw, 364px);
       aspect-ratio: 364 / 555;
       border-radius: 8px;
@@ -55,14 +72,12 @@
       display: flex;
       flex-direction: column;
       padding: 22px;
-      /* All animation handled in JS RAF — no CSS transition on transform */
       will-change: transform, opacity, filter;
       backface-visibility: hidden;
       -webkit-backface-visibility: hidden;
     }
     .card.is-active { cursor: pointer; }
 
-    /* Card inner content */
     .card-id {
       font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
       color: rgba(255,255,255,0.22);
@@ -92,18 +107,14 @@
       color: rgba(255,255,255,0.22);
     }
 
-    /* ── Info label above scrubber ── */
+    /* ── Info label ── */
     .info {
       position: fixed;
       bottom: 80px; left: 28px;
       z-index: 50;
       pointer-events: none;
     }
-    .info-title {
-      font-size: 13px; font-weight: 500;
-      color: #222;
-      margin-bottom: 3px;
-    }
+    .info-title  { font-size: 13px; font-weight: 500; color: #222; margin-bottom: 3px; }
     .info-counter { font-size: 11px; color: #aaa; letter-spacing: 0.08em; }
 
     /* ── Scrubber ── */
@@ -115,27 +126,167 @@
       cursor: grab;
       touch-action: none;
       border-top: 1px solid #e2e3ea;
+      transition: right 0.28s ease;
     }
+    .dev-open #scrubber { right: 260px; }
     #scrubber:active { cursor: grabbing; }
     #scrubber canvas { display: block; }
+
+    /* ── Dev Panel ── */
+    #dev-panel {
+      position: fixed;
+      top: 0; right: 0; bottom: 0;
+      width: 260px;
+      background: rgba(10,10,12,0.93);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      z-index: 200;
+      transform: translateX(100%);
+      transition: transform 0.28s ease;
+      display: flex;
+      flex-direction: column;
+      touch-action: auto;
+      user-select: text;
+      -webkit-user-select: text;
+      overflow: hidden;
+    }
+    .dev-open #dev-panel { transform: translateX(0); }
+
+    #dev-panel-inner {
+      flex: 1;
+      overflow-y: auto;
+      padding: 56px 16px 16px;
+      scrollbar-width: thin;
+      scrollbar-color: #333 transparent;
+    }
+
+    .dev-section {
+      margin-bottom: 20px;
+    }
+    .dev-section-title {
+      font-size: 9px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #555;
+      margin-bottom: 10px;
+      padding-bottom: 5px;
+      border-bottom: 1px solid #1e1e22;
+    }
+
+    .dev-row {
+      display: grid;
+      grid-template-columns: 72px 1fr 44px;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .dev-label {
+      font-size: 9px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #666;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .dev-row input[type="range"] {
+      width: 100%;
+      height: 3px;
+      accent-color: #c8ff00;
+      cursor: pointer;
+    }
+    .dev-row input[type="number"] {
+      width: 100%;
+      background: #111115;
+      border: 1px solid #2a2a30;
+      border-radius: 3px;
+      color: #c8ff00;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      padding: 3px 4px;
+      text-align: right;
+      -moz-appearance: textfield;
+    }
+    .dev-row input[type="number"]::-webkit-inner-spin-button,
+    .dev-row input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
+    .dev-row input[type="number"]:focus {
+      outline: none;
+      border-color: #c8ff00;
+    }
+
+    #dev-copy {
+      margin: 12px 16px 16px;
+      padding: 9px;
+      background: #c8ff00;
+      border: none;
+      border-radius: 5px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #0a0a0c;
+      cursor: pointer;
+      transition: background 0.15s;
+      touch-action: auto;
+    }
+    #dev-copy:hover { background: #d4ff33; }
+    #dev-copy.copied { background: #444; color: #c8ff00; }
   </style>
 </head>
 <body>
 
   <a class="back" href="./index.html">← lab</a>
+  <button id="dev-toggle" title="Toggle dev tools (D)">⚙</button>
 
   <div id="stage"></div>
 
   <div class="info">
-    <div class="info-title"  id="info-title"></div>
+    <div class="info-title"   id="info-title"></div>
     <div class="info-counter" id="info-counter"></div>
   </div>
 
   <div id="scrubber"></div>
 
+  <!-- Dev Panel -->
+  <div id="dev-panel">
+    <div id="dev-panel-inner"></div>
+    <button id="dev-copy">Copy config</button>
+  </div>
+
   <script>
   (() => {
     'use strict';
+
+    /* ══════════════════════════════════════════════════════════
+       CFG — single source of truth for all tweak-able values
+    ══════════════════════════════════════════════════════════ */
+    const CFG = {
+      // Sphere geometry
+      R_MULT:       0.82,   // sphere radius = vw * R_MULT (capped at R_MAX)
+      R_MAX:        580,    // px
+      PERSPECTIVE:  700,    // CSS perspective px
+
+      // Card placement
+      LAT:          [0, 32, -28, 42, -35],  // per-card latitude degrees
+      LON_SPREAD:   1.0,    // fraction of full circle (1 = 360°)
+
+      // Card rotation
+      ROT_MULT:     0.45,   // how much cards rotate to face outward
+      ROLL_MAX:     12,     // max organic tilt degrees (seeded per card)
+
+      // Appearance
+      SCALE_ACTIVE: 1.0,
+      SCALE_SPHERE: 0.9,
+      OPACITY_MULT: 0.9,
+      OPACITY_BASE: 0.15,
+      BLUR_MAX:     3.0,    // px
+
+      // Physics
+      FRICTION:     0.90,   // velocity decay per frame
+      SPRING:       0.10,   // snap spring strength
+      DRAG_SENS:    0.60,   // drag: divisor of innerWidth for sensitivity
+    };
 
     /* ── Card data ── */
     const CARDS = [
@@ -148,11 +299,11 @@
     const N = CARDS.length;
 
     /* ── Build card elements ── */
-    const stage    = document.getElementById('stage');
-    const titleEl  = document.getElementById('info-title');
+    const stage     = document.getElementById('stage');
+    const titleEl   = document.getElementById('info-title');
     const counterEl = document.getElementById('info-counter');
 
-    const cardEls = CARDS.map((card, i) => {
+    const cardEls = CARDS.map((card) => {
       const el = document.createElement('div');
       el.className = 'card';
       el.style.background = card.bg;
@@ -169,41 +320,36 @@
       return el;
     });
 
-    /* ── Per-card fixed latitude + organic roll ──────────────────────────
-       Each card has a fixed latitude (φ) on the sphere so cards are spread
-       in true 3D: some above the equator, some below, some on the sides.
-       Longitude (θ) rotates with posY so the whole sphere moves as one.  */
-    const TO_RAD = Math.PI / 180;
-    // Card 0 sits on the equator (φ=0) so it faces the camera cleanly at start.
-    // Others are scattered across the sphere at various latitudes.
-    const LAT = [0, 32, -28, 42, -35].map(d => d * TO_RAD);
-    // Fixed organic roll per card (seeded)
+    /* ── Per-card seeded roll ── */
     function seededRng(seed) {
       let s = seed | 0;
       return () => { s = (Math.imul(s, 1664525) + 1013904223) | 0; return (s >>> 0) / 0xFFFFFFFF; };
     }
-    const ROLL = CARDS.map((_, i) => {
+    // Pre-compute base random per card (0..1); scale by CFG.ROLL_MAX at render time
+    const ROLL_BASE = CARDS.map((_, i) => {
       const r = seededRng(i * 6271 + 3491);
-      return (r() - 0.5) * 24; // ±12° roll
+      return (r() - 0.5) * 2; // −1..1
     });
 
     /* ── Continuous position state ── */
-    let posY = 0;
-    let velY = 0;
+    let posY  = 0;
+    let velY  = 0;
     let rafId = null;
 
-    function lerp(a, b, t) { return a + (b - a) * t; }
+    function lerp(a, b, t)  { return a + (b - a) * t; }
     function smoothstep(t)  { return t * t * (3 - 2 * t); }
 
-    /* ── Transform function ──
-       st = smoothstep(abs):  0 = active (front, face-on), 1 = sphere surface.
-       Position lerps from (0,0,0) → sphere surface as card leaves active slot.
-       Rotation lerps from face-on → outward-facing as card leaves active slot.
-       Because ALL cards' theta = (i−pos)×2π/N updates every frame, the whole
-       sphere rotates as one rigid unit while the front card is always flat.  */
+    /* ── Apply CSS perspective from CFG ── */
+    function syncPerspective() {
+      stage.style.perspective = CFG.PERSPECTIVE + 'px';
+    }
+    syncPerspective();
+
+    /* ── Transform function ── */
     function applyTransforms(pos) {
-      const vw = innerWidth;
-      const R  = Math.min(vw * 0.82, 580);
+      const vw  = innerWidth;
+      const R   = Math.min(vw * CFG.R_MULT, CFG.R_MAX);
+      const LAT = CFG.LAT.map(d => d * Math.PI / 180);
 
       CARDS.forEach((_, i) => {
         let off = i - pos;
@@ -212,31 +358,25 @@
 
         const el    = cardEls[i];
         const phi   = LAT[i % LAT.length];
-        const theta = off * (2 * Math.PI / N);
+        const theta = off * (2 * Math.PI / N) * CFG.LON_SPREAD;
         const abs   = Math.abs(off);
-        const st    = smoothstep(Math.min(1, abs)); // 0=active, 1=on sphere
+        const st    = smoothstep(Math.min(1, abs));
 
         const cosPhi = Math.cos(phi);
         const sinPhi = Math.sin(phi);
 
-        // Position: active card stays at (0,0,0); others on sphere surface
         const tx = cosPhi * Math.sin(theta) * R * st;
         const ty = sinPhi  * R * st;
         const tz = (cosPhi * Math.cos(theta) - 1) * R * st;
-        //   st=0 → (0,0,0) perfectly centered
-        //   st=1 → full sphere surface, tz from 0 (front) to −2R (back)
 
-        // Facing (for opacity/blur)
-        const facing = cosPhi * Math.cos(theta);
+        const facing  = cosPhi * Math.cos(theta);
+        const ry      = -(theta * 180 / Math.PI) * CFG.ROT_MULT * st;
+        const rx      = -(phi   * 180 / Math.PI) * CFG.ROT_MULT * st;
+        const rollDeg = ROLL_BASE[i] * CFG.ROLL_MAX;
 
-        // Rotation: face-on when active (st=0), outward from sphere when st=1
-        const ry = -(theta * 180 / Math.PI) * 0.45 * st;
-        const rx = -(phi   * 180 / Math.PI) * 0.45 * st;
-
-        // Scale: 1.0 at active, 0.9 on sphere (active card is largest)
-        const scale   = lerp(1.0, 0.9, st);
-        const opacity = Math.max(0, Math.min(1, facing * 0.9 + 0.15));
-        const blur    = Math.max(0, (1 - facing) * 3);
+        const scale   = lerp(CFG.SCALE_ACTIVE, CFG.SCALE_SPHERE, st);
+        const opacity = Math.max(0, Math.min(1, facing * CFG.OPACITY_MULT + CFG.OPACITY_BASE));
+        const blur    = Math.max(0, (1 - facing) * CFG.BLUR_MAX);
 
         el.style.transform = [
           `translateX(${tx.toFixed(1)}px)`,
@@ -244,7 +384,7 @@
           `translateZ(${tz.toFixed(1)}px)`,
           `rotateX(${rx.toFixed(1)}deg)`,
           `rotateY(${ry.toFixed(1)}deg)`,
-          `rotateZ(${ROLL[i].toFixed(1)}deg)`,
+          `rotateZ(${rollDeg.toFixed(1)}deg)`,
           `scale(${scale.toFixed(3)})`,
         ].join(' ');
         el.style.opacity = opacity.toFixed(3);
@@ -261,13 +401,12 @@
 
     /* ── Animation loop with inertia + snap ── */
     function loop() {
-      velY *= 0.90;
+      velY *= CFG.FRICTION;
       posY += velY;
 
-      // Spring snap toward nearest integer when velocity is small
       const target = Math.round(posY);
       if (Math.abs(velY) < 0.02) {
-        const spring = (target - posY) * 0.10;
+        const spring = (target - posY) * CFG.SPRING;
         posY += spring;
         if (Math.abs(velY) < 0.0003 && Math.abs(posY - target) < 0.001) {
           posY  = ((target % N) + N) % N;
@@ -304,44 +443,33 @@
     function drawScrubber(pos) {
       const w = sc.width, h = sc.height;
       sctx.clearRect(0, 0, w, h);
-
       const SPACING = 7  * DPR;
       const LINE_H  = 26 * DPR;
       const LINE_W  = 1  * DPR;
       const cy      = h / 2;
       const total   = Math.ceil(w / SPACING) + 2;
-
-      // Lines scroll with posY
       const rawShift = -(pos / N) * w;
       const shift    = ((rawShift % SPACING) + SPACING) % SPACING;
-
-      // Active card maps to screen center (w/2)
-      const activeX = w / 2;
-
+      const activeX  = w / 2;
       for (let i = -1; i < total; i++) {
         const x = i * SPACING + shift;
-        // Distance from this line to the "active" center position in card-space
         const lineCardPos = ((i * SPACING + shift - activeX) / w) * N + pos;
         const nearest     = Math.round(lineCardPos);
         const distToCard  = Math.abs(lineCardPos - nearest);
         const hl          = Math.max(0, 1 - distToCard * N * 0.9);
-
-        const dark   = 200;
-        const bright = 100;
-        const col    = Math.round(dark - (dark - bright) * hl);
+        const dark = 200, bright = 100;
+        const col  = Math.round(dark - (dark - bright) * hl);
         sctx.fillStyle = `rgb(${col},${col},${col})`;
         sctx.fillRect(x - LINE_W / 2, cy - LINE_H / 2, LINE_W, LINE_H);
       }
     }
 
     /* ── Input: stage drag ── */
-    // How many card-widths per pixel of drag
-    const dragK = () => 1 / (innerWidth * 0.60);
+    const dragK = () => 1 / (innerWidth * CFG.DRAG_SENS);
 
     let stageTouch = null;
     stage.addEventListener('touchstart', e => {
-      stageTouch = e.touches[0].clientX;
-      velY = 0;
+      stageTouch = e.touches[0].clientX; velY = 0;
     }, { passive: true });
     stage.addEventListener('touchmove', e => {
       if (stageTouch === null) return;
@@ -357,14 +485,13 @@
     let stageMouse = null;
     stage.addEventListener('mousedown', e => { stageMouse = e.clientX; velY = 0; });
 
-    /* ── Input: scrubber drag (horizontal only) ── */
+    /* ── Input: scrubber drag ── */
     const scrubK = () => 1 / (innerWidth * 0.45);
 
     let scrubTouch = null;
     scrubEl.addEventListener('touchstart', e => {
       e.stopPropagation();
-      scrubTouch = e.touches[0].clientX;
-      velY = 0;
+      scrubTouch = e.touches[0].clientX; velY = 0;
     }, { passive: true });
     scrubEl.addEventListener('touchmove', e => {
       if (scrubTouch === null) return;
@@ -380,7 +507,7 @@
     let scrubMouse = null;
     scrubEl.addEventListener('mousedown', e => { scrubMouse = e.clientX; velY = 0; });
 
-    /* ── Single consolidated mouse handlers on window ── */
+    /* ── Consolidated window mouse handlers ── */
     window.addEventListener('mousemove', e => {
       if (stageMouse !== null) {
         const dx   = e.clientX - stageMouse;
@@ -415,6 +542,7 @@
     window.addEventListener('keydown', e => {
       if (e.key === 'ArrowRight') { velY += 0.12; kick(); }
       if (e.key === 'ArrowLeft')  { velY -= 0.12; kick(); }
+      if (e.key === 'd' || e.key === 'D') toggleDev();
     });
 
     /* ── Click active card → navigate ── */
@@ -430,6 +558,169 @@
     window.addEventListener('resize', () => {
       resizeScrubber();
       applyTransforms(posY);
+    });
+
+    /* ══════════════════════════════════════════════════════════
+       DEV PANEL
+    ══════════════════════════════════════════════════════════ */
+
+    const devPanel  = document.getElementById('dev-panel');
+    const devInner  = document.getElementById('dev-panel-inner');
+    const devToggle = document.getElementById('dev-toggle');
+    const devCopy   = document.getElementById('dev-copy');
+
+    function toggleDev() {
+      document.body.classList.toggle('dev-open');
+      // resize scrubber after transition so it fills correct width
+      setTimeout(() => { resizeScrubber(); applyTransforms(posY); }, 300);
+    }
+    devToggle.addEventListener('click', toggleDev);
+    devToggle.addEventListener('touchend', e => { e.stopPropagation(); toggleDev(); }, { passive: true });
+
+    /* ── Build controls ── */
+    const SECTIONS = [
+      {
+        title: 'Sphere',
+        rows: [
+          { label: 'R mult',      key: 'R_MULT',      min: 0.3,  max: 1.5,  step: 0.01 },
+          { label: 'R max',       key: 'R_MAX',        min: 200,  max: 1200, step: 10   },
+          { label: 'Perspective', key: 'PERSPECTIVE',  min: 200,  max: 2000, step: 10   },
+        ],
+      },
+      {
+        title: 'Placement',
+        rows: [
+          { label: 'Lat 0',       key: 'LAT.0',        min: -90,  max: 90,   step: 1    },
+          { label: 'Lat 1',       key: 'LAT.1',        min: -90,  max: 90,   step: 1    },
+          { label: 'Lat 2',       key: 'LAT.2',        min: -90,  max: 90,   step: 1    },
+          { label: 'Lat 3',       key: 'LAT.3',        min: -90,  max: 90,   step: 1    },
+          { label: 'Lat 4',       key: 'LAT.4',        min: -90,  max: 90,   step: 1    },
+          { label: 'Lon spread',  key: 'LON_SPREAD',   min: 0.2,  max: 1.0,  step: 0.01 },
+        ],
+      },
+      {
+        title: 'Rotation',
+        rows: [
+          { label: 'Rot mult',    key: 'ROT_MULT',     min: 0,    max: 1.5,  step: 0.01 },
+          { label: 'Roll max',    key: 'ROLL_MAX',      min: 0,    max: 45,   step: 1    },
+        ],
+      },
+      {
+        title: 'Appearance',
+        rows: [
+          { label: 'Scale act',   key: 'SCALE_ACTIVE', min: 0.5,  max: 1.5,  step: 0.01 },
+          { label: 'Scale sph',   key: 'SCALE_SPHERE', min: 0.3,  max: 1.2,  step: 0.01 },
+          { label: 'Opacity ×',   key: 'OPACITY_MULT', min: 0,    max: 2.0,  step: 0.01 },
+          { label: 'Opacity base',key: 'OPACITY_BASE', min: 0,    max: 1.0,  step: 0.01 },
+          { label: 'Blur max',    key: 'BLUR_MAX',      min: 0,    max: 20,   step: 0.5  },
+        ],
+      },
+      {
+        title: 'Physics',
+        rows: [
+          { label: 'Friction',    key: 'FRICTION',     min: 0.70, max: 0.99, step: 0.01 },
+          { label: 'Spring',      key: 'SPRING',        min: 0.01, max: 0.40, step: 0.01 },
+          { label: 'Drag sens',   key: 'DRAG_SENS',    min: 0.1,  max: 2.0,  step: 0.05 },
+        ],
+      },
+    ];
+
+    // Helpers to get/set nested CFG values (e.g. 'LAT.2')
+    function cfgGet(key) {
+      const [k, idx] = key.split('.');
+      return idx !== undefined ? CFG[k][+idx] : CFG[k];
+    }
+    function cfgSet(key, val) {
+      const [k, idx] = key.split('.');
+      if (idx !== undefined) CFG[k][+idx] = val;
+      else CFG[k] = val;
+      if (k === 'PERSPECTIVE') syncPerspective();
+    }
+
+    // Build panel DOM
+    SECTIONS.forEach(section => {
+      const secEl = document.createElement('div');
+      secEl.className = 'dev-section';
+      secEl.innerHTML = `<div class="dev-section-title">${section.title}</div>`;
+
+      section.rows.forEach(row => {
+        const rowEl   = document.createElement('div');
+        rowEl.className = 'dev-row';
+
+        const label   = document.createElement('span');
+        label.className = 'dev-label';
+        label.textContent = row.label;
+
+        const range   = document.createElement('input');
+        range.type    = 'range';
+        range.min     = row.min;
+        range.max     = row.max;
+        range.step    = row.step;
+        range.value   = cfgGet(row.key);
+
+        const num     = document.createElement('input');
+        num.type      = 'number';
+        num.min       = row.min;
+        num.max       = row.max;
+        num.step      = row.step;
+        num.value     = cfgGet(row.key);
+
+        function update(val) {
+          const v = parseFloat(val);
+          if (isNaN(v)) return;
+          const clamped = Math.min(row.max, Math.max(row.min, v));
+          cfgSet(row.key, clamped);
+          range.value = clamped;
+          num.value   = clamped;
+          applyTransforms(posY);
+        }
+
+        range.addEventListener('input',  () => update(range.value));
+        num.addEventListener('change',   () => update(num.value));
+        num.addEventListener('keydown',  e => { if (e.key === 'Enter') update(num.value); });
+        // Prevent panel number inputs from triggering carousel keyboard shortcuts
+        num.addEventListener('keydown', e => e.stopPropagation());
+
+        // Prevent range drag from accidentally moving carousel
+        range.addEventListener('mousedown',  e => e.stopPropagation());
+        range.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
+
+        rowEl.appendChild(label);
+        rowEl.appendChild(range);
+        rowEl.appendChild(num);
+        secEl.appendChild(rowEl);
+      });
+
+      devInner.appendChild(secEl);
+    });
+
+    /* ── Copy config ── */
+    devCopy.addEventListener('click', () => {
+      const out = {
+        R_MULT:       CFG.R_MULT,
+        R_MAX:        CFG.R_MAX,
+        PERSPECTIVE:  CFG.PERSPECTIVE,
+        LAT:          [...CFG.LAT],
+        LON_SPREAD:   CFG.LON_SPREAD,
+        ROT_MULT:     CFG.ROT_MULT,
+        ROLL_MAX:     CFG.ROLL_MAX,
+        SCALE_ACTIVE: CFG.SCALE_ACTIVE,
+        SCALE_SPHERE: CFG.SCALE_SPHERE,
+        OPACITY_MULT: CFG.OPACITY_MULT,
+        OPACITY_BASE: CFG.OPACITY_BASE,
+        BLUR_MAX:     CFG.BLUR_MAX,
+        FRICTION:     CFG.FRICTION,
+        SPRING:       CFG.SPRING,
+        DRAG_SENS:    CFG.DRAG_SENS,
+      };
+      navigator.clipboard.writeText(JSON.stringify(out, null, 2)).then(() => {
+        devCopy.textContent = 'Copied!';
+        devCopy.classList.add('copied');
+        setTimeout(() => {
+          devCopy.textContent = 'Copy config';
+          devCopy.classList.remove('copied');
+        }, 1500);
+      });
     });
 
     /* ── Init ── */
