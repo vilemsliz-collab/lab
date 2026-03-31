@@ -34,22 +34,23 @@
     /* ── Dev toggle button ── */
     #dev-toggle {
       position: fixed;
-      bottom: 80px; right: 0;
-      width: 52px; height: 52px;
+      bottom: 80px; right: 16px;
+      min-width: 56px; height: 36px;
+      padding: 0 12px;
       background: #0a0a0c;
-      border: none; border-radius: 12px 0 0 12px;
-      font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+      border: 1px solid #2a2a30;
+      border-radius: 20px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
       cursor: pointer;
-      color: #666;
+      color: #888;
       z-index: 300;
       display: flex; align-items: center; justify-content: center;
-      transition: background 0.15s, color 0.15s;
+      transition: color 0.15s, border-color 0.15s;
       touch-action: auto;
-      writing-mode: vertical-rl;
-      padding: 0;
     }
-    #dev-toggle:hover { color: #c8ff00; }
-    .dev-open #dev-toggle { color: #c8ff00; background: #111; }
+    #dev-toggle:hover { color: #c8ff00; border-color: #c8ff00; }
+    .dev-open #dev-toggle { color: #c8ff00; border-color: #c8ff00; }
 
     /* ── Stage: CSS 3D perspective container ── */
     #stage {
