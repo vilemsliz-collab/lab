@@ -167,36 +167,20 @@
       return el;
     });
 
-    /* ── Seeded RNG ── */
+    /* ── Seeded per-card decoration ── */
     function seededRng(seed) {
       let s = seed | 0;
       return () => { s = (Math.imul(s, 1664525) + 1013904223) | 0; return (s >>> 0) / 0xFFFFFFFF; };
     }
-
-    /* Pre-compute a rest position for each card when it is non-active.
-       Base angles are evenly distributed around 360° + small jitter so cards
-       spread to all quadrants (top / bottom / sides / corners) like the ref. */
-    const randPos = CARDS.map((_, i) => {
-      const rng       = seededRng(i * 6271 + 3491);
-      const baseAngle = (i / N) * Math.PI * 2;          // even angular spread
-      const angle     = baseAngle + (rng() - 0.5) * 1.0; // ±0.5 rad organic jitter
-      const radial    = 0.38 + rng() * 0.28;             // 0.38–0.66 of ref dim
+    // Fixed Y-offset and roll per card — gives the scattered organic look
+    // while all cards still rotate as one sphere unit
+    const cardDecor = CARDS.map((_, i) => {
+      const r = seededRng(i * 6271 + 3491);
       return {
-        cosA:    Math.cos(angle),
-        sinA:    Math.sin(angle),
-        radial,
-        tz:     -(70 + rng() * 210),  // −70 → −280 px depth
-        rx:     (rng() - 0.5) * 18,  // slight pitch
-        ry:     (rng() - 0.5) * 22,  // slight yaw
-        rz:     (rng() - 0.5) * 24,  // organic roll tilt
-        scale:  0.28 + rng() * 0.22, // 0.28 → 0.50
-        opacity:0.55 + rng() * 0.30, // 0.55 → 0.85
-        blur:   0.5  + rng() * 2.5,  // 0.5  → 3 px
+        yN: (r() - 0.5) * 0.40,  // ±0.20 × R vertical scatter
+        rz: (r() - 0.5) * 22,    // ±11° organic roll tilt
       };
     });
-
-    function lerp(a, b, t) { return a + (b - a) * t; }
-    function smoothstep(t)  { return t * t * (3 - 2 * t); }
 
     /* ── Continuous position state ── */
     let posY = 0;
@@ -204,34 +188,38 @@
     let rafId = null;
 
     /* ── Transform function ──
-       Active card  (abs=0): centered, scale 0.9, full opacity.
-       Non-active cards: lerp to their pre-computed scattered 3D position.
-       All transforms animated in JS — no CSS transition jank.           */
+       All cards are glued to one invisible sphere of radius R.
+       Swiping rotates the sphere (posY changes) → every card moves together.
+       Card with angular offset ≈ 0 is the active front card.             */
     function applyTransforms(pos) {
       const vw = innerWidth;
-      const vh = innerHeight - 65;
+      const R  = Math.min(vw * 0.52, 420); // sphere radius
 
       CARDS.forEach((_, i) => {
         let off = i - pos;
         while (off >  N / 2) off -= N;
         while (off < -N / 2) off += N;
 
-        const el  = cardEls[i];
-        const r   = randPos[i];
-        const abs = Math.abs(off);
-        const t   = Math.min(1, abs);
-        const st  = smoothstep(t);   // 0 = active, 1 = fully scattered
+        const el    = cardEls[i];
+        const d     = cardDecor[i];
+        const angle = off * (2 * Math.PI / N); // angular position on sphere equator
+        const abs   = Math.abs(off);
 
-        // Scale radial distance to viewport so cards reach the screen edges
-        const tx      = lerp(0, r.cosA * r.radial * vw * 0.82, st);
-        const ty      = lerp(0, r.sinA * r.radial * vh * 0.68, st);
-        const tz      = lerp(0,   r.tz,      st);
-        const rx      = lerp(0,   r.rx,      st);
-        const ry      = lerp(0,   r.ry,      st);
-        const rz      = lerp(0,   r.rz,      st);
-        const scale   = lerp(0.9, r.scale,   st);
-        const opacity = lerp(1,   r.opacity, st);
-        const blur    = lerp(0,   r.blur,    st);
+        // Sphere surface position — front card (angle=0) sits at translateZ(0)
+        const tx = Math.sin(angle) * R;
+        const ty = d.yN * R;                       // fixed Y scatter per card
+        const tz = (Math.cos(angle) - 1) * R;     // 0 at front, ≈−2R at back
+
+        const facing = Math.cos(angle);            // 1=front, 0=edge, −1=back
+
+        // Cards yaw as they curve around the sphere
+        const ry = -(angle * 180 / Math.PI) * 0.50;
+        const rx = -d.yN * 20;                     // slight pitch to match Y offset
+
+        // Active card slightly larger; CSS perspective handles depth scaling
+        const scale   = abs < 0.001 ? 0.9 : 1.0;
+        const opacity = Math.max(0, Math.min(1, facing * 0.9 + 0.15));
+        const blur    = Math.max(0, (1 - facing) * 3.5);
 
         el.style.transform = [
           `translateX(${tx.toFixed(1)}px)`,
@@ -239,12 +227,12 @@
           `translateZ(${tz.toFixed(1)}px)`,
           `rotateX(${rx.toFixed(1)}deg)`,
           `rotateY(${ry.toFixed(1)}deg)`,
-          `rotateZ(${rz.toFixed(1)}deg)`,
-          `scale(${scale.toFixed(3)})`,
+          `rotateZ(${d.rz.toFixed(1)}deg)`,
+          `scale(${scale})`,
         ].join(' ');
         el.style.opacity = opacity.toFixed(3);
-        el.style.filter  = blur < 0.2 ? 'none' : `blur(${blur.toFixed(1)}px)`;
-        el.style.zIndex  = abs < 0.5 ? '20' : '5';
+        el.style.filter  = blur < 0.1 ? 'none' : `blur(${blur.toFixed(1)}px)`;
+        el.style.zIndex  = abs < 0.5 ? '20' : String(Math.max(1, Math.round(facing * 10 + 5)));
         el.classList.toggle('is-active', abs < 0.5);
       });
 
