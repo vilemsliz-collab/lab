@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>3D Carousel — Lab</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;1,400&display=swap');
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%; height: 100%;
+      background: #0d0d0d;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+    }
+    #cv { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+    .ui {
+      position: fixed; z-index: 20;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      pointer-events: none;
+    }
+    .back {
+      top: 24px; left: 32px;
+      color: #555;
+      text-decoration: none;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      pointer-events: all;
+      transition: color 0.2s;
+    }
+    .back:hover { color: #c8ff00; }
+    .counter { bottom: 28px; left: 32px; color: #444; }
+    .hint {
+      bottom: 28px; right: 32px;
+      color: #383838;
+      transition: opacity 1.2s ease;
+    }
+    .hint.gone { opacity: 0; pointer-events: none; }
+
+    /* ── CSS 3D fallback ─────────────────────────────────── */
+    #fb {
+      display: none;
+      position: fixed; inset: 0;
+      perspective: 1400px;
+      perspective-origin: 38% 50%;
+    }
+    #fb.on { display: block; }
+    .fbc {
+      position: absolute;
+      top: 50%; left: 50%;
+      width: 340px; height: 212px;
+      margin: -106px -170px;
+      border-radius: 14px;
+      font-family: 'IBM Plex Mono', monospace;
+      padding: 28px 32px;
+      transition:
+        transform 0.58s cubic-bezier(0.22, 1, 0.36, 1),
+        opacity   0.58s ease;
+      will-change: transform, opacity;
+    }
+    .fbc[data-o="0"] {
+      transform: translateX(-190px) translateZ(0) rotateY(0deg) scale(1);
+      opacity: 1; cursor: pointer;
+    }
+    .fbc[data-o="1"] {
+      transform: translateX(220px) translateZ(-55px) rotateY(22deg) scale(0.84);
+      opacity: 0.82;
+    }
+    .fbc[data-o="2"] {
+      transform: translateX(298px) translateZ(-120px) rotateY(27deg) scale(0.70);
+      opacity: 0.62;
+    }
+    .fbc[data-o="3"] {
+      transform: translateX(348px) translateZ(-190px) rotateY(30deg) scale(0.58);
+      opacity: 0.40;
+    }
+    .fbc[data-o="4"] {
+      transform: translateX(378px) translateZ(-260px) rotateY(32deg) scale(0.48);
+      opacity: 0.18;
+    }
+    .fbc-num   { font-size: 11px; color: rgba(255,255,255,.22); letter-spacing: .12em; text-transform: uppercase; margin-bottom: 20px; }
+    .fbc-title { font-size: 26px; font-weight: 500; color: #e8e8e0; margin-bottom: 6px; line-height: 1.1; }
+    .fbc-sub   { font-size: 13px; color: rgba(255,255,255,.42); font-style: italic; }
+    .fbc-tag   { position: absolute; bottom: 22px; right: 24px; font-size: 11px; color: rgba(255,255,255,.22); }
+  </style>
+</head>
+<body>
+
+  <a class="ui back" href="./index.html">← lab</a>
+  <div class="ui counter" id="counter">01 / 05</div>
+  <div class="ui hint"   id="hint">scroll or swipe</div>
+
+  <canvas id="cv"></canvas>
+  <div id="fb"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+  <script>
+  (() => {
+    'use strict';
+
+    /* ── Data ──────────────────────────────────────────── */
+    const CARDS = [
+      { id:'001', title:'Ink Text',  sub:'typographic', tag:'2025-03', href:'./ink-text/',    bg:'#0e1118', ac:'#c8ff00' },
+      { id:'002', title:'Orbs v5',   sub:'generative',  tag:'2025-03', href:'./orbs-v5.html', bg:'#080e1c', ac:'#4dd0e1' },
+      { id:'003', title:'Signal',    sub:'audio viz',   tag:'wip',     href:null,             bg:'#160808', ac:'#ff5252' },
+      { id:'004', title:'Terrain',   sub:'procedural',  tag:'wip',     href:null,             bg:'#061006', ac:'#66ff99' },
+      { id:'005', title:'Fluid',     sub:'simulation',  tag:'planned', href:null,             bg:'#111',    ac:'#e0e0e0' },
+    ];
+    const N = CARDS.length;
+
+    /* ── Shared state ──────────────────────────────────── */
+    let active    = 0;
+    let velocity  = 0;
+    let wAcc      = 0;
+    const WThr    = 88;
+    let lastNav   = 0;
+    const NAV_CD  = 380; // ms cooldown between transitions
+
+    const counterEl = document.getElementById('counter');
+    const hintEl    = document.getElementById('hint');
+    let   hintGone  = false;
+
+    const setCounter = () =>
+      counterEl.textContent = `${String(active+1).padStart(2,'0')} / ${String(N).padStart(2,'0')}`;
+
+    const fadeHint = () => {
+      if (!hintGone) { hintGone = true; hintEl.classList.add('gone'); }
+    };
+
+    /* ── WebGL detection ───────────────────────────────── */
+    const hasWebGL = (() => {
+      try {
+        const c = document.createElement('canvas');
+        return !!(window.WebGLRenderingContext &&
+                  (c.getContext('webgl') || c.getContext('experimental-webgl')));
+      } catch { return false; }
+    })();
+
+    /* ── Boot ──────────────────────────────────────────── */
+    document.fonts.ready.then(() => {
+      if (hasWebGL && typeof THREE !== 'undefined') initGL();
+      else initCSS();
+    });
+
+    /* ═══════════════════════════════════════════════════
+       CSS 3D FALLBACK
+    ═══════════════════════════════════════════════════ */
+    function initCSS() {
+      document.getElementById('cv').style.display = 'none';
+      const fb = document.getElementById('fb');
+      fb.classList.add('on');
+
+      function render() {
+        fb.innerHTML = '';
+        for (let i = 0; i < N; i++) {
+          const off = (i - active + N) % N;
+          const card = CARDS[i];
+          const el = document.createElement('div');
+          el.className = 'fbc';
+          el.dataset.o = off;
+          el.style.cssText = `background:${card.bg}; border-top:3px solid ${card.ac};`;
+          el.innerHTML = `
+            <div class="fbc-num">${card.id}</div>
+            <div class="fbc-title">${card.title}</div>
+            <div class="fbc-sub">${card.sub}</div>
+            <div class="fbc-tag">${card.tag}</div>`;
+          if (off === 0 && card.href) el.onclick = () => location.href = card.href;
+          fb.appendChild(el);
+        }
+      }
+
+      function go(dir) {
+        const now = performance.now();
+        if (now - lastNav < NAV_CD) return;
+        lastNav = now;
+        fadeHint();
+        active = (active + dir + N) % N;
+        setCounter();
+        render();
+      }
+
+      render();
+
+      window.addEventListener('wheel', e => {
+        e.preventDefault();
+        wAcc += e.deltaY;
+        if (Math.abs(wAcc) >= WThr) { go(wAcc > 0 ? 1 : -1); wAcc = 0; }
+      }, { passive: false });
+
+      let tx = null;
+      window.addEventListener('touchstart', e => { tx = e.touches[0].clientX; }, { passive: true });
+      window.addEventListener('touchend',   e => {
+        if (tx === null) return;
+        const dx = e.changedTouches[0].clientX - tx;
+        if (Math.abs(dx) > 40) go(dx < 0 ? 1 : -1);
+        tx = null;
+      }, { passive: true });
+
+      window.addEventListener('keydown', e => {
+        if (e.key === 'ArrowRight' || e.key === ' ') go(1);
+        if (e.key === 'ArrowLeft') go(-1);
+      });
+    }
+
+    /* ═══════════════════════════════════════════════════
+       THREE.JS / WEBGL
+    ═══════════════════════════════════════════════════ */
+    function initGL() {
+      const canvas = document.getElementById('cv');
+
+      /* Renderer */
+      const R = new THREE.WebGLRenderer({ canvas, antialias: true });
+      R.setPixelRatio(Math.min(devicePixelRatio, 2));
+      R.setSize(innerWidth, innerHeight);
+      R.setClearColor(0x0d0d0d, 1);
+
+      /* Scene + Camera */
+      const scene = new THREE.Scene();
+      const cam   = new THREE.PerspectiveCamera(46, innerWidth / innerHeight, 0.1, 100);
+      cam.position.z = 6;
+
+      /* Shared geometry — subdivided for smooth bend */
+      const GEO = new THREE.PlaneGeometry(2.8, 1.75, 52, 1);
+
+      /* ── Shaders ─────────────────────────────────── */
+      const VS = /* glsl */`
+        uniform float uBend;
+        varying vec2  vUv;
+        void main() {
+          vUv = uv;
+          vec3 p = position;
+          // Bell-curve bow: peaks at card center, zero at edges
+          float bow = sin(uv.x * 3.14159265) * uBend;
+          p.z += bow;
+          p.y -= abs(bow) * 0.10;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+        }
+      `;
+
+      const FS = /* glsl */`
+        uniform sampler2D uTex;
+        uniform float     uBend;
+        uniform float     uOpacity;
+        varying vec2      vUv;
+        void main() {
+          // Chromatic aberration tied to bend magnitude
+          float ca = abs(uBend) * 0.014;
+          float r  = texture2D(uTex, vec2(vUv.x + ca, vUv.y)).r;
+          float g  = texture2D(uTex, vUv).g;
+          float b  = texture2D(uTex, vec2(vUv.x - ca, vUv.y)).b;
+          float a  = texture2D(uTex, vUv).a;
+          gl_FragColor = vec4(r, g, b, a * uOpacity);
+        }
+      `;
+
+      /* ── Card textures ───────────────────────────── */
+      function rrect(ctx, x, y, w, h, r) {
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + w - r, y);
+        ctx.arcTo(x + w, y,     x + w, y + r,     r);
+        ctx.lineTo(x + w, y + h - r);
+        ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+        ctx.lineTo(x + r, y + h);
+        ctx.arcTo(x,     y + h, x,     y + h - r, r);
+        ctx.lineTo(x, y + r);
+        ctx.arcTo(x, y,         x + r, y,         r);
+        ctx.closePath();
+      }
+
+      function makeTexture(card) {
+        const W = 560, H = 350;
+        const oc = document.createElement('canvas');
+        oc.width = W; oc.height = H;
+        const ctx = oc.getContext('2d');
+
+        // Clipping rounded rect
+        rrect(ctx, 0, 0, W, H, 18);
+        ctx.fillStyle = card.bg;
+        ctx.fill();
+        ctx.save();
+        rrect(ctx, 0, 0, W, H, 18);
+        ctx.clip();
+
+        // Subtle gradient
+        const grd = ctx.createLinearGradient(0, 0, 0, H);
+        grd.addColorStop(0, 'rgba(255,255,255,0.06)');
+        grd.addColorStop(1, 'rgba(0,0,0,0.22)');
+        ctx.fillStyle = grd;
+        ctx.fillRect(0, 0, W, H);
+
+        // Accent strip
+        ctx.fillStyle = card.ac;
+        ctx.fillRect(0, 0, W, 4);
+
+        ctx.restore();
+
+        // Card number
+        ctx.fillStyle = 'rgba(255,255,255,0.22)';
+        ctx.font = '400 14px "IBM Plex Mono", monospace';
+        ctx.fillText(card.id, 44, 58);
+
+        // Title — scale down if long
+        const titleSize = card.title.length > 8 ? 44 : 56;
+        ctx.fillStyle = '#e8e8e0';
+        ctx.font = `500 ${titleSize}px "IBM Plex Mono", monospace`;
+        ctx.fillText(card.title, 44, 148);
+
+        // Subtitle
+        ctx.fillStyle = card.ac;
+        ctx.font = 'italic 17px "IBM Plex Mono", monospace';
+        ctx.fillText(card.sub, 44, 182);
+
+        // Tag
+        ctx.fillStyle = 'rgba(255,255,255,0.22)';
+        ctx.font = '400 13px "IBM Plex Mono", monospace';
+        ctx.fillText(card.tag, 44, 296);
+
+        // Link arrow indicator
+        if (card.href) {
+          ctx.fillStyle = 'rgba(255,255,255,0.18)';
+          ctx.font = '400 13px "IBM Plex Mono", monospace';
+          ctx.fillText('→ open', W - 108, H - 22);
+        }
+
+        // Border
+        rrect(ctx, 0.5, 0.5, W - 1, H - 1, 18);
+        ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        const tex = new THREE.CanvasTexture(oc);
+        tex.needsUpdate = true;
+        return tex;
+      }
+
+      /* ── Meshes ──────────────────────────────────── */
+      const meshes = CARDS.map(card => {
+        const mat = new THREE.ShaderMaterial({
+          vertexShader:   VS,
+          fragmentShader: FS,
+          uniforms: {
+            uTex:     { value: makeTexture(card) },
+            uBend:    { value: 0 },
+            uOpacity: { value: 1 },
+          },
+          transparent: true,
+          depthWrite:  false,
+        });
+        const m = new THREE.Mesh(GEO, mat);
+        scene.add(m);
+        return m;
+      });
+
+      /* ── Layout ──────────────────────────────────── */
+      // Offset 0 = active (left anchor), 1-4 = stack (right)
+      function tgt(off) {
+        const t = [
+          { x:-1.05, y:0, z: 0.0, ry: 0.00, s:1.00, op:1.00 }, // 0 active
+          { x: 1.55, y:0, z:-0.3, ry: 0.31, s:0.82, op:0.86 }, // 1
+          { x: 2.15, y:0, z:-0.8, ry: 0.39, s:0.68, op:0.62 }, // 2
+          { x: 2.58, y:0, z:-1.3, ry: 0.45, s:0.56, op:0.38 }, // 3
+          { x: 2.90, y:0, z:-1.8, ry: 0.50, s:0.46, op:0.16 }, // 4 deepest
+        ];
+        return t[off % t.length];
+      }
+
+      /* ── Spring state ────────────────────────────── */
+      const sp = CARDS.map((_, i) => {
+        const t = tgt(i === 0 ? 0 : i); // rough init
+        return { x:t.x, y:t.y, z:t.z, ry:t.ry, s:t.s, op:t.op };
+      });
+
+      /* ── Bend animation ──────────────────────────── */
+      let bend = 0; // current bend value (springs to 0)
+
+      /* ── Navigate ────────────────────────────────── */
+      function go(dir) {
+        const now = performance.now();
+        if (now - lastNav < NAV_CD) return;
+        lastNav = now;
+        fadeHint();
+        velocity += dir * 200;
+        bend      = dir * 0.70; // spike
+        active    = (active + dir + N) % N;
+        setCounter();
+      }
+
+      /* ── Render loop ─────────────────────────────── */
+      const K = 0.11; // spring stiffness
+
+      function tick() {
+        requestAnimationFrame(tick);
+
+        velocity *= 0.86;
+        bend     += (0 - bend) * 0.10; // decay toward 0
+
+        // Motion blur via CSS filter on canvas
+        const blurPx = Math.min(Math.abs(velocity) * 0.030, 7);
+        canvas.style.filter = blurPx > 0.15 ? `blur(${blurPx.toFixed(2)}px)` : '';
+
+        CARDS.forEach((_, i) => {
+          const off = (i - active + N) % N;
+          const t   = tgt(off);
+
+          // Spring toward target
+          sp[i].x  += (t.x  - sp[i].x)  * K;
+          sp[i].y  += (t.y  - sp[i].y)  * K;
+          sp[i].z  += (t.z  - sp[i].z)  * K;
+          sp[i].ry += (t.ry - sp[i].ry) * K;
+          sp[i].s  += (t.s  - sp[i].s)  * K;
+          sp[i].op += (t.op - sp[i].op) * K;
+
+          const m = meshes[i];
+          m.position.set(sp[i].x, sp[i].y, sp[i].z);
+          m.rotation.y = sp[i].ry;
+          m.scale.setScalar(sp[i].s);
+          m.material.uniforms.uOpacity.value = sp[i].op;
+
+          // Bend: active card + first stack card during transition
+          const bendTarget = (off === 0 || off === 1) ? bend : 0;
+          const bFactor    = off === 0 ? 1.0 : 0.45;
+          m.material.uniforms.uBend.value +=
+            (bendTarget * bFactor - m.material.uniforms.uBend.value) * 0.22;
+
+          // Render order: active on top, stack behind
+          m.renderOrder = N - off;
+        });
+
+        R.render(scene, cam);
+      }
+      tick();
+
+      /* ── Input ───────────────────────────────────── */
+      window.addEventListener('wheel', e => {
+        e.preventDefault();
+        wAcc += e.deltaY;
+        velocity += e.deltaY * 0.38;
+        if (Math.abs(wAcc) >= WThr) { go(wAcc > 0 ? 1 : -1); wAcc = 0; }
+      }, { passive: false });
+
+      let tx0 = null, txLast = null;
+      window.addEventListener('touchstart', e => {
+        tx0 = txLast = e.touches[0].clientX;
+      }, { passive: true });
+      window.addEventListener('touchmove', e => {
+        if (txLast === null) return;
+        const dx = e.touches[0].clientX - txLast;
+        velocity -= dx * 0.55;
+        txLast = e.touches[0].clientX;
+      }, { passive: true });
+      window.addEventListener('touchend', e => {
+        if (tx0 === null) return;
+        const dx = e.changedTouches[0].clientX - tx0;
+        if (Math.abs(dx) > 38) go(dx < 0 ? 1 : -1);
+        tx0 = txLast = null;
+      }, { passive: true });
+
+      window.addEventListener('keydown', e => {
+        if (e.key === 'ArrowRight' || e.key === ' ') go(1);
+        if (e.key === 'ArrowLeft')  go(-1);
+      });
+
+      // Click active card → follow link
+      canvas.addEventListener('click', () => {
+        if (Math.abs(velocity) > 8) return;
+        const card = CARDS[active];
+        if (card.href) location.href = card.href;
+      });
+
+      /* ── Resize ──────────────────────────────────── */
+      window.addEventListener('resize', () => {
+        cam.aspect = innerWidth / innerHeight;
+        cam.updateProjectionMatrix();
+        R.setSize(innerWidth, innerHeight);
+      });
+    }
+
+  })();
+  </script>
+</body>
+</html>
