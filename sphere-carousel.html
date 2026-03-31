@@ -57,6 +57,8 @@
       padding: 22px;
       /* All animation handled in JS RAF — no CSS transition on transform */
       will-change: transform, opacity, filter;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
     }
     .card.is-active { cursor: pointer; }
 
@@ -231,8 +233,8 @@
         const ry = -(theta * 180 / Math.PI) * 0.45 * st;
         const rx = -(phi   * 180 / Math.PI) * 0.45 * st;
 
-        // Scale: 0.9 at active, 1.0 on sphere (CSS perspective adds depth scaling)
-        const scale   = lerp(0.9, 1.0, st);
+        // Scale: 1.0 at active, 0.9 on sphere (active card is largest)
+        const scale   = lerp(1.0, 0.9, st);
         const opacity = Math.max(0, Math.min(1, facing * 0.9 + 0.15));
         const blur    = Math.max(0, (1 - facing) * 3);
 
@@ -268,7 +270,7 @@
         const spring = (target - posY) * 0.10;
         posY += spring;
         if (Math.abs(velY) < 0.0003 && Math.abs(posY - target) < 0.001) {
-          posY  = target;
+          posY  = ((target % N) + N) % N;
           velY  = 0;
           applyTransforms(posY);
           rafId = null;
@@ -345,7 +347,7 @@
       if (stageTouch === null) return;
       const dx   = e.touches[0].clientX - stageTouch;
       const dPos = -dx * dragK();
-      velY  = dPos * 0.6;
+      velY  = velY * 0.5 + dPos * 0.5;
       posY += dPos;
       stageTouch = e.touches[0].clientX;
       applyTransforms(posY);
@@ -354,16 +356,6 @@
 
     let stageMouse = null;
     stage.addEventListener('mousedown', e => { stageMouse = e.clientX; velY = 0; });
-    window.addEventListener('mousemove', e => {
-      if (stageMouse === null) return;
-      const dx   = e.clientX - stageMouse;
-      const dPos = -dx * dragK();
-      velY  = dPos * 0.6;
-      posY += dPos;
-      stageMouse = e.clientX;
-      applyTransforms(posY);
-    });
-    window.addEventListener('mouseup', () => { stageMouse = null; kick(); });
 
     /* ── Input: scrubber drag (horizontal only) ── */
     const scrubK = () => 1 / (innerWidth * 0.45);
@@ -378,7 +370,7 @@
       if (scrubTouch === null) return;
       const dx   = e.touches[0].clientX - scrubTouch;
       const dPos = -dx * scrubK();
-      velY  = dPos * 0.6;
+      velY  = velY * 0.5 + dPos * 0.5;
       posY += dPos;
       scrubTouch = e.touches[0].clientX;
       applyTransforms(posY);
@@ -387,16 +379,30 @@
 
     let scrubMouse = null;
     scrubEl.addEventListener('mousedown', e => { scrubMouse = e.clientX; velY = 0; });
+
+    /* ── Single consolidated mouse handlers on window ── */
     window.addEventListener('mousemove', e => {
-      if (scrubMouse === null) return;
-      const dx   = e.clientX - scrubMouse;
-      const dPos = -dx * scrubK();
-      velY  = dPos * 0.6;
-      posY += dPos;
-      scrubMouse = e.clientX;
-      applyTransforms(posY);
+      if (stageMouse !== null) {
+        const dx   = e.clientX - stageMouse;
+        const dPos = -dx * dragK();
+        velY  = velY * 0.5 + dPos * 0.5;
+        posY += dPos;
+        stageMouse = e.clientX;
+        applyTransforms(posY);
+      } else if (scrubMouse !== null) {
+        const dx   = e.clientX - scrubMouse;
+        const dPos = -dx * scrubK();
+        velY  = velY * 0.5 + dPos * 0.5;
+        posY += dPos;
+        scrubMouse = e.clientX;
+        applyTransforms(posY);
+      }
     });
-    window.addEventListener('mouseup', () => { scrubMouse = null; });
+    window.addEventListener('mouseup', () => {
+      if (stageMouse !== null || scrubMouse !== null) kick();
+      stageMouse = null;
+      scrubMouse = null;
+    });
 
     /* ── Wheel ── */
     window.addEventListener('wheel', e => {
