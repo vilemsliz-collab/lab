@@ -88,7 +88,7 @@
       backface-visibility: hidden;
       -webkit-backface-visibility: hidden;
     }
-    .card.is-active { cursor: pointer; }
+    .card.is-active { cursor: default; }
 
     .card-id {
       font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
@@ -334,7 +334,6 @@
         <div class="card-title">${card.title}</div>
         <div class="card-sub" style="color:${card.ac}">${card.sub}</div>
         <div class="card-tag">${card.tag}</div>
-        ${card.href ? '<div class="card-arrow">→</div>' : ''}
       `;
       stage.appendChild(el);
       return el;
@@ -565,14 +564,6 @@
       if (e.key === 'd' || e.key === 'D') toggleDev();
     });
 
-    /* ── Click active card → navigate ── */
-    stage.addEventListener('click', e => {
-      if (Math.abs(velY) > 0.03) return;
-      const card = e.target.closest('.card');
-      if (!card || !card.classList.contains('is-active')) return;
-      const idx = cardEls.indexOf(card);
-      if (idx >= 0 && CARDS[idx].href) location.href = CARDS[idx].href;
-    });
 
     /* ── Resize ── */
     window.addEventListener('resize', () => {
