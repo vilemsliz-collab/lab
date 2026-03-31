@@ -263,29 +263,29 @@
     ══════════════════════════════════════════════════════════ */
     const CFG = {
       // Sphere geometry
-      R_MULT:       0.82,   // sphere radius = vw * R_MULT (capped at R_MAX)
-      R_MAX:        580,    // px
-      PERSPECTIVE:  700,    // CSS perspective px
+      R_MULT:       1.5,    // sphere radius = vw * R_MULT (capped at R_MAX)
+      R_MAX:        1010,   // px
+      PERSPECTIVE:  590,    // CSS perspective px
 
       // Card placement
-      LAT:          [0, 32, -28, 42, -35],  // per-card latitude degrees
-      LON_SPREAD:   1.0,    // fraction of full circle (1 = 360°)
+      LAT:          [-8, 32, -29, 42, 24],  // per-card latitude degrees
+      LON_SPREAD:   0.56,   // fraction of full circle (1 = 360°)
 
       // Card rotation
-      ROT_MULT:     0.45,   // how much cards rotate to face outward
-      ROLL_MAX:     12,     // max organic tilt degrees (seeded per card)
+      ROT_MULT:     0,      // how much cards rotate to face outward
+      ROLL_MAX:     0,      // max organic tilt degrees (seeded per card)
 
       // Appearance
-      SCALE_ACTIVE: 1.0,
-      SCALE_SPHERE: 0.9,
-      OPACITY_MULT: 0.9,
-      OPACITY_BASE: 0.15,
-      BLUR_MAX:     3.0,    // px
+      SCALE_ACTIVE: 1.29,
+      SCALE_SPHERE: 0.83,
+      OPACITY_MULT: 0.46,
+      OPACITY_BASE: 1,
+      BLUR_MAX:     0,      // px
 
       // Physics
-      FRICTION:     0.90,   // velocity decay per frame
-      SPRING:       0.10,   // snap spring strength
-      DRAG_SENS:    0.60,   // drag: divisor of innerWidth for sensitivity
+      FRICTION:     0.71,   // velocity decay per frame
+      SPRING:       0.23,   // snap spring strength
+      DRAG_SENS:    1.3,    // drag: divisor of innerWidth for sensitivity
     };
 
     /* ── Card data ── */
