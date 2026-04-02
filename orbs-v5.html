@@ -43,25 +43,36 @@ canvas { display: block; width: 100vw; height: 100dvh; }
 .toolbar { transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1); }
 /* Drag handle — mobile only */
 .drag-handle {
-  width: 36px; height: 4px;
-  background: rgba(0,0,0,0.15);
-  border-radius: 2px;
-  margin: 0 auto 10px;
+  height: 24px;
+  display: flex; align-items: center; justify-content: center;
+  margin: -6px -16px 6px;
   flex-shrink: 0;
   pointer-events: auto;
   cursor: grab;
+  touch-action: none;
+}
+.drag-handle::before {
+  content: '';
+  width: 40px; height: 4px;
+  background: rgba(0,0,0,0.18);
+  border-radius: 2px;
+  display: block;
 }
 @media (min-width: 501px) { .drag-handle { display: none; } }
-/* Hint bounce on load (mobile) */
-@keyframes tb-hint {
-  0%   { transform: translateX(-50%) translateY(0); }
-  35%  { transform: translateX(-50%) translateY(18px); }
-  65%  { transform: translateX(-50%) translateY(0); }
-  82%  { transform: translateX(-50%) translateY(8px); }
-  100% { transform: translateX(-50%) translateY(0); }
-}
+/* Mobile 20% scale-up */
 @media (max-width: 500px) {
-  .toolbar { animation: tb-hint 1s ease 1.2s both; }
+  .toolbar         { padding: 6px 19px 17px; border-radius: 24px; }
+  .tb-top          { gap: 8px; margin-bottom: 6px; }
+  .orb-ctrl        { gap: 12px; padding: 10px 0; }
+  .orb-dot         { width: 26px; height: 26px; }
+  .orb-ctrl-sliders { gap: 8px; }
+  .orb-slider-row  { gap: 9px; }
+  .orb-slider-label { font-size: 10px; width: 26px; }
+  .orb-slider::-webkit-slider-thumb,
+  .hue-slider::-webkit-slider-thumb { width: 18px; height: 18px; }
+  .orb-remove      { width: 26px; height: 26px; font-size: 18px; }
+  .tbtn            { width: 32px; height: 32px; font-size: 19px; }
+  .blend-opt       { font-size: 12px; padding: 5px 12px; }
 }
 .tb-top {
   display: flex;
@@ -792,39 +803,69 @@ addBtn.addEventListener("click", () => addOrb());
 /* ── Mobile swipe-to-hide toolbar ── */
 if (window.innerWidth <= 500) {
   const handle = document.getElementById("dragHandle");
-  let hidden = false;
+  let tbHidden = false;
   let dragStartY = null;
-  let dragBaseY = 0;
+  let dragBaseY  = 0;
+  let hintTimers = [];
 
-  function toolbarY(y) {
+  function tbSetY(y) {
     toolbar.style.transform = `translateX(-50%) translateY(${y}px)`;
   }
-  function snap(toHide) {
-    hidden = toHide;
+  function tbSnap(toHide) {
+    tbHidden = toHide;
     toolbar.style.transition = 'transform 0.35s cubic-bezier(0.32,0.72,0,1)';
-    toolbarY(toHide ? toolbar.offsetHeight * 0.8 : 0);
+    tbSetY(toHide ? toolbar.offsetHeight * 0.8 : 0);
     setTimeout(() => { toolbar.style.transition = ''; }, 360);
   }
+  function cancelHint() {
+    hintTimers.forEach(clearTimeout);
+    toolbar.style.transition = 'none';
+    tbSetY(0);
+    // restore transition next frame
+    requestAnimationFrame(() => { toolbar.style.transition = ''; });
+  }
+
+  // JS hint bounce — no CSS animation conflict
+  function runHint() {
+    const t = (ms, y, ease) => new Promise(r => {
+      const id = setTimeout(() => {
+        toolbar.style.transition = `transform ${ms}ms ${ease}`;
+        tbSetY(y);
+        setTimeout(r, ms);
+      }, 0);
+      hintTimers.push(id);
+    });
+    setTimeout(async () => {
+      await t(300, 20, 'ease-in');
+      await t(300, 0,  'ease-out');
+      await t(200, 9,  'ease-in');
+      await t(200, 0,  'ease-out');
+      toolbar.style.transition = '';
+    }, 1200);
+  }
+  tbSetY(0);
+  runHint();
 
   handle.addEventListener("touchstart", e => {
+    cancelHint();
     dragStartY = e.touches[0].clientY;
-    dragBaseY  = hidden ? toolbar.offsetHeight * 0.8 : 0;
+    dragBaseY  = tbHidden ? toolbar.offsetHeight * 0.8 : 0;
     toolbar.style.transition = 'none';
-    toolbar.style.animation  = 'none'; // cancel hint once touched
+    tbSetY(dragBaseY);
   }, { passive: true });
 
   handle.addEventListener("touchmove", e => {
     if (dragStartY === null) return;
     const dy  = e.touches[0].clientY - dragStartY;
-    const max = toolbar.offsetHeight * 0.85;
-    toolbarY(Math.max(0, Math.min(max, dragBaseY + dy)));
+    const max = toolbar.offsetHeight * 0.82;
+    tbSetY(Math.max(0, Math.min(max, dragBaseY + dy)));
   }, { passive: true });
 
   handle.addEventListener("touchend", e => {
     if (dragStartY === null) return;
     const dy = e.changedTouches[0].clientY - dragStartY;
     dragStartY = null;
-    snap(dy > 40 ? true : dy < -40 ? false : hidden);
+    tbSnap(dy > 20 ? true : dy < -20 ? false : tbHidden);
   }, { passive: true });
 }
 
