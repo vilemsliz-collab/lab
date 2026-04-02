@@ -431,8 +431,9 @@ gl.uniform3fv(uKLoc, kBuf);
 const BG_TEXT = "Feeling isn\u2019t\naccidental.\nIt\u2019s designed.";
 let bgTex = null;
 
-let typoScale = 1.0;
-let typoWeight = 400;
+const isMobile = window.innerWidth < 768;
+let typoScale = isMobile ? 1.4 : 1.2;
+let typoWeight = isMobile ? 700 : 100;
 
 function rebuildBg() {
   const c = document.createElement("canvas");
@@ -756,6 +757,8 @@ function buildBar() {
 
 addBtn.addEventListener("click", () => addOrb());
 
+document.getElementById("typoSize").value = typoScale;
+document.getElementById("typoWeight").value = typoWeight;
 document.getElementById("typoSize").addEventListener("input", e => {
   typoScale = parseFloat(e.target.value);
   rebuildBg();
