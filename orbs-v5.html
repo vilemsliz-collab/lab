@@ -40,6 +40,29 @@ canvas { display: block; width: 100vw; height: 100dvh; }
 @media (min-width: 501px) {
   .toolbar { left: auto; right: 24px; bottom: 24px; transform: none; width: 360px; }
 }
+.toolbar { transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1); }
+/* Drag handle — mobile only */
+.drag-handle {
+  width: 36px; height: 4px;
+  background: rgba(0,0,0,0.15);
+  border-radius: 2px;
+  margin: 0 auto 10px;
+  flex-shrink: 0;
+  pointer-events: auto;
+  cursor: grab;
+}
+@media (min-width: 501px) { .drag-handle { display: none; } }
+/* Hint bounce on load (mobile) */
+@keyframes tb-hint {
+  0%   { transform: translateX(-50%) translateY(0); }
+  35%  { transform: translateX(-50%) translateY(18px); }
+  65%  { transform: translateX(-50%) translateY(0); }
+  82%  { transform: translateX(-50%) translateY(8px); }
+  100% { transform: translateX(-50%) translateY(0); }
+}
+@media (max-width: 500px) {
+  .toolbar { animation: tb-hint 1s ease 1.2s both; }
+}
 .tb-top {
   display: flex;
   align-items: center;
@@ -188,6 +211,7 @@ canvas { display: block; width: 100vw; height: 100dvh; }
 <body>
 <canvas id="c"></canvas>
 <div class="toolbar" id="toolbar">
+  <div class="drag-handle" id="dragHandle"></div>
   <div class="tb-top">
     <button class="tbtn" id="addBtn" title="Add orb">+</button>
     <div class="tb-spacer"></div>
@@ -764,6 +788,45 @@ function buildBar() {
 }
 
 addBtn.addEventListener("click", () => addOrb());
+
+/* ── Mobile swipe-to-hide toolbar ── */
+if (window.innerWidth <= 500) {
+  const handle = document.getElementById("dragHandle");
+  let hidden = false;
+  let dragStartY = null;
+  let dragBaseY = 0;
+
+  function toolbarY(y) {
+    toolbar.style.transform = `translateX(-50%) translateY(${y}px)`;
+  }
+  function snap(toHide) {
+    hidden = toHide;
+    toolbar.style.transition = 'transform 0.35s cubic-bezier(0.32,0.72,0,1)';
+    toolbarY(toHide ? toolbar.offsetHeight * 0.8 : 0);
+    setTimeout(() => { toolbar.style.transition = ''; }, 360);
+  }
+
+  handle.addEventListener("touchstart", e => {
+    dragStartY = e.touches[0].clientY;
+    dragBaseY  = hidden ? toolbar.offsetHeight * 0.8 : 0;
+    toolbar.style.transition = 'none';
+    toolbar.style.animation  = 'none'; // cancel hint once touched
+  }, { passive: true });
+
+  handle.addEventListener("touchmove", e => {
+    if (dragStartY === null) return;
+    const dy  = e.touches[0].clientY - dragStartY;
+    const max = toolbar.offsetHeight * 0.85;
+    toolbarY(Math.max(0, Math.min(max, dragBaseY + dy)));
+  }, { passive: true });
+
+  handle.addEventListener("touchend", e => {
+    if (dragStartY === null) return;
+    const dy = e.changedTouches[0].clientY - dragStartY;
+    dragStartY = null;
+    snap(dy > 40 ? true : dy < -40 ? false : hidden);
+  }, { passive: true });
+}
 
 let blendMode = 0;
 const blendSwitch = document.getElementById("blendSwitch");
