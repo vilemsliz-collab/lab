@@ -43,8 +43,8 @@ canvas { display: block; width: 100vw; height: 100dvh; }
 .toolbar { transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1); }
 /* Drag handle — mobile only */
 .drag-handle {
-  height: 24px;
-  display: flex; align-items: center; justify-content: center;
+  height: 40px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
   margin: -6px -16px 6px;
   flex-shrink: 0;
   pointer-events: auto;
@@ -57,6 +57,14 @@ canvas { display: block; width: 100vw; height: 100dvh; }
   background: rgba(0,0,0,0.18);
   border-radius: 2px;
   display: block;
+}
+.swipe-hint {
+  font-size: 10px;
+  color: rgba(0,0,0,0.35);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  user-select: none;
+  pointer-events: none;
 }
 @media (min-width: 501px) { .drag-handle { display: none; } }
 /* Mobile 20% scale-up */
@@ -222,7 +230,7 @@ canvas { display: block; width: 100vw; height: 100dvh; }
 <body>
 <canvas id="c"></canvas>
 <div class="toolbar" id="toolbar">
-  <div class="drag-handle" id="dragHandle"></div>
+  <div class="drag-handle" id="dragHandle"><span id="swipeHint" class="swipe-hint">swipe down</span></div>
   <div class="tb-top">
     <button class="tbtn" id="addBtn" title="Add orb">+</button>
     <div class="tb-spacer"></div>
@@ -803,18 +811,22 @@ addBtn.addEventListener("click", () => addOrb());
 /* ── Mobile swipe-to-hide toolbar ── */
 if (window.innerWidth <= 500) {
   const handle = document.getElementById("dragHandle");
+  const swipeHintEl = document.getElementById("swipeHint");
   let tbHidden = false;
   let dragStartY = null;
   let dragBaseY  = 0;
   let hintTimers = [];
+
+  function peekY() { return toolbar.offsetHeight - handle.offsetHeight; }
 
   function tbSetY(y) {
     toolbar.style.transform = `translateX(-50%) translateY(${y}px)`;
   }
   function tbSnap(toHide) {
     tbHidden = toHide;
+    swipeHintEl.textContent = toHide ? 'swipe up' : 'swipe down';
     toolbar.style.transition = 'transform 0.35s cubic-bezier(0.32,0.72,0,1)';
-    tbSetY(toHide ? toolbar.offsetHeight * 0.8 : 0);
+    tbSetY(toHide ? peekY() : 0);
     setTimeout(() => { toolbar.style.transition = ''; }, 360);
   }
   function cancelHint() {
@@ -846,23 +858,26 @@ if (window.innerWidth <= 500) {
   tbSetY(0);
   runHint();
 
-  handle.addEventListener("touchstart", e => {
+  toolbar.addEventListener("touchstart", e => {
+    if (e.target.tagName === 'INPUT') return;
     cancelHint();
     dragStartY = e.touches[0].clientY;
-    dragBaseY  = tbHidden ? toolbar.offsetHeight * 0.8 : 0;
+    dragBaseY  = tbHidden ? peekY() : 0;
     toolbar.style.transition = 'none';
     tbSetY(dragBaseY);
   }, { passive: true });
 
-  handle.addEventListener("touchmove", e => {
+  toolbar.addEventListener("touchmove", e => {
     if (dragStartY === null) return;
+    if (e.target.tagName === 'INPUT') return;
     const dy  = e.touches[0].clientY - dragStartY;
-    const max = toolbar.offsetHeight * 0.82;
+    const max = peekY();
     tbSetY(Math.max(0, Math.min(max, dragBaseY + dy)));
   }, { passive: true });
 
-  handle.addEventListener("touchend", e => {
+  toolbar.addEventListener("touchend", e => {
     if (dragStartY === null) return;
+    if (e.target.tagName === 'INPUT') return;
     const dy = e.changedTouches[0].clientY - dragStartY;
     dragStartY = null;
     tbSnap(dy > 20 ? true : dy < -20 ? false : tbHidden);
