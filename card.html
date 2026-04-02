@@ -5,14 +5,23 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Card</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wdth,wght@8..144,75..125,100..900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:wght@100..900&display=swap" rel="stylesheet">
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Google+Sans+Flex:wght@100..900&display=swap');
+
+:root {
+  --font-brand: 'Google Sans Flex', 'Google Sans', system-ui, sans-serif;
+  --type-label-medium-size: 12px; --type-label-medium-lh: 16px; --type-label-medium-ls: 0.5px; --type-label-medium-weight: 500;
+  --type-headline-medium-size: 28px; --type-headline-medium-lh: 36px; --type-headline-medium-ls: 0px; --type-headline-medium-weight: 400;
+}
+.type-label-medium  { font-family:var(--font-brand);font-size:var(--type-label-medium-size);line-height:var(--type-label-medium-lh);letter-spacing:var(--type-label-medium-ls);font-weight:var(--type-label-medium-weight); }
+.type-headline-medium { font-family:var(--font-brand);font-size:var(--type-headline-medium-size);line-height:var(--type-headline-medium-lh);letter-spacing:var(--type-headline-medium-ls);font-weight:var(--type-headline-medium-weight); }
+
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
   min-height: 100dvh;
   display: flex; align-items: center; justify-content: center;
   background: #e8e8e8;
-  font-family: 'Roboto Flex', sans-serif;
 }
 .card {
   width: min(92vw, 364px);
@@ -27,40 +36,21 @@ body {
   background: #d9d9d9;
 }
 .card-bg {
-  position: absolute;
-  inset: 0;
-  background-size: cover;
-  background-position: center;
-  border-radius: 8px;
-  background-image: url('https://www.figma.com/api/mcp/asset/6d5a8ac8-6b4a-41d5-a732-a5b83f3a7841');
+  position: absolute; inset: 0;
+  background: #d9d9d9 url('https://www.figma.com/api/mcp/asset/6d5a8ac8-6b4a-41d5-a732-a5b83f3a7841') center/cover;
 }
 .card-overlay {
-  position: absolute;
-  inset: 0;
-  border-radius: 8px;
+  position: absolute; inset: 0;
   background: linear-gradient(to bottom, rgba(0,0,0,0) 65%, rgba(0,0,0,0.55));
 }
 .card-content {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+  display: flex; flex-direction: column; gap: 16px;
   color: #fff;
-  line-height: 1.15;
 }
-.card-role {
-  font-size: 13px;
-  font-weight: 400;
-}
-.card-title {
-  font-size: 28px;
-  font-weight: 400;
-  line-height: 1.15;
-}
-a.back { position: fixed; top: 20px; left: 20px; font-size: 12px; color: #999; text-decoration: none; font-family: monospace; }
-a.back:hover { color: #333; }
-a.ds-link { position: fixed; top: 20px; right: 20px; font-size: 12px; color: #999; text-decoration: none; font-family: monospace; }
-a.ds-link:hover { color: #333; }
+a.back    { position:fixed;top:20px;left:20px;font-size:12px;color:#999;text-decoration:none;font-family:monospace; }
+a.ds-link { position:fixed;top:20px;right:20px;font-size:12px;color:#999;text-decoration:none;font-family:monospace; }
+a.back:hover, a.ds-link:hover { color:#333; }
 </style>
 </head>
 <body>
@@ -70,8 +60,8 @@ a.ds-link:hover { color: #333; }
   <div class="card-bg"></div>
   <div class="card-overlay"></div>
   <div class="card-content">
-    <p class="card-role">Lead Brand Designer</p>
-    <p class="card-title">Brand for showmore new 360 agency on the market</p>
+    <p class="type-label-medium">Lead Brand Designer</p>
+    <p class="type-headline-medium">Brand for showmore new 360 agency on the market</p>
   </div>
 </div>
 </body>
