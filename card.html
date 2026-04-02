@@ -133,8 +133,8 @@ a.back:hover, a.ds-link:hover { color:#333; }
   </div>
   <div class="ctrl-row">
     <span class="ctrl-label">radius</span>
-    <input type="range" id="s-tradius" min="50" max="800" value="320">
-    <span class="ctrl-val" id="v-tradius">320px</span>
+    <input type="range" id="s-tradius" min="50" max="800" value="400">
+    <span class="ctrl-val" id="v-tradius">400px</span>
   </div>
   <div class="ctrl-row">
     <span class="ctrl-label">stiffness</span>
@@ -148,13 +148,13 @@ a.back:hover, a.ds-link:hover { color:#333; }
   </div>
   <div class="ctrl-row">
     <span class="ctrl-label">stagger</span>
-    <input type="range" id="s-stagger" min="20" max="200" value="60">
-    <span class="ctrl-val" id="v-stagger">60ms</span>
+    <input type="range" id="s-stagger" min="20" max="200" value="70">
+    <span class="ctrl-val" id="v-stagger">70ms</span>
   </div>
   <div class="ctrl-row">
     <span class="ctrl-label">duration</span>
-    <input type="range" id="s-dur" min="100" max="1200" value="400">
-    <span class="ctrl-val" id="v-dur">400ms</span>
+    <input type="range" id="s-dur" min="100" max="1200" value="797">
+    <span class="ctrl-val" id="v-dur">797ms</span>
   </div>
   <div class="ctrl-row">
     <span class="ctrl-label">blur</span>
@@ -173,7 +173,7 @@ a.back:hover, a.ds-link:hover { color:#333; }
 </div>
 
 <script>
-const CFG = { stagger: 60, dur: 400, blur: 8, y: 8 };
+const CFG = { stagger: 70, dur: 797, blur: 8, y: 8 };
 
 function wrapWords(el) {
   el.innerHTML = el.textContent.trim().split(/\s+/).map(w =>
@@ -245,7 +245,7 @@ document.getElementById('copyBtn').addEventListener('click', () => {
 
 /* ── Card tilt ── */
 const cardEl = document.getElementById('card');
-const TILT = { max: 8, radius: 320, stiffness: 0.1, damping: 0.75 };
+const TILT = { max: 8, radius: 400, stiffness: 0.1, damping: 0.75 };
 
 let tiltRx = 0, tiltRy = 0, tiltVx = 0, tiltVy = 0, tiltTx = 0, tiltTy = 0;
 
