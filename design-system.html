@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Design System</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Google+Sans+Flex:wght@100..900&display=swap');
+
+:root {
+  --font-brand: 'Google Sans Flex', 'Google Sans', system-ui, sans-serif;
+
+  --type-display-large-size:    57px;
+  --type-display-large-lh:      64px;
+  --type-display-large-ls:      -0.25px;
+  --type-display-large-weight:  400;
+
+  --type-display-medium-size:   45px;
+  --type-display-medium-lh:     52px;
+  --type-display-medium-ls:     0px;
+  --type-display-medium-weight: 400;
+
+  --type-display-small-size:    36px;
+  --type-display-small-lh:      44px;
+  --type-display-small-ls:      0px;
+  --type-display-small-weight:  400;
+
+  --type-headline-large-size:    32px;
+  --type-headline-large-lh:      40px;
+  --type-headline-large-ls:      0px;
+  --type-headline-large-weight:  400;
+
+  --type-headline-medium-size:   28px;
+  --type-headline-medium-lh:     36px;
+  --type-headline-medium-ls:     0px;
+  --type-headline-medium-weight: 400;
+
+  --type-headline-small-size:    24px;
+  --type-headline-small-lh:      32px;
+  --type-headline-small-ls:      0px;
+  --type-headline-small-weight:  400;
+
+  --type-title-large-size:    22px;
+  --type-title-large-lh:      28px;
+  --type-title-large-ls:      0px;
+  --type-title-large-weight:  400;
+
+  --type-title-medium-size:   16px;
+  --type-title-medium-lh:     24px;
+  --type-title-medium-ls:     0.15px;
+  --type-title-medium-weight: 500;
+
+  --type-title-small-size:    14px;
+  --type-title-small-lh:      20px;
+  --type-title-small-ls:      0.1px;
+  --type-title-small-weight:  500;
+
+  --type-label-large-size:    14px;
+  --type-label-large-lh:      20px;
+  --type-label-large-ls:      0.1px;
+  --type-label-large-weight:  500;
+
+  --type-label-medium-size:   12px;
+  --type-label-medium-lh:     16px;
+  --type-label-medium-ls:     0.5px;
+  --type-label-medium-weight: 500;
+
+  --type-label-small-size:    11px;
+  --type-label-small-lh:      16px;
+  --type-label-small-ls:      0.5px;
+  --type-label-small-weight:  500;
+
+  --type-body-large-size:    16px;
+  --type-body-large-lh:      24px;
+  --type-body-large-ls:      0.5px;
+  --type-body-large-weight:  400;
+
+  --type-body-medium-size:   14px;
+  --type-body-medium-lh:     20px;
+  --type-body-medium-ls:     0.25px;
+  --type-body-medium-weight: 400;
+
+  --type-body-small-size:    12px;
+  --type-body-small-lh:      16px;
+  --type-body-small-ls:      0.4px;
+  --type-body-small-weight:  400;
+}
+
+.type-display-large  { font-family:var(--font-brand);font-size:var(--type-display-large-size);line-height:var(--type-display-large-lh);letter-spacing:var(--type-display-large-ls);font-weight:var(--type-display-large-weight); }
+.type-display-medium { font-family:var(--font-brand);font-size:var(--type-display-medium-size);line-height:var(--type-display-medium-lh);letter-spacing:var(--type-display-medium-ls);font-weight:var(--type-display-medium-weight); }
+.type-display-small  { font-family:var(--font-brand);font-size:var(--type-display-small-size);line-height:var(--type-display-small-lh);letter-spacing:var(--type-display-small-ls);font-weight:var(--type-display-small-weight); }
+.type-headline-large  { font-family:var(--font-brand);font-size:var(--type-headline-large-size);line-height:var(--type-headline-large-lh);letter-spacing:var(--type-headline-large-ls);font-weight:var(--type-headline-large-weight); }
+.type-headline-medium { font-family:var(--font-brand);font-size:var(--type-headline-medium-size);line-height:var(--type-headline-medium-lh);letter-spacing:var(--type-headline-medium-ls);font-weight:var(--type-headline-medium-weight); }
+.type-headline-small  { font-family:var(--font-brand);font-size:var(--type-headline-small-size);line-height:var(--type-headline-small-lh);letter-spacing:var(--type-headline-small-ls);font-weight:var(--type-headline-small-weight); }
+.type-title-large   { font-family:var(--font-brand);font-size:var(--type-title-large-size);line-height:var(--type-title-large-lh);letter-spacing:var(--type-title-large-ls);font-weight:var(--type-title-large-weight); }
+.type-title-medium  { font-family:var(--font-brand);font-size:var(--type-title-medium-size);line-height:var(--type-title-medium-lh);letter-spacing:var(--type-title-medium-ls);font-weight:var(--type-title-medium-weight); }
+.type-title-small   { font-family:var(--font-brand);font-size:var(--type-title-small-size);line-height:var(--type-title-small-lh);letter-spacing:var(--type-title-small-ls);font-weight:var(--type-title-small-weight); }
+.type-label-large   { font-family:var(--font-brand);font-size:var(--type-label-large-size);line-height:var(--type-label-large-lh);letter-spacing:var(--type-label-large-ls);font-weight:var(--type-label-large-weight); }
+.type-label-medium  { font-family:var(--font-brand);font-size:var(--type-label-medium-size);line-height:var(--type-label-medium-lh);letter-spacing:var(--type-label-medium-ls);font-weight:var(--type-label-medium-weight); }
+.type-label-small   { font-family:var(--font-brand);font-size:var(--type-label-small-size);line-height:var(--type-label-small-lh);letter-spacing:var(--type-label-small-ls);font-weight:var(--type-label-small-weight); }
+.type-body-large    { font-family:var(--font-brand);font-size:var(--type-body-large-size);line-height:var(--type-body-large-lh);letter-spacing:var(--type-body-large-ls);font-weight:var(--type-body-large-weight); }
+.type-body-medium   { font-family:var(--font-brand);font-size:var(--type-body-medium-size);line-height:var(--type-body-medium-lh);letter-spacing:var(--type-body-medium-ls);font-weight:var(--type-body-medium-weight); }
+.type-body-small    { font-family:var(--font-brand);font-size:var(--type-body-small-size);line-height:var(--type-body-small-lh);letter-spacing:var(--type-body-small-ls);font-weight:var(--type-body-small-weight); }
+
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#fff; color:#1c1b1f; padding:48px 40px 80px; max-width:900px; }
+a.back { display:inline-block; margin-bottom:48px; font-family:monospace; font-size:12px; color:#999; text-decoration:none; }
+a.back:hover { color:#333; }
+h2 { font-family:monospace; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:#aaa; margin-bottom:24px; padding-bottom:8px; border-bottom:1px solid #eee; }
+section { margin-bottom:56px; }
+.row { display:flex; align-items:baseline; gap:32px; padding:12px 0; border-bottom:1px solid #f3f3f3; }
+.row-label { font-family:monospace; font-size:11px; color:#bbb; width:160px; flex-shrink:0; }
+.row-meta  { font-family:monospace; font-size:10px; color:#ccc; width:140px; flex-shrink:0; }
+.row-sample { flex:1; }
+</style>
+</head>
+<body>
+<a class="back" href="./card.html">← card</a>
+
+<section>
+  <h2>Typography — Google Sans Flex / MD3</h2>
+
+  <div class="row">
+    <span class="row-label">display-large</span>
+    <span class="row-meta">57 / 64 / -0.25 / 400</span>
+    <span class="row-sample type-display-large">Display Large</span>
+  </div>
+  <div class="row">
+    <span class="row-label">display-medium</span>
+    <span class="row-meta">45 / 52 / 0 / 400</span>
+    <span class="row-sample type-display-medium">Display Medium</span>
+  </div>
+  <div class="row">
+    <span class="row-label">display-small</span>
+    <span class="row-meta">36 / 44 / 0 / 400</span>
+    <span class="row-sample type-display-small">Display Small</span>
+  </div>
+
+  <div class="row">
+    <span class="row-label">headline-large</span>
+    <span class="row-meta">32 / 40 / 0 / 400</span>
+    <span class="row-sample type-headline-large">Headline Large</span>
+  </div>
+  <div class="row">
+    <span class="row-label">headline-medium</span>
+    <span class="row-meta">28 / 36 / 0 / 400</span>
+    <span class="row-sample type-headline-medium">Headline Medium</span>
+  </div>
+  <div class="row">
+    <span class="row-label">headline-small</span>
+    <span class="row-meta">24 / 32 / 0 / 400</span>
+    <span class="row-sample type-headline-small">Headline Small</span>
+  </div>
+
+  <div class="row">
+    <span class="row-label">title-large</span>
+    <span class="row-meta">22 / 28 / 0 / 400</span>
+    <span class="row-sample type-title-large">Title Large</span>
+  </div>
+  <div class="row">
+    <span class="row-label">title-medium</span>
+    <span class="row-meta">16 / 24 / 0.15 / 500</span>
+    <span class="row-sample type-title-medium">Title Medium</span>
+  </div>
+  <div class="row">
+    <span class="row-label">title-small</span>
+    <span class="row-meta">14 / 20 / 0.1 / 500</span>
+    <span class="row-sample type-title-small">Title Small</span>
+  </div>
+
+  <div class="row">
+    <span class="row-label">label-large</span>
+    <span class="row-meta">14 / 20 / 0.1 / 500</span>
+    <span class="row-sample type-label-large">Label Large</span>
+  </div>
+  <div class="row">
+    <span class="row-label">label-medium</span>
+    <span class="row-meta">12 / 16 / 0.5 / 500</span>
+    <span class="row-sample type-label-medium">Label Medium</span>
+  </div>
+  <div class="row">
+    <span class="row-label">label-small</span>
+    <span class="row-meta">11 / 16 / 0.5 / 500</span>
+    <span class="row-sample type-label-small">Label Small</span>
+  </div>
+
+  <div class="row">
+    <span class="row-label">body-large</span>
+    <span class="row-meta">16 / 24 / 0.5 / 400</span>
+    <span class="row-sample type-body-large">Body Large</span>
+  </div>
+  <div class="row">
+    <span class="row-label">body-medium</span>
+    <span class="row-meta">14 / 20 / 0.25 / 400</span>
+    <span class="row-sample type-body-medium">Body Medium</span>
+  </div>
+  <div class="row">
+    <span class="row-label">body-small</span>
+    <span class="row-meta">12 / 16 / 0.4 / 400</span>
+    <span class="row-sample type-body-small">Body Small</span>
+  </div>
+</section>
+
+</body>
+</html>
