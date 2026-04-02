@@ -487,12 +487,7 @@ gl.uniform3fv(uKLoc, kBuf);
 // ============================================================
 //  BACKGROUND TEXTURE (full DPR for sharp text)
 // ============================================================
-const BG_TEXT = "Feeling isn\u2019t\naccidental.\nIt\u2019s designed.";
 let bgTex = null;
-
-const isMobile = window.innerWidth < 768;
-let typoScale = isMobile ? 1.4 : 1.2;
-let typoWeight = isMobile ? 700 : 100;
 
 function rebuildBg() {
   const c = document.createElement("canvas");
@@ -502,17 +497,13 @@ function rebuildBg() {
   x.fillStyle = "#fff";
   x.fillRect(0, 0, W, H);
 
-  const szBase = W >= 1200 ? 163 : W >= 768 ? Math.round(W * 0.115) : Math.round(W * 0.1);
-  const sz = Math.round(szBase * typoScale);
-  const lh = sz * 1.15;
-  x.font = `${typoWeight} ${sz}px "Plus Jakarta Sans", sans-serif`;
-  if (x.letterSpacing !== undefined) x.letterSpacing = `${sz * -0.02}px`;
-  x.fillStyle = "#D3D4D9"; x.textAlign = "left"; x.textBaseline = "top";
-  const lines = BG_TEXT.split("\n");
-  let mw = 0;
-  for (let i = 0; i < lines.length; i++) { const w = x.measureText(lines[i]).width; if (w > mw) mw = w; }
-  const bx = (W - mw) / 2, by = (H - lines.length * lh) / 2;
-  for (let i = 0; i < lines.length; i++) x.fillText(lines[i], bx, by + i * lh);
+  const cell = W < 768 ? 120 : Math.round(120 * W / 390);
+  x.strokeStyle = "#DEDFE4";
+  x.lineWidth = 1;
+  x.beginPath();
+  for (let gx = 0; gx <= W; gx += cell) { x.moveTo(gx, 0); x.lineTo(gx, H); }
+  for (let gy = 0; gy <= H; gy += cell) { x.moveTo(0, gy); x.lineTo(W, gy); }
+  x.stroke();
 
   if (bgTex) gl.deleteTexture(bgTex);
   bgTex = gl.createTexture();
@@ -528,7 +519,6 @@ function rebuildBg() {
   gl.uniform1i(uBg, 0);
 }
 rebuildBg();
-document.fonts.ready.then(rebuildBg);
 addEventListener("resize", () => { resize(); rebuildBg(); });
 
 // ============================================================
