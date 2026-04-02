@@ -20,6 +20,7 @@ body {
 .card-wrap {
   perspective: 800px;
   flex-shrink: 0;
+  position: relative;
 }
 .card {
   width: min(92vw, 364px);
@@ -31,6 +32,7 @@ body {
   justify-content: flex-end;
   padding: var(--inset-lg);            /* 24px */
   position: relative;
+  z-index: 2;
   background: #d9d9d9;
   transform-style: preserve-3d;
   transition: none;
@@ -40,11 +42,17 @@ body {
   position: absolute; inset: 0; z-index: 0;
   width: 100%; height: 100%; object-fit: cover; display: block;
 }
-#ghost-canvas {
-  position: absolute; inset: 0; z-index: 3;
-  width: 100%; height: 100%;
+.ghost-clone {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
   pointer-events: none;
+  opacity: 0;
+  will-change: transform, opacity, filter;
+  -webkit-mask-image: radial-gradient(ellipse 72% 76% at 50% 50%, transparent var(--mask-inner, 52%), black var(--mask-outer, 80%));
+  mask-image: radial-gradient(ellipse 72% 76% at 50% 50%, transparent var(--mask-inner, 52%), black var(--mask-outer, 80%));
 }
+.ghost-clone .card-content { visibility: hidden; }
 .card-overlay {
   position: absolute; inset: 0; z-index: 2;
   background: linear-gradient(to bottom, rgba(0,0,0,0) 55%, rgba(0,0,0,0.55));
@@ -121,8 +129,7 @@ a.back:hover, a.ds-link:hover { color:#333; }
 
 <div class="card-wrap">
 <div class="card" id="card">
-  <img id="card-img" class="card-bg" src="https://picsum.photos/600/800" crossorigin="anonymous" alt="">
-  <canvas id="ghost-canvas"></canvas>
+  <img id="card-img" class="card-bg" src="./image-60.png" alt="">
   <div class="card-overlay"></div>
   <div class="card-content">
     <p class="type-label-medium" id="line1">Lead Brand Designer</p>
@@ -138,38 +145,34 @@ a.back:hover, a.ds-link:hover { color:#333; }
     <span class="ctrl-val" id="v-glayers">8</span>
   </div>
   <div class="ctrl-row">
-    <span class="ctrl-label">spreadX</span>
-    <input type="range" id="s-gsx" min="0" max="4" step="0.1" value="1.4">
-    <span class="ctrl-val" id="v-gsx">1.4</span>
-  </div>
-  <div class="ctrl-row">
-    <span class="ctrl-label">spreadY</span>
-    <input type="range" id="s-gsy" min="0" max="4" step="0.1" value="1.4">
-    <span class="ctrl-val" id="v-gsy">1.4</span>
+    <span class="ctrl-label">spread</span>
+    <input type="range" id="s-spread" min="0" max="80" step="1" value="28">
+    <span class="ctrl-val" id="v-spread">28px</span>
   </div>
   <div class="ctrl-row">
     <span class="ctrl-label">g·opacity</span>
-    <input type="range" id="s-gopa" min="0.01" max="0.25" step="0.01" value="0.07">
-    <span class="ctrl-val" id="v-gopa">0.07</span>
+    <input type="range" id="s-gopa" min="0.01" max="1" step="0.01" value="0.55">
+    <span class="ctrl-val" id="v-gopa">0.55</span>
   </div>
   <div class="ctrl-row">
-    <span class="ctrl-label">blend</span>
-    <select id="s-gblend" style="flex:1;font-family:monospace;font-size:11px;border:1px solid rgba(0,0,0,0.12);border-radius:4px;padding:3px 6px;background:#fff;color:#333;cursor:pointer;">
-      <option value="multiply" selected>multiply</option>
-      <option value="screen">screen</option>
-      <option value="overlay">overlay</option>
-      <option value="hard-light">hard-light</option>
-    </select>
+    <span class="ctrl-label">g·blur</span>
+    <input type="range" id="s-gblur" min="0" max="40" step="0.5" value="18">
+    <span class="ctrl-val" id="v-gblur">18px</span>
+  </div>
+  <div class="ctrl-row">
+    <span class="ctrl-label">edge inner</span>
+    <input type="range" id="s-minner" min="0" max="95" step="1" value="52">
+    <span class="ctrl-val" id="v-minner">52%</span>
+  </div>
+  <div class="ctrl-row">
+    <span class="ctrl-label">edge outer</span>
+    <input type="range" id="s-mouter" min="5" max="100" step="1" value="80">
+    <span class="ctrl-val" id="v-mouter">80%</span>
   </div>
   <div class="ctrl-row">
     <span class="ctrl-label">max tilt</span>
     <input type="range" id="s-tmax" min="1" max="20" step="0.5" value="8">
     <span class="ctrl-val" id="v-tmax">8°</span>
-  </div>
-  <div class="ctrl-row">
-    <span class="ctrl-label">radius</span>
-    <input type="range" id="s-tradius" min="50" max="800" value="400">
-    <span class="ctrl-val" id="v-tradius">400px</span>
   </div>
   <div class="ctrl-row">
     <span class="ctrl-label">stiffness</span>
@@ -266,7 +269,6 @@ document.getElementById('copyBtn').addEventListener('click', () => {
 
 [
   ['s-tmax',    'v-tmax',    'max',       '°',   1  ],
-  ['s-tradius', 'v-tradius', 'radius',    'px',  1  ],
   ['s-tstiff',  'v-tstiff',  'stiffness', '',    100],
   ['s-tdamp',   'v-tdamp',   'damping',   '',    100],
 ].forEach(([sid, vid, key, unit, prec]) => {
@@ -280,7 +282,7 @@ document.getElementById('copyBtn').addEventListener('click', () => {
 
 /* ── Card tilt ── */
 const cardEl = document.getElementById('card');
-const TILT = { max: 8, radius: 400, stiffness: 0.1, damping: 0.75 };
+const TILT = { max: 8, stiffness: 0.1, damping: 0.75 };
 
 let tiltRx = 0, tiltRy = 0, tiltVx = 0, tiltVy = 0, tiltTx = 0, tiltTy = 0;
 
@@ -290,15 +292,8 @@ const isMobile = () => navigator.maxTouchPoints > 0;
 /* Desktop — mouse */
 document.addEventListener('mousemove', e => {
   if (isMobile()) return;
-  const r  = cardEl.getBoundingClientRect();
-  const cx = r.left + r.width  / 2;
-  const cy = r.top  + r.height / 2;
-  const dx = e.clientX - cx;
-  const dy = e.clientY - cy;
-  const dist = Math.sqrt(dx * dx + dy * dy);
-  const falloff = Math.max(0, 1 - dist / TILT.radius);
-  tiltTy =  (dx / (r.width  / 2)) * TILT.max * falloff;
-  tiltTx = -(dy / (r.height / 2)) * TILT.max * falloff;
+  tiltTy =  (e.clientX / window.innerWidth  - 0.5) * 2 * TILT.max;
+  tiltTx = -(e.clientY / window.innerHeight - 0.5) * 2 * TILT.max;
 });
 
 /* Mobile — gyroscope */
@@ -335,44 +330,48 @@ if (isMobile()) {
   }
 }
 
-/* ── Ghost canvas ── */
-const GHOST = { layers: 8, spreadX: 1.4, spreadY: 1.4, opacity: 0.07, blend: 'multiply' };
-const ghostCanvas = document.getElementById('ghost-canvas');
-const gCtx = ghostCanvas.getContext('2d');
-const cardImg = document.getElementById('card-img');
+/* ── Ghost clones ── */
+const GHOST = { layers: 6, spread: 12, opacity: 0.8, blur: 18, maskInner: 52, maskOuter: 80 };
+const cardWrap = cardEl.parentElement;
+const ghostClones = [];
 
-const offscreen = document.createElement('canvas');
-const offCtx    = offscreen.getContext('2d');
-
-function buildOffscreen() {
-  const W = cardEl.offsetWidth, H = cardEl.offsetHeight;
-  ghostCanvas.width = offscreen.width  = W;
-  ghostCanvas.height = offscreen.height = H;
-  offCtx.clearRect(0, 0, W, H);
-  offCtx.drawImage(cardImg, 0, 0, W, H);
-  const grad = offCtx.createLinearGradient(0, 0, 0, H);
-  grad.addColorStop(0.55, 'rgba(0,0,0,0)');
-  grad.addColorStop(1,    'rgba(0,0,0,0.55)');
-  offCtx.fillStyle = grad;
-  offCtx.fillRect(0, 0, W, H);
+function buildClones() {
+  ghostClones.forEach(c => c.remove());
+  ghostClones.length = 0;
+  for (let i = 0; i < GHOST.layers; i++) {
+    const clone = cardEl.cloneNode(true);
+    clone.removeAttribute('id');
+    clone.classList.add('ghost-clone');
+    cardWrap.insertBefore(clone, cardEl);
+    ghostClones.push(clone);
+  }
 }
-cardImg.addEventListener('load', buildOffscreen);
-window.addEventListener('resize', buildOffscreen);
+
+function applyMask() {
+  ghostClones.forEach(c => {
+    c.style.setProperty('--mask-inner', GHOST.maskInner + '%');
+    c.style.setProperty('--mask-outer', GHOST.maskOuter + '%');
+  });
+}
 
 function drawGhosts() {
   const mag = Math.abs(tiltRx) + Math.abs(tiltRy);
-  const W = ghostCanvas.width, H = ghostCanvas.height;
-  if (mag < 0.3) { gCtx.clearRect(0, 0, W, H); return; }
-  gCtx.clearRect(0, 0, W, H);
-  gCtx.globalCompositeOperation = GHOST.blend;
-  gCtx.globalAlpha = GHOST.opacity;
-  for (let i = 0; i < GHOST.layers; i++) {
-    const scalar = GHOST.layers > 1 ? i / (GHOST.layers - 1) : 0;
-    const dx = tiltRy * GHOST.spreadX * scalar;
-    const dy = tiltRx * GHOST.spreadY * scalar;
-    gCtx.drawImage(offscreen, dx, dy, W, H);
+  if (mag < 0.3) {
+    ghostClones.forEach(c => { c.style.opacity = 0; });
+    return;
   }
+  ghostClones.forEach((clone, i) => {
+    const scalar = (i + 1) / GHOST.layers;
+    const dx = -tiltRy * GHOST.spread * scalar;
+    const dy =  tiltRx * GHOST.spread * scalar;
+    clone.style.transform = `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px)`;
+    clone.style.opacity   = GHOST.opacity;
+    clone.style.filter    = GHOST.blur > 0 ? `blur(${(GHOST.blur * scalar).toFixed(1)}px)` : '';
+  });
 }
+
+buildClones();
+applyMask();
 
 (function tiltLoop() {
   tiltVx += (tiltTx - tiltRx) * TILT.stiffness;
@@ -387,16 +386,31 @@ function drawGhosts() {
 })();
 
 [
-  ['s-glayers', 'v-glayers', 'layers',  '',    v => Math.round(v)],
-  ['s-gsx',     'v-gsx',     'spreadX', '',    v => v],
-  ['s-gsy',     'v-gsy',     'spreadY', '',    v => v],
-  ['s-gopa',    'v-gopa',    'opacity', '',    v => v],
-].forEach(([sid, vid, key, , fmt]) => {
+  ['s-spread', 'v-spread', 'spread',    'px'],
+  ['s-gopa',   'v-gopa',   'opacity',   ''  ],
+  ['s-gblur',  'v-gblur',  'blur',      'px'],
+].forEach(([sid, vid, key, unit]) => {
   const sl = document.getElementById(sid);
   const vl = document.getElementById(vid);
-  sl.addEventListener('input', () => { GHOST[key] = +sl.value; vl.textContent = fmt(+sl.value); });
+  sl.addEventListener('input', () => { GHOST[key] = +sl.value; vl.textContent = sl.value + unit; });
 });
-document.getElementById('s-gblend').addEventListener('change', e => { GHOST.blend = e.target.value; });
+
+[
+  ['s-minner', 'v-minner', 'maskInner', '%'],
+  ['s-mouter', 'v-mouter', 'maskOuter', '%'],
+].forEach(([sid, vid, key, unit]) => {
+  const sl = document.getElementById(sid);
+  const vl = document.getElementById(vid);
+  sl.addEventListener('input', () => { GHOST[key] = +sl.value; vl.textContent = sl.value + unit; applyMask(); });
+});
+
+document.getElementById('s-glayers').addEventListener('input', e => {
+  GHOST.layers = Math.round(+e.target.value);
+  document.getElementById('v-glayers').textContent = GHOST.layers;
+  buildClones();
+  applyMask();
+});
+
 </script>
 </body>
 </html>
