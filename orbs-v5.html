@@ -185,6 +185,9 @@ canvas { display: block; width: 100vw; height: 100dvh; }
       <span class="orb-slider-label">Weight</span>
       <input type="range" id="typoWeight" class="orb-slider" min="100" max="800" step="100" value="400">
     </div>
+    <div style="margin-top:10px">
+      <button id="copyTypo" style="pointer-events:auto;width:100%;padding:6px 0;border-radius:10px;border:1.5px solid rgba(0,0,0,0.08);background:transparent;font-family:'Plus Jakarta Sans',sans-serif;font-size:10px;font-weight:500;color:rgba(0,0,0,0.4);cursor:pointer;transition:all 0.15s;">Copy font settings</button>
+    </div>
   </div>
 </div>
 
@@ -760,6 +763,15 @@ document.getElementById("typoSize").addEventListener("input", e => {
 document.getElementById("typoWeight").addEventListener("input", e => {
   typoWeight = parseInt(e.target.value);
   rebuildBg();
+});
+
+const copyTypoBtn = document.getElementById("copyTypo");
+copyTypoBtn.addEventListener("click", () => {
+  const txt = JSON.stringify({ scale: typoScale, weight: typoWeight });
+  navigator.clipboard.writeText(txt).then(() => {
+    copyTypoBtn.textContent = "Copied!";
+    setTimeout(() => { copyTypoBtn.textContent = "Copy font settings"; }, 1500);
+  });
 });
 
 let blendMode = 0;
