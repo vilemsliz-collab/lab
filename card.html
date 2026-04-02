@@ -116,6 +116,13 @@ body {
 }
 .replay-btn:hover { opacity: 0.8; }
 
+.card-shine {
+  position: absolute; inset: 0; z-index: 3;
+  pointer-events: none;
+  border-radius: inherit;
+  mix-blend-mode: screen;
+  will-change: background, opacity;
+}
 a.back    { position:fixed;top:20px;left:20px;font-size:12px;color:#999;text-decoration:none;font-family:monospace; }
 a.ds-link { position:fixed;top:20px;right:20px;font-size:12px;color:#999;text-decoration:none;font-family:monospace; }
 a.back:hover, a.ds-link:hover { color:#333; }
@@ -133,6 +140,7 @@ a.back:hover, a.ds-link:hover { color:#333; }
 <div class="card" id="card">
   <img id="card-img" class="card-bg" src="./image-60.png" alt="">
   <div class="card-overlay"></div>
+  <div class="card-shine" id="card-shine"></div>
   <div class="card-content">
     <p class="type-label-medium" id="line1">Lead Brand Designer</p>
     <p class="type-headline-medium" id="line2">Brand for showmore new 360 agency on the market</p>
@@ -392,6 +400,37 @@ function setVariant(v) {
   document.getElementById('btn-behind').classList.toggle('active', v === 'behind');
 }
 
+/* ── Highlight / lighting ── */
+const shineEl = document.getElementById('card-shine');
+
+function updateShine() {
+  const maxT = TILT.max || 12;
+  // Normalised tilt: +1 = tilted right / top-toward-viewer
+  const nx =  tiltRy / maxT;
+  const ny = -tiltRx / maxT;
+  const mag = Math.min(Math.hypot(nx, ny), 1);
+
+  if (mag < 0.015) { shineEl.style.background = 'none'; return; }
+
+  // Specular highlight — reflection of an overhead-front light source.
+  // Tilting right (nx > 0) moves the highlight LEFT; tilting top forward (ny < 0) moves it UP.
+  const hx = (50 - nx * 68).toFixed(1);
+  const hy = (50 + ny * 68).toFixed(1);
+  const specPeak  = (0.50 * mag).toFixed(3);
+  const specMid   = (0.06 * mag).toFixed(3);
+
+  // Diffuse edge brightening — lit side faces light, opposite side in relative shadow.
+  const litAngle  = (Math.atan2(-nx, -ny) * 180 / Math.PI).toFixed(1);
+  const diffAmt   = (0.10 * mag).toFixed(3);
+  const shadowAmt = (0.18 * mag).toFixed(3);
+
+  shineEl.style.background = [
+    `radial-gradient(ellipse 52% 52% at ${hx}% ${hy}%, rgba(255,255,255,${specPeak}) 0%, rgba(255,255,255,${specMid}) 45%, transparent 72%)`,
+    `linear-gradient(${litAngle}deg, rgba(255,255,255,${diffAmt}) 0%, transparent 55%)`,
+    `linear-gradient(${(+litAngle + 180).toFixed(1)}deg, rgba(0,0,0,${shadowAmt}) 0%, transparent 60%)`
+  ].join(',');
+}
+
 (function tiltLoop() {
   tiltVx += (tiltTx - tiltRx) * TILT.stiffness;
   tiltVy += (tiltTy - tiltRy) * TILT.stiffness;
@@ -401,6 +440,7 @@ function setVariant(v) {
   tiltRy += tiltVy;
   cardEl.style.transform = `rotateX(${tiltRx.toFixed(3)}deg) rotateY(${tiltRy.toFixed(3)}deg)`;
   drawGhosts();
+  updateShine();
   requestAnimationFrame(tiltLoop);
 })();
 
