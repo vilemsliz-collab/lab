@@ -166,16 +166,19 @@ a.back:hover, a.ds-link:hover { color:#333; }
     <input type="range" id="s-y" min="0" max="40" value="8">
     <span class="ctrl-val" id="v-y">8px</span>
   </div>
-  <button class="replay-btn" id="replayBtn">replay reveal</button>
+  <div style="display:flex;gap:8px;margin-top:4px;">
+    <button class="replay-btn" id="replayBtn" style="flex:1">replay reveal</button>
+    <button class="replay-btn" id="copyBtn" style="flex:1;background:#fff;color:#333;border-color:rgba(0,0,0,0.15)">copy values</button>
+  </div>
 </div>
 
 <script>
 const CFG = { stagger: 60, dur: 400, blur: 8, y: 8 };
 
 function wrapWords(el) {
-  el.innerHTML = el.textContent.trim().split('').map(ch =>
-    ch === ' ' ? ' ' : `<span class="word">${ch}</span>`
-  ).join('');
+  el.innerHTML = el.textContent.trim().split(/\s+/).map(w =>
+    `<span class="word">${w}</span>`
+  ).join(' ');
 }
 
 function applyCSS() {
@@ -213,6 +216,18 @@ reveal();
 });
 
 document.getElementById('replayBtn').addEventListener('click', reveal);
+
+document.getElementById('copyBtn').addEventListener('click', () => {
+  const btn = document.getElementById('copyBtn');
+  const values = {
+    reveal: { stagger: CFG.stagger, duration: CFG.dur, blur: CFG.blur, y: CFG.y },
+    tilt:   { max: TILT.max, radius: TILT.radius, stiffness: TILT.stiffness, damping: TILT.damping }
+  };
+  navigator.clipboard.writeText(JSON.stringify(values, null, 2)).then(() => {
+    btn.textContent = 'copied!';
+    setTimeout(() => { btn.textContent = 'copy values'; }, 1500);
+  });
+});
 
 [
   ['s-tmax',    'v-tmax',    'max',       '°',   1  ],
