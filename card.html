@@ -45,12 +45,10 @@ body {
 .ghost-clone {
   position: absolute;
   inset: 0;
-  z-index: 1;
+  z-index: 3;
   pointer-events: none;
   opacity: 0;
   will-change: transform, opacity, filter;
-  -webkit-mask-image: radial-gradient(ellipse 72% 76% at 50% 50%, transparent var(--mask-inner, 52%), black var(--mask-outer, 80%));
-  mask-image: radial-gradient(ellipse 72% 76% at 50% 50%, transparent var(--mask-inner, 52%), black var(--mask-outer, 80%));
 }
 .ghost-clone .card-content { visibility: hidden; }
 .card-overlay {
@@ -121,6 +119,8 @@ body {
 a.back    { position:fixed;top:20px;left:20px;font-size:12px;color:#999;text-decoration:none;font-family:monospace; }
 a.ds-link { position:fixed;top:20px;right:20px;font-size:12px;color:#999;text-decoration:none;font-family:monospace; }
 a.back:hover, a.ds-link:hover { color:#333; }
+.ctrl-section { font-family:monospace; font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:#aaa; margin-top:16px; margin-bottom:4px; }
+.ctrl-section:first-child { margin-top:0; }
 </style>
 </head>
 <body>
@@ -139,36 +139,7 @@ a.back:hover, a.ds-link:hover { color:#333; }
 </div>
 
 <div class="controls">
-  <div class="ctrl-row">
-    <span class="ctrl-label">layers</span>
-    <input type="range" id="s-glayers" min="3" max="16" step="1" value="8">
-    <span class="ctrl-val" id="v-glayers">8</span>
-  </div>
-  <div class="ctrl-row">
-    <span class="ctrl-label">spread</span>
-    <input type="range" id="s-spread" min="0" max="80" step="1" value="28">
-    <span class="ctrl-val" id="v-spread">28px</span>
-  </div>
-  <div class="ctrl-row">
-    <span class="ctrl-label">g·opacity</span>
-    <input type="range" id="s-gopa" min="0.01" max="1" step="0.01" value="0.55">
-    <span class="ctrl-val" id="v-gopa">0.55</span>
-  </div>
-  <div class="ctrl-row">
-    <span class="ctrl-label">g·blur</span>
-    <input type="range" id="s-gblur" min="0" max="40" step="0.5" value="18">
-    <span class="ctrl-val" id="v-gblur">18px</span>
-  </div>
-  <div class="ctrl-row">
-    <span class="ctrl-label">edge inner</span>
-    <input type="range" id="s-minner" min="0" max="95" step="1" value="52">
-    <span class="ctrl-val" id="v-minner">52%</span>
-  </div>
-  <div class="ctrl-row">
-    <span class="ctrl-label">edge outer</span>
-    <input type="range" id="s-mouter" min="5" max="100" step="1" value="80">
-    <span class="ctrl-val" id="v-mouter">80%</span>
-  </div>
+  <p class="ctrl-section">tilt</p>
   <div class="ctrl-row">
     <span class="ctrl-label">max tilt</span>
     <input type="range" id="s-tmax" min="1" max="20" step="0.5" value="8">
@@ -184,6 +155,30 @@ a.back:hover, a.ds-link:hover { color:#333; }
     <input type="range" id="s-tdamp" min="0.5" max="0.98" step="0.01" value="0.75">
     <span class="ctrl-val" id="v-tdamp">0.75</span>
   </div>
+
+  <p class="ctrl-section">ghost effect</p>
+  <div class="ctrl-row">
+    <span class="ctrl-label">layers</span>
+    <input type="range" id="s-glayers" min="3" max="16" step="1" value="8">
+    <span class="ctrl-val" id="v-glayers">8</span>
+  </div>
+  <div class="ctrl-row">
+    <span class="ctrl-label">spread</span>
+    <input type="range" id="s-spread" min="0" max="80" step="1" value="12">
+    <span class="ctrl-val" id="v-spread">12px</span>
+  </div>
+  <div class="ctrl-row">
+    <span class="ctrl-label">opacity</span>
+    <input type="range" id="s-gopa" min="0.01" max="1" step="0.01" value="0.45">
+    <span class="ctrl-val" id="v-gopa">0.45</span>
+  </div>
+  <div class="ctrl-row">
+    <span class="ctrl-label">blur</span>
+    <input type="range" id="s-gblur" min="0" max="40" step="0.5" value="18">
+    <span class="ctrl-val" id="v-gblur">18px</span>
+  </div>
+
+  <p class="ctrl-section">reveal</p>
   <div class="ctrl-row">
     <span class="ctrl-label">stagger</span>
     <input type="range" id="s-stagger" min="20" max="200" value="70">
@@ -331,7 +326,7 @@ if (isMobile()) {
 }
 
 /* ── Ghost clones ── */
-const GHOST = { layers: 6, spread: 12, opacity: 0.8, blur: 18, maskInner: 52, maskOuter: 80 };
+const GHOST = { layers: 6, spread: 12, opacity: 0.45, blur: 18 };
 const cardWrap = cardEl.parentElement;
 const ghostClones = [];
 
@@ -347,12 +342,6 @@ function buildClones() {
   }
 }
 
-function applyMask() {
-  ghostClones.forEach(c => {
-    c.style.setProperty('--mask-inner', GHOST.maskInner + '%');
-    c.style.setProperty('--mask-outer', GHOST.maskOuter + '%');
-  });
-}
 
 function drawGhosts() {
   const mag = Math.abs(tiltRx) + Math.abs(tiltRy);
@@ -371,7 +360,6 @@ function drawGhosts() {
 }
 
 buildClones();
-applyMask();
 
 (function tiltLoop() {
   tiltVx += (tiltTx - tiltRx) * TILT.stiffness;
@@ -395,20 +383,11 @@ applyMask();
   sl.addEventListener('input', () => { GHOST[key] = +sl.value; vl.textContent = sl.value + unit; });
 });
 
-[
-  ['s-minner', 'v-minner', 'maskInner', '%'],
-  ['s-mouter', 'v-mouter', 'maskOuter', '%'],
-].forEach(([sid, vid, key, unit]) => {
-  const sl = document.getElementById(sid);
-  const vl = document.getElementById(vid);
-  sl.addEventListener('input', () => { GHOST[key] = +sl.value; vl.textContent = sl.value + unit; applyMask(); });
-});
 
 document.getElementById('s-glayers').addEventListener('input', e => {
   GHOST.layers = Math.round(+e.target.value);
   document.getElementById('v-glayers').textContent = GHOST.layers;
   buildClones();
-  applyMask();
 });
 
 </script>
