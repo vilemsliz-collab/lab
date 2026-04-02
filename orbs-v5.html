@@ -507,7 +507,7 @@ function rebuildBg() {
   const lh = sz * 1.15;
   x.font = `${typoWeight} ${sz}px "Plus Jakarta Sans", sans-serif`;
   if (x.letterSpacing !== undefined) x.letterSpacing = `${sz * -0.02}px`;
-  x.fillStyle = "#111"; x.textAlign = "left"; x.textBaseline = "top";
+  x.fillStyle = "#D3D4D9"; x.textAlign = "left"; x.textBaseline = "top";
   const lines = BG_TEXT.split("\n");
   let mw = 0;
   for (let i = 0; i < lines.length; i++) { const w = x.measureText(lines[i]).width; if (w > mw) mw = w; }
