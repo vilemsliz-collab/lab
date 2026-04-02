@@ -37,16 +37,21 @@ body {
   will-change: transform;
 }
 .card-bg {
-  position: absolute; inset: 0;
-  background: #d9d9d9 url('https://www.figma.com/api/mcp/asset/6d5a8ac8-6b4a-41d5-a732-a5b83f3a7841') center/cover;
+  position: absolute; inset: 0; z-index: 0;
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+#ghost-canvas {
+  position: absolute; inset: 0; z-index: 1;
+  width: 100%; height: 100%;
+  pointer-events: none;
 }
 .card-overlay {
-  position: absolute; inset: 0;
+  position: absolute; inset: 0; z-index: 2;
   background: linear-gradient(to bottom, rgba(0,0,0,0) 55%, rgba(0,0,0,0.55));
 }
 .card-content {
-  position: relative;
-  display: flex; flex-direction: column; gap: var(--stack-md);  /* 16px */
+  position: relative; z-index: 3;
+  display: flex; flex-direction: column; gap: var(--stack-md);
   color: #fff;
 }
 
@@ -116,7 +121,8 @@ a.back:hover, a.ds-link:hover { color:#333; }
 
 <div class="card-wrap">
 <div class="card" id="card">
-  <div class="card-bg"></div>
+  <img id="card-img" class="card-bg" src="https://picsum.photos/600/800" crossorigin="anonymous" alt="">
+  <canvas id="ghost-canvas"></canvas>
   <div class="card-overlay"></div>
   <div class="card-content">
     <p class="type-label-medium" id="line1">Lead Brand Designer</p>
@@ -126,6 +132,35 @@ a.back:hover, a.ds-link:hover { color:#333; }
 </div>
 
 <div class="controls">
+  <div class="ctrl-row">
+    <span class="ctrl-label">layers</span>
+    <input type="range" id="s-glayers" min="3" max="16" step="1" value="8">
+    <span class="ctrl-val" id="v-glayers">8</span>
+  </div>
+  <div class="ctrl-row">
+    <span class="ctrl-label">spreadX</span>
+    <input type="range" id="s-gsx" min="0" max="4" step="0.1" value="1.4">
+    <span class="ctrl-val" id="v-gsx">1.4</span>
+  </div>
+  <div class="ctrl-row">
+    <span class="ctrl-label">spreadY</span>
+    <input type="range" id="s-gsy" min="0" max="4" step="0.1" value="1.4">
+    <span class="ctrl-val" id="v-gsy">1.4</span>
+  </div>
+  <div class="ctrl-row">
+    <span class="ctrl-label">g·opacity</span>
+    <input type="range" id="s-gopa" min="0.01" max="0.25" step="0.01" value="0.07">
+    <span class="ctrl-val" id="v-gopa">0.07</span>
+  </div>
+  <div class="ctrl-row">
+    <span class="ctrl-label">blend</span>
+    <select id="s-gblend" style="flex:1;font-family:monospace;font-size:11px;border:1px solid rgba(0,0,0,0.12);border-radius:4px;padding:3px 6px;background:#fff;color:#333;cursor:pointer;">
+      <option value="multiply" selected>multiply</option>
+      <option value="screen">screen</option>
+      <option value="overlay">overlay</option>
+      <option value="hard-light">hard-light</option>
+    </select>
+  </div>
   <div class="ctrl-row">
     <span class="ctrl-label">max tilt</span>
     <input type="range" id="s-tmax" min="1" max="20" step="0.5" value="8">
@@ -300,6 +335,34 @@ if (isMobile()) {
   }
 }
 
+/* ── Ghost canvas ── */
+const GHOST = { layers: 8, spreadX: 1.4, spreadY: 1.4, opacity: 0.07, blend: 'multiply' };
+const ghostCanvas = document.getElementById('ghost-canvas');
+const gCtx = ghostCanvas.getContext('2d');
+const cardImg = document.getElementById('card-img');
+
+function resizeGhostCanvas() {
+  ghostCanvas.width  = cardEl.offsetWidth;
+  ghostCanvas.height = cardEl.offsetHeight;
+}
+resizeGhostCanvas();
+window.addEventListener('resize', resizeGhostCanvas);
+
+function drawGhosts() {
+  const mag = Math.abs(tiltRx) + Math.abs(tiltRy);
+  if (mag < 0.3) { gCtx.clearRect(0, 0, ghostCanvas.width, ghostCanvas.height); return; }
+  const W = ghostCanvas.width, H = ghostCanvas.height;
+  gCtx.clearRect(0, 0, W, H);
+  gCtx.globalCompositeOperation = GHOST.blend;
+  gCtx.globalAlpha = GHOST.opacity;
+  for (let i = 0; i < GHOST.layers; i++) {
+    const scalar = GHOST.layers > 1 ? i / (GHOST.layers - 1) : 0;
+    const dx = tiltRy * GHOST.spreadX * scalar;
+    const dy = tiltRx * GHOST.spreadY * scalar;
+    gCtx.drawImage(cardImg, dx, dy, W, H);
+  }
+}
+
 (function tiltLoop() {
   tiltVx += (tiltTx - tiltRx) * TILT.stiffness;
   tiltVy += (tiltTy - tiltRy) * TILT.stiffness;
@@ -308,8 +371,21 @@ if (isMobile()) {
   tiltRx += tiltVx;
   tiltRy += tiltVy;
   cardEl.style.transform = `rotateX(${tiltRx.toFixed(3)}deg) rotateY(${tiltRy.toFixed(3)}deg)`;
+  drawGhosts();
   requestAnimationFrame(tiltLoop);
 })();
+
+[
+  ['s-glayers', 'v-glayers', 'layers',  '',    v => Math.round(v)],
+  ['s-gsx',     'v-gsx',     'spreadX', '',    v => v],
+  ['s-gsy',     'v-gsy',     'spreadY', '',    v => v],
+  ['s-gopa',    'v-gopa',    'opacity', '',    v => v],
+].forEach(([sid, vid, key, , fmt]) => {
+  const sl = document.getElementById(sid);
+  const vl = document.getElementById(vid);
+  sl.addEventListener('input', () => { GHOST[key] = +sl.value; vl.textContent = fmt(+sl.value); });
+});
+document.getElementById('s-gblend').addEventListener('change', e => { GHOST.blend = e.target.value; });
 </script>
 </body>
 </html>
