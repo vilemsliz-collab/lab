@@ -22,9 +22,8 @@ canvas { display: block; width: 100vw; height: 100dvh; }
 .toolbar {
   position: fixed;
   bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 300px;
+  right: 24px;
+  width: 360px;
   display: flex;
   flex-direction: column;
   padding: 14px 16px;
@@ -37,7 +36,7 @@ canvas { display: block; width: 100vw; height: 100dvh; }
   pointer-events: none;
 }
 @media (max-width: 500px) {
-  .toolbar { width: calc(100vw - 32px); bottom: 16px; }
+  .toolbar { width: calc(100vw - 32px); bottom: 16px; right: 16px; }
 }
 .tb-top {
   display: flex;
@@ -144,26 +143,50 @@ canvas { display: block; width: 100vw; height: 100dvh; }
 }
 .tbtn:hover { border-color: rgba(0,0,0,0.3); color: rgba(0,0,0,0.5); }
 .tbtn.hidden { display: none; }
-.blend-btn {
+/* ── Blend switch ── */
+.blend-switch {
+  position: relative;
+  display: flex;
+  background: rgba(0,0,0,0.06);
+  border-radius: 10px;
+  padding: 2px;
+  cursor: pointer;
   pointer-events: auto;
-  padding: 4px 9px;
-  border-radius: 12px;
-  border: 1.5px solid rgba(0,0,0,0.08);
-  background: transparent;
-  color: rgba(0,0,0,0.35);
-  font-family: "Plus Jakarta Sans", sans-serif;
+  flex-shrink: 0;
+}
+.blend-thumb {
+  position: absolute;
+  top: 2px; left: 2px;
+  height: calc(100% - 4px);
+  width: calc(50% - 2px);
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+  transition: transform 0.2s ease;
+  pointer-events: none;
+}
+.blend-switch.diff .blend-thumb { transform: translateX(100%); }
+.blend-opt {
+  flex: 1;
+  text-align: center;
   font-size: 10px;
   font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  flex-shrink: 0;
+  font-family: "Plus Jakarta Sans", sans-serif;
+  color: rgba(0,0,0,0.35);
+  padding: 4px 10px;
+  position: relative;
+  z-index: 1;
+  transition: color 0.2s;
   white-space: nowrap;
+  pointer-events: none;
 }
-.blend-btn:hover { border-color: rgba(0,0,0,0.2); color: rgba(0,0,0,0.5); }
-.blend-btn.active {
-  background: rgba(0,0,0,0.06);
-  border-color: rgba(0,0,0,0.15);
-  color: rgba(0,0,0,0.6);
+.blend-switch:not(.diff) .blend-opt:first-of-type,
+.blend-switch.diff      .blend-opt:last-of-type  { color: rgba(0,0,0,0.7); }
+/* ── Typo section ── */
+.tb-section {
+  border-top: 1px solid rgba(0,0,0,0.05);
+  padding: 8px 0 2px;
+  pointer-events: auto;
 }
 </style>
 </head>
@@ -173,8 +196,21 @@ canvas { display: block; width: 100vw; height: 100dvh; }
   <div class="tb-top">
     <button class="tbtn" id="addBtn" title="Add orb">+</button>
     <div class="tb-spacer"></div>
-    <button class="blend-btn active" data-mode="0">Multiply</button>
-    <button class="blend-btn" data-mode="1">Difference</button>
+    <div class="blend-switch" id="blendSwitch">
+      <div class="blend-thumb"></div>
+      <span class="blend-opt">Multiply</span>
+      <span class="blend-opt">Difference</span>
+    </div>
+  </div>
+  <div class="tb-section">
+    <div class="orb-slider-row">
+      <span class="orb-slider-label">Type</span>
+      <input type="range" id="typoSlider" class="orb-slider" min="0.4" max="2.5" step="0.05" value="1">
+    </div>
+    <div class="orb-slider-row" style="margin-top:5px">
+      <span class="orb-slider-label">Weight</span>
+      <input type="range" id="typoWeight" class="orb-slider" min="100" max="900" step="100" value="400">
+    </div>
   </div>
 </div>
 
@@ -426,9 +462,10 @@ function rebuildBg() {
   x.fillStyle = "#fff";
   x.fillRect(0, 0, W, H);
 
-  const sz = W >= 1200 ? 163 : W >= 768 ? Math.round(W * 0.115) : Math.round(W * 0.1);
+  const szBase = W >= 1200 ? 163 : W >= 768 ? Math.round(W * 0.115) : Math.round(W * 0.1);
+  const sz = Math.round(szBase * typoScale);
   const lh = sz * 1.15;
-  x.font = `400 ${sz}px "Plus Jakarta Sans", sans-serif`;
+  x.font = `${typoWeightVal} ${sz}px "Plus Jakarta Sans", sans-serif`;
   if (x.letterSpacing !== undefined) x.letterSpacing = `${sz * -0.02}px`;
   x.fillStyle = "#111"; x.textAlign = "left"; x.textBaseline = "top";
   const lines = BG_TEXT.split("\n");
@@ -740,13 +777,21 @@ function buildBar() {
 addBtn.addEventListener("click", () => addOrb());
 
 let blendMode = 0;
-const blendBtns = toolbar.querySelectorAll(".blend-btn");
-blendBtns.forEach(btn => {
-  btn.addEventListener("click", () => {
-    blendMode = parseInt(btn.dataset.mode);
-    blendBtns.forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-  });
+const blendSwitch = document.getElementById("blendSwitch");
+blendSwitch.addEventListener("click", () => {
+  blendMode = blendMode === 0 ? 1 : 0;
+  blendSwitch.classList.toggle("diff", blendMode === 1);
+});
+
+let typoScale = 1.0;
+let typoWeightVal = 400;
+document.getElementById("typoSlider").addEventListener("input", e => {
+  typoScale = parseFloat(e.target.value);
+  rebuildBg();
+});
+document.getElementById("typoWeight").addEventListener("input", e => {
+  typoWeightVal = parseInt(e.target.value);
+  rebuildBg();
 });
 
 addOrb(); addOrb(); addOrb();
