@@ -33,8 +33,7 @@ body {
   position: relative;
   background: #d9d9d9;
   transform-style: preserve-3d;
-  transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1),
-              box-shadow 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+  transition: none;
   will-change: transform;
 }
 .card-bg {
@@ -128,6 +127,26 @@ a.back:hover, a.ds-link:hover { color:#333; }
 
 <div class="controls">
   <div class="ctrl-row">
+    <span class="ctrl-label">max tilt</span>
+    <input type="range" id="s-tmax" min="1" max="20" step="0.5" value="8">
+    <span class="ctrl-val" id="v-tmax">8°</span>
+  </div>
+  <div class="ctrl-row">
+    <span class="ctrl-label">radius</span>
+    <input type="range" id="s-tradius" min="50" max="800" value="320">
+    <span class="ctrl-val" id="v-tradius">320px</span>
+  </div>
+  <div class="ctrl-row">
+    <span class="ctrl-label">stiffness</span>
+    <input type="range" id="s-tstiff" min="0.01" max="0.4" step="0.01" value="0.1">
+    <span class="ctrl-val" id="v-tstiff">0.1</span>
+  </div>
+  <div class="ctrl-row">
+    <span class="ctrl-label">damping</span>
+    <input type="range" id="s-tdamp" min="0.5" max="0.98" step="0.01" value="0.75">
+    <span class="ctrl-val" id="v-tdamp">0.75</span>
+  </div>
+  <div class="ctrl-row">
     <span class="ctrl-label">stagger</span>
     <input type="range" id="s-stagger" min="20" max="200" value="60">
     <span class="ctrl-val" id="v-stagger">60ms</span>
@@ -195,26 +214,48 @@ reveal();
 
 document.getElementById('replayBtn').addEventListener('click', reveal);
 
+[
+  ['s-tmax',    'v-tmax',    'max',       '°',   1  ],
+  ['s-tradius', 'v-tradius', 'radius',    'px',  1  ],
+  ['s-tstiff',  'v-tstiff',  'stiffness', '',    100],
+  ['s-tdamp',   'v-tdamp',   'damping',   '',    100],
+].forEach(([sid, vid, key, unit, prec]) => {
+  const sl = document.getElementById(sid);
+  const vl = document.getElementById(vid);
+  sl.addEventListener('input', () => {
+    TILT[key] = +sl.value;
+    vl.textContent = (+sl.value).toFixed(prec > 1 ? 2 : 0) + unit;
+  });
+});
+
 /* ── Card tilt ── */
 const cardEl = document.getElementById('card');
-const MAX_TILT = 8;
+const TILT = { max: 8, radius: 320, stiffness: 0.1, damping: 0.75 };
 
-cardEl.addEventListener('mousemove', e => {
-  const r = cardEl.getBoundingClientRect();
-  const x = (e.clientX - r.left) / r.width  - 0.5;
-  const y = (e.clientY - r.top)  / r.height - 0.5;
-  const ry =  x * MAX_TILT * 2;
-  const rx = -y * MAX_TILT * 2;
-  cardEl.style.transition = 'none';
-  cardEl.style.transform = `rotateX(${rx}deg) rotateY(${ry}deg)`;
-  cardEl.style.boxShadow = `${-ry * 1.2}px ${rx * 1.2}px 32px rgba(0,0,0,0.18)`;
+let tiltRx = 0, tiltRy = 0, tiltVx = 0, tiltVy = 0, tiltTx = 0, tiltTy = 0;
+
+document.addEventListener('mousemove', e => {
+  const r  = cardEl.getBoundingClientRect();
+  const cx = r.left + r.width  / 2;
+  const cy = r.top  + r.height / 2;
+  const dx = e.clientX - cx;
+  const dy = e.clientY - cy;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  const falloff = Math.max(0, 1 - dist / TILT.radius);
+  tiltTy =  (dx / (r.width  / 2)) * TILT.max * falloff;
+  tiltTx = -(dy / (r.height / 2)) * TILT.max * falloff;
 });
 
-cardEl.addEventListener('mouseleave', () => {
-  cardEl.style.transition = '';
-  cardEl.style.transform  = 'rotateX(0deg) rotateY(0deg)';
-  cardEl.style.boxShadow  = '';
-});
+(function tiltLoop() {
+  tiltVx += (tiltTx - tiltRx) * TILT.stiffness;
+  tiltVy += (tiltTy - tiltRy) * TILT.stiffness;
+  tiltVx *= TILT.damping;
+  tiltVy *= TILT.damping;
+  tiltRx += tiltVx;
+  tiltRy += tiltVy;
+  cardEl.style.transform = `rotateX(${tiltRx.toFixed(3)}deg) rotateY(${tiltRy.toFixed(3)}deg)`;
+  requestAnimationFrame(tiltLoop);
+})();
 </script>
 </body>
 </html>
