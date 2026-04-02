@@ -6,77 +6,77 @@
   --type-display-large-size:    57px;
   --type-display-large-lh:      64px;
   --type-display-large-ls:      -0.25px;
-  --type-display-large-weight:  400;
+  --type-display-large-weight:  300;
 
   --type-display-medium-size:   45px;
   --type-display-medium-lh:     52px;
   --type-display-medium-ls:     0px;
-  --type-display-medium-weight: 400;
+  --type-display-medium-weight: 300;
 
   --type-display-small-size:    36px;
   --type-display-small-lh:      44px;
   --type-display-small-ls:      0px;
-  --type-display-small-weight:  400;
+  --type-display-small-weight:  300;
 
   --type-headline-large-size:    32px;
   --type-headline-large-lh:      40px;
   --type-headline-large-ls:      0px;
-  --type-headline-large-weight:  400;
+  --type-headline-large-weight:  300;
 
   --type-headline-medium-size:   28px;
   --type-headline-medium-lh:     36px;
   --type-headline-medium-ls:     0px;
-  --type-headline-medium-weight: 400;
+  --type-headline-medium-weight: 300;
 
   --type-headline-small-size:    24px;
   --type-headline-small-lh:      32px;
   --type-headline-small-ls:      0px;
-  --type-headline-small-weight:  400;
+  --type-headline-small-weight:  300;
 
   --type-title-large-size:    22px;
   --type-title-large-lh:      28px;
   --type-title-large-ls:      0px;
-  --type-title-large-weight:  400;
+  --type-title-large-weight:  300;
 
   --type-title-medium-size:   16px;
   --type-title-medium-lh:     24px;
   --type-title-medium-ls:     0.15px;
-  --type-title-medium-weight: 500;
+  --type-title-medium-weight: 300;
 
   --type-title-small-size:    14px;
   --type-title-small-lh:      20px;
   --type-title-small-ls:      0.1px;
-  --type-title-small-weight:  500;
+  --type-title-small-weight:  300;
 
   --type-label-large-size:    14px;
   --type-label-large-lh:      20px;
   --type-label-large-ls:      0.1px;
-  --type-label-large-weight:  500;
+  --type-label-large-weight:  300;
 
   --type-label-medium-size:   12px;
   --type-label-medium-lh:     16px;
   --type-label-medium-ls:     0.5px;
-  --type-label-medium-weight: 500;
+  --type-label-medium-weight: 300;
 
   --type-label-small-size:    11px;
   --type-label-small-lh:      16px;
   --type-label-small-ls:      0.5px;
-  --type-label-small-weight:  500;
+  --type-label-small-weight:  300;
 
   --type-body-large-size:    16px;
   --type-body-large-lh:      24px;
   --type-body-large-ls:      0.5px;
-  --type-body-large-weight:  400;
+  --type-body-large-weight:  300;
 
   --type-body-medium-size:   14px;
   --type-body-medium-lh:     20px;
   --type-body-medium-ls:     0.25px;
-  --type-body-medium-weight: 400;
+  --type-body-medium-weight: 300;
 
   --type-body-small-size:    12px;
   --type-body-small-lh:      16px;
   --type-body-small-ls:      0.4px;
-  --type-body-small-weight:  400;
+  --type-body-small-weight:  300;
 }
 
 [class^="type-"] {
