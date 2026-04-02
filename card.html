@@ -249,7 +249,12 @@ const TILT = { max: 8, radius: 400, stiffness: 0.1, damping: 0.75 };
 
 let tiltRx = 0, tiltRy = 0, tiltVx = 0, tiltVy = 0, tiltTx = 0, tiltTy = 0;
 
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const isMobile = () => navigator.maxTouchPoints > 0;
+
+/* Desktop — mouse */
 document.addEventListener('mousemove', e => {
+  if (isMobile()) return;
   const r  = cardEl.getBoundingClientRect();
   const cx = r.left + r.width  / 2;
   const cy = r.top  + r.height / 2;
@@ -260,6 +265,40 @@ document.addEventListener('mousemove', e => {
   tiltTy =  (dx / (r.width  / 2)) * TILT.max * falloff;
   tiltTx = -(dy / (r.height / 2)) * TILT.max * falloff;
 });
+
+/* Mobile — gyroscope */
+function attachGyro() {
+  window.addEventListener('deviceorientation', e => {
+    const gamma = e.gamma ?? 0; // left/right  -90→90
+    const beta  = e.beta  ?? 0; // front/back  -180→180
+    tiltTy = clamp( (gamma / 30) * TILT.max, -TILT.max, TILT.max);
+    tiltTx = clamp(((beta - 45) / 30) * TILT.max, -TILT.max, TILT.max);
+  });
+}
+
+if (isMobile()) {
+  if (typeof DeviceOrientationEvent !== 'undefined' &&
+      typeof DeviceOrientationEvent.requestPermission === 'function') {
+    // iOS 13+ needs a user-gesture permission
+    const permBtn = document.createElement('button');
+    permBtn.textContent = 'enable tilt';
+    permBtn.style.cssText = [
+      'position:fixed','bottom:20px','right:20px',
+      'padding:10px 16px','border-radius:8px','border:1px solid rgba(0,0,0,0.15)',
+      'background:#1c1b1f','color:#fff','font-family:monospace','font-size:12px',
+      'cursor:pointer','z-index:999'
+    ].join(';');
+    document.body.appendChild(permBtn);
+    permBtn.addEventListener('click', () => {
+      DeviceOrientationEvent.requestPermission().then(state => {
+        if (state === 'granted') { attachGyro(); }
+        permBtn.remove();
+      }).catch(() => permBtn.remove());
+    });
+  } else {
+    attachGyro();
+  }
+}
 
 (function tiltLoop() {
   tiltVx += (tiltTx - tiltRx) * TILT.stiffness;
