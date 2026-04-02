@@ -356,8 +356,8 @@ function drawGhosts() {
     const rx = tiltRx * scalar;
     const ry = tiltRy * scalar;
     clone.style.transform = `rotateX(${rx.toFixed(3)}deg) rotateY(${ry.toFixed(3)}deg)`;
-    clone.style.opacity   = GHOST.opacity;
-    clone.style.filter    = GHOST.blur > 0 ? `blur(${GHOST.blur.toFixed(1)}px)` : '';
+    clone.style.opacity   = GHOST.opacity * scalar;
+    clone.style.filter    = GHOST.blur > 0 ? `blur(${(GHOST.blur * (1 - scalar)).toFixed(2)}px)` : '';
   });
 }
 
