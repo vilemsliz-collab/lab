@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Card</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:wght@100..900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./design-system.css">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  min-height: 100dvh;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 32px; background: #e8e8e8; padding: 60px 20px;
+}
+
+/* ── Card ── */
+.card {
+  width: min(92vw, 364px);
+  aspect-ratio: 364 / 555;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex; flex-direction: column; justify-content: flex-end;
+  padding: 24px;
+  position: relative;
+  flex-shrink: 0;
+  cursor: crosshair;
+}
+#c {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  border-radius: 8px;
+}
+.card-overlay {
+  position: absolute; inset: 0;
+  background: linear-gradient(to bottom, rgba(0,0,0,0) 55%, rgba(0,0,0,0.55));
+  pointer-events: none;
+}
+.card-content {
+  position: relative; z-index: 2;
+  display: flex; flex-direction: column; gap: 16px;
+  color: #fff;
+}
+
+/* ── Word reveal ── */
+.word {
+  display: inline-block;
+  opacity: 0;
+  filter: blur(var(--blur, 8px));
+  transform: translateY(var(--y, 8px));
+  transition:
+    opacity   var(--dur, 400ms) ease,
+    filter    var(--dur, 400ms) ease,
+    transform var(--dur, 400ms) ease;
+}
+.word.visible { opacity: 1; filter: blur(0); transform: translateY(0); }
+
+/* ── Controls ── */
+.controls {
+  width: min(92vw, 364px);
+  background: rgba(255,255,255,0.72);
+  backdrop-filter: blur(16px);
+  border-radius: 12px;
+  padding: 20px;
+  display: flex; flex-direction: column; gap: 10px;
+  font-family: monospace; font-size: 11px; color: #666;
+}
+.ctrl-section {
+  font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: #aaa; margin-top: 6px; padding-bottom: 6px;
+  border-bottom: 1px solid rgba(0,0,0,0.07);
+}
+.ctrl-section:first-child { margin-top: 0; }
+.ctrl-row { display: flex; align-items: center; gap: 10px; }
+.ctrl-label { width: 72px; flex-shrink: 0; letter-spacing: 0.04em; }
+.ctrl-val   { width: 40px; text-align: right; flex-shrink: 0; color: #333; }
+.ctrl-row input[type=range] {
+  flex: 1; height: 3px; appearance: none; -webkit-appearance: none;
+  background: rgba(0,0,0,0.12); border-radius: 2px; outline: none; cursor: pointer;
+}
+.ctrl-row input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%;
+  background: rgba(255,255,255,0.9); border: 1px solid rgba(0,0,0,0.2);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+}
+.ctrl-row select {
+  flex: 1; font-family: monospace; font-size: 11px;
+  border: 1px solid rgba(0,0,0,0.12); border-radius: 4px;
+  padding: 3px 6px; background: #fff; color: #333; cursor: pointer;
+}
+.ctrl-actions { display: flex; gap: 8px; margin-top: 4px; }
+.ctrl-btn {
+  flex: 1; padding: 9px;
+  border: 1px solid rgba(0,0,0,0.15); border-radius: 8px;
+  background: #1c1b1f; color: #fff;
+  font-family: monospace; font-size: 11px; letter-spacing: 0.06em;
+  cursor: pointer; transition: opacity 0.15s;
+}
+.ctrl-btn:hover { opacity: 0.75; }
+
+a.back    { position:fixed;top:20px;left:20px;font-size:12px;color:#999;text-decoration:none;font-family:monospace; }
+a.ds-link { position:fixed;top:20px;right:20px;font-size:12px;color:#999;text-decoration:none;font-family:monospace; }
+a.back:hover, a.ds-link:hover { color:#333; }
+</style>
+</head>
+<body>
+<a class="back" href="./index.html">← lab</a>
+<a class="ds-link" href="./design-system.html">design system →</a>
+
+<div class="card" id="card">
+  <canvas id="c"></canvas>
+  <div class="card-overlay"></div>
+  <div class="card-content">
+    <p class="type-label-medium" id="line1">Lead Brand Designer</p>
+    <p class="type-headline-medium" id="line2">Brand for showmore new 360 agency on the market</p>
+  </div>
+</div>
+
+<div class="controls">
+  <div class="ctrl-section">ghost</div>
+
+  <div class="ctrl-row">
+    <span class="ctrl-label">layers</span>
+    <input type="range" id="s-layers" min="3" max="16" step="1" value="8">
+    <span class="ctrl-val" id="v-layers">8</span>
+  </div>
+  <div class="ctrl-row">
+    <span class="ctrl-label">spread</span>
+    <input type="range" id="s-spread" min="0" max="60" value="22">
+    <span class="ctrl-val" id="v-spread">22px</span>
+  </div>
+  <div class="ctrl-row">
+    <span class="ctrl-label">opacity</span>
+    <input type="range" id="s-gopacity" min="0.01" max="0.3" step="0.01" value="0.08">
+    <span class="ctrl-val" id="v-gopacity">0.08</span>
+  </div>
+  <div class="ctrl-row">
+    <span class="ctrl-label">angle</span>
+    <input type="range" id="s-angle" min="0" max="360" value="180">
+    <span class="ctrl-val" id="v-angle">180°</span>
+  </div>
+  <div class="ctrl-row">
+    <span class="ctrl-label">blend</span>
+    <select id="s-blend">
+      <option value="multiply" selected>multiply</option>
+      <option value="screen">screen</option>
+      <option value="overlay">overlay</option>
+      <option value="hard-light">hard-light</option>
+      <option value="difference">difference</option>
+    </select>
+  </div>
+
+  <div class="ctrl-section">reveal</div>
+
+  <div class="ctrl-row">
+    <span class="ctrl-label">stagger</span>
+    <input type="range" id="s-stagger" min="20" max="200" value="60">
+    <span class="ctrl-val" id="v-stagger">60ms</span>
+  </div>
+  <div class="ctrl-row">
+    <span class="ctrl-label">duration</span>
+    <input type="range" id="s-dur" min="100" max="1200" value="400">
+    <span class="ctrl-val" id="v-dur">400ms</span>
+  </div>
+  <div class="ctrl-row">
+    <span class="ctrl-label">blur</span>
+    <input type="range" id="s-blur" min="0" max="24" value="8">
+    <span class="ctrl-val" id="v-blur">8px</span>
+  </div>
+  <div class="ctrl-row">
+    <span class="ctrl-label">y offset</span>
+    <input type="range" id="s-y" min="0" max="40" value="8">
+    <span class="ctrl-val" id="v-y">8px</span>
+  </div>
+
+  <div class="ctrl-actions">
+    <button class="ctrl-btn" id="replayBtn">replay reveal</button>
+  </div>
+</div>
+
+<script>
+/* ── Ghost canvas ── */
+const card   = document.getElementById('card');
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+
+const G = { layers: 8, spread: 22, opacity: 0.08, angle: 180, blend: 'multiply' };
+
+let curSpread = 0, velSpread = 0, hovering = false, mouseAngle = 0;
+
+const img = new Image();
+img.crossOrigin = 'anonymous';
+img.src = 'https://picsum.photos/600/800';
+
+function resizeCanvas() {
+  const r = card.getBoundingClientRect();
+  canvas.width  = r.width  * devicePixelRatio;
+  canvas.height = r.height * devicePixelRatio;
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+}
+
+card.addEventListener('mouseenter', () => { hovering = true; });
+card.addEventListener('mouseleave', () => { hovering = false; });
+card.addEventListener('mousemove', e => {
+  const r = card.getBoundingClientRect();
+  mouseAngle = Math.atan2(
+    e.clientY - r.top  - r.height / 2,
+    e.clientX - r.left - r.width  / 2
+  );
+});
+
+function loop() {
+  const target = hovering ? G.spread : 0;
+  velSpread += (target - curSpread) * 0.12;
+  velSpread *= 0.85;
+  curSpread += velSpread;
+
+  const W = canvas.width  / devicePixelRatio;
+  const H = canvas.height / devicePixelRatio;
+
+  ctx.clearRect(0, 0, W, H);
+
+  if (img.complete && img.naturalWidth) {
+    // White base so multiply has something to multiply against
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, W, H);
+    ctx.drawImage(img, 0, 0, W, H);
+
+    // Ghost layers
+    if (curSpread > 0.1) {
+      ctx.globalCompositeOperation = G.blend;
+      ctx.globalAlpha = G.opacity;
+      const baseAngle = G.angle * Math.PI / 180 + mouseAngle;
+      for (let i = 0; i < G.layers; i++) {
+        const a  = baseAngle + (i / G.layers) * Math.PI * 2;
+        const dx = Math.cos(a) * curSpread;
+        const dy = Math.sin(a) * curSpread;
+        ctx.drawImage(img, dx, dy, W, H);
+      }
+    }
+  }
+
+  requestAnimationFrame(loop);
+}
+
+resizeCanvas();
+loop();
+window.addEventListener('resize', () => { resizeCanvas(); });
+
+/* ── Ghost sliders ── */
+[
+  ['s-layers',   'v-layers',   'layers',  '',    v => Math.round(v)],
+  ['s-spread',   'v-spread',   'spread',  'px',  v => v],
+  ['s-gopacity', 'v-gopacity', 'opacity', '',    v => v],
+  ['s-angle',    'v-angle',    'angle',   '°',   v => v],
+].forEach(([sid, vid, key, unit, fmt]) => {
+  const sl = document.getElementById(sid);
+  const vl = document.getElementById(vid);
+  sl.addEventListener('input', () => {
+    G[key] = +sl.value;
+    vl.textContent = fmt(+sl.value) + unit;
+  });
+});
+document.getElementById('s-blend').addEventListener('change', e => { G.blend = e.target.value; });
+
+/* ── Reveal ── */
+const R = { stagger: 60, dur: 400, blur: 8, y: 8 };
+
+function wrapChars(el) {
+  el.innerHTML = el.textContent.trim().split('').map(ch =>
+    ch === ' ' ? ' ' : `<span class="word">${ch}</span>`
+  ).join('');
+}
+
+function applyRevealCSS() {
+  document.documentElement.style.setProperty('--blur', R.blur + 'px');
+  document.documentElement.style.setProperty('--y',    R.y    + 'px');
+  document.documentElement.style.setProperty('--dur',  R.dur  + 'ms');
+}
+
+function reveal() {
+  document.querySelectorAll('.word').forEach(w => w.classList.remove('visible'));
+  applyRevealCSS();
+  document.querySelectorAll('.word').forEach((w, i) => {
+    setTimeout(() => w.classList.add('visible'), i * R.stagger);
+  });
+}
+
+['line1','line2'].forEach(id => wrapChars(document.getElementById(id)));
+reveal();
+
+[
+  ['s-stagger', 'v-stagger', 'stagger', 'ms'],
+  ['s-dur',     'v-dur',     'dur',     'ms'],
+  ['s-blur',    'v-blur',    'blur',    'px'],
+  ['s-y',       'v-y',       'y',       'px'],
+].forEach(([sid, vid, key, unit]) => {
+  const sl = document.getElementById(sid);
+  const vl = document.getElementById(vid);
+  sl.addEventListener('input', () => {
+    R[key] = +sl.value;
+    vl.textContent = sl.value + unit;
+  });
+});
+
+document.getElementById('replayBtn').addEventListener('click', reveal);
+</script>
+</body>
+</html>
