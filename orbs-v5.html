@@ -24,49 +24,65 @@ canvas { display: block; width: 100vw; height: 100dvh; }
   bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
+  width: 300px;
   display: flex;
-  align-items: center;
-  gap: 20px;
-  padding: 14px 22px;
-  background: rgba(255,255,255,0.65);
+  flex-direction: column;
+  padding: 14px 16px;
+  background: rgba(255,255,255,0.88);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-radius: 40px;
+  border-radius: 20px;
   border: 1px solid rgba(0,0,0,0.06);
   z-index: 10;
   pointer-events: none;
 }
-.orb-dot {
-  pointer-events: auto;
-  width: 28px; height: 28px;
-  border-radius: 50%;
-  border: 2px solid rgba(0,0,0,0.08);
-  cursor: pointer;
-  position: relative;
-  transition: transform 0.2s ease;
-  flex-shrink: 0;
+@media (max-width: 500px) {
+  .toolbar { width: calc(100vw - 32px); bottom: 16px; }
 }
-.orb-dot:hover { transform: scale(1.15); }
-.orb-dot .remove {
-  position: absolute; top: -6px; right: -6px;
-  width: 15px; height: 15px;
-  border-radius: 50%;
-  background: rgba(0,0,0,0.5);
-  color: #fff; font-size: 9px;
-  line-height: 15px; text-align: center;
-  cursor: pointer; display: none;
+.tb-top {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 4px;
   pointer-events: auto;
 }
-.orb-dot:hover .remove { display: block; }
+.tb-spacer { flex: 1; }
 .orb-ctrl {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid rgba(0,0,0,0.05);
   pointer-events: auto;
 }
+.orb-dot {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  border: 2px solid rgba(0,0,0,0.08);
+  flex-shrink: 0;
+}
+.orb-ctrl-sliders {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.orb-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.orb-slider-label {
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(0,0,0,0.28);
+  width: 22px;
+  flex-shrink: 0;
+  font-family: "Plus Jakarta Sans", sans-serif;
+}
 .orb-slider, .hue-slider {
-  width: 56px;
+  flex: 1;
   height: 3px;
   -webkit-appearance: none;
   appearance: none;
@@ -74,16 +90,14 @@ canvas { display: block; width: 100vw; height: 100dvh; }
   outline: none;
   cursor: pointer;
   pointer-events: auto;
-  margin: 0;
-  padding: 0;
+  margin: 0; padding: 0;
 }
 .orb-slider { background: rgba(0,0,0,0.1); }
 .hue-slider { background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00); }
 .orb-slider::-webkit-slider-thumb,
 .hue-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 12px;
-  height: 12px;
+  width: 14px; height: 14px;
   border-radius: 50%;
   background: #fff;
   border: 1.5px solid rgba(0,0,0,0.15);
@@ -92,22 +106,37 @@ canvas { display: block; width: 100vw; height: 100dvh; }
 }
 .orb-slider::-moz-range-thumb,
 .hue-slider::-moz-range-thumb {
-  width: 12px;
-  height: 12px;
+  width: 14px; height: 14px;
   border-radius: 50%;
   background: #fff;
   border: 1.5px solid rgba(0,0,0,0.15);
   cursor: pointer;
   box-shadow: 0 1px 3px rgba(0,0,0,0.12);
 }
+.orb-remove {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  color: rgba(0,0,0,0.2);
+  font-size: 14px;
+  cursor: pointer;
+  pointer-events: auto;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: color 0.15s;
+  padding: 0;
+}
+.orb-remove:hover { color: rgba(0,0,0,0.5); }
+.orb-remove.hidden { visibility: hidden; }
 .tbtn {
   pointer-events: auto;
-  width: 28px; height: 28px;
+  width: 26px; height: 26px;
   border-radius: 50%;
   border: 2px dashed rgba(0,0,0,0.15);
   background: transparent;
   color: rgba(0,0,0,0.3);
-  font-size: 16px; line-height: 24px;
+  font-size: 16px;
   text-align: center; cursor: pointer;
   transition: all 0.2s ease;
   flex-shrink: 0;
@@ -115,22 +144,15 @@ canvas { display: block; width: 100vw; height: 100dvh; }
 }
 .tbtn:hover { border-color: rgba(0,0,0,0.3); color: rgba(0,0,0,0.5); }
 .tbtn.hidden { display: none; }
-.tb-sep {
-  width: 1px;
-  height: 28px;
-  background: rgba(0,0,0,0.08);
-  flex-shrink: 0;
-  margin: 0 4px;
-}
 .blend-btn {
   pointer-events: auto;
-  padding: 5px 11px;
-  border-radius: 14px;
+  padding: 4px 9px;
+  border-radius: 12px;
   border: 1.5px solid rgba(0,0,0,0.08);
   background: transparent;
   color: rgba(0,0,0,0.35);
   font-family: "Plus Jakarta Sans", sans-serif;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -148,10 +170,12 @@ canvas { display: block; width: 100vw; height: 100dvh; }
 <body>
 <canvas id="c"></canvas>
 <div class="toolbar" id="toolbar">
-  <button class="tbtn" id="addBtn" title="Add orb">+</button>
-  <div class="tb-sep"></div>
-  <button class="blend-btn active" data-mode="0">Multiply</button>
-  <button class="blend-btn" data-mode="1">Difference</button>
+  <div class="tb-top">
+    <button class="tbtn" id="addBtn" title="Add orb">+</button>
+    <div class="tb-spacer"></div>
+    <button class="blend-btn active" data-mode="0">Multiply</button>
+    <button class="blend-btn" data-mode="1">Difference</button>
+  </div>
 </div>
 
 <script>
@@ -649,16 +673,22 @@ function buildBar() {
     const ctrl = document.createElement("div");
     ctrl.className = "orb-ctrl";
 
+    // Color dot
     const dot = document.createElement("div");
     dot.className = "orb-dot";
     dot.style.background = `hsl(${orb.hue}, 100%, 50%)`;
-    if (orbs.length > 1) {
-      const rm = document.createElement("div"); rm.className = "remove"; rm.textContent = "\u00d7";
-      rm.addEventListener("click", e => { e.stopPropagation(); removeOrb(i); });
-      dot.appendChild(rm);
-    }
     ctrl.appendChild(dot);
 
+    // Sliders column
+    const sliders = document.createElement("div");
+    sliders.className = "orb-ctrl-sliders";
+
+    // Hue row
+    const hueRow = document.createElement("div");
+    hueRow.className = "orb-slider-row";
+    const hueLabel = document.createElement("span");
+    hueLabel.className = "orb-slider-label";
+    hueLabel.textContent = "Hue";
     const hueSlider = document.createElement("input");
     hueSlider.type = "range"; hueSlider.className = "hue-slider";
     hueSlider.min = "0"; hueSlider.max = "360"; hueSlider.step = "1";
@@ -671,8 +701,16 @@ function buildBar() {
       setColor(i, cd.l, cd.d);
       dot.style.background = `hsl(${h}, 100%, 50%)`;
     });
-    ctrl.appendChild(hueSlider);
+    hueRow.appendChild(hueLabel);
+    hueRow.appendChild(hueSlider);
+    sliders.appendChild(hueRow);
 
+    // Size row
+    const sizeRow = document.createElement("div");
+    sizeRow.className = "orb-slider-row";
+    const sizeLabel = document.createElement("span");
+    sizeLabel.className = "orb-slider-label";
+    sizeLabel.textContent = "Size";
     const sizeSlider = document.createElement("input");
     sizeSlider.type = "range"; sizeSlider.className = "orb-slider";
     sizeSlider.min = "0.3"; sizeSlider.max = "2.0"; sizeSlider.step = "0.05";
@@ -682,9 +720,20 @@ function buildBar() {
       orb.scale = s;
       setOrbScale(orb.phys, s);
     });
-    ctrl.appendChild(sizeSlider);
+    sizeRow.appendChild(sizeLabel);
+    sizeRow.appendChild(sizeSlider);
+    sliders.appendChild(sizeRow);
 
-    toolbar.insertBefore(ctrl, addBtn);
+    ctrl.appendChild(sliders);
+
+    // Remove button
+    const rm = document.createElement("button");
+    rm.className = "orb-remove" + (orbs.length <= 1 ? " hidden" : "");
+    rm.textContent = "\u00d7";
+    rm.addEventListener("click", e => { e.stopPropagation(); removeOrb(i); });
+    ctrl.appendChild(rm);
+
+    toolbar.appendChild(ctrl);
   });
 }
 
