@@ -121,6 +121,8 @@ a.ds-link { position:fixed;top:20px;right:20px;font-size:12px;color:#999;text-de
 a.back:hover, a.ds-link:hover { color:#333; }
 .ctrl-section { font-family:monospace; font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:#aaa; margin-top:16px; margin-bottom:4px; }
 .ctrl-section:first-child { margin-top:0; }
+.variant-btn { flex:1; padding:7px 0; border:1px solid rgba(0,0,0,0.15); border-radius:6px; background:#fff; color:#999; font-family:monospace; font-size:11px; cursor:pointer; transition:all 0.15s; }
+.variant-btn.active { background:#1c1b1f; color:#fff; border-color:#1c1b1f; }
 </style>
 </head>
 <body>
@@ -142,8 +144,8 @@ a.back:hover, a.ds-link:hover { color:#333; }
   <p class="ctrl-section">tilt</p>
   <div class="ctrl-row">
     <span class="ctrl-label">max tilt</span>
-    <input type="range" id="s-tmax" min="1" max="20" step="0.5" value="8">
-    <span class="ctrl-val" id="v-tmax">8°</span>
+    <input type="range" id="s-tmax" min="1" max="20" step="0.5" value="11">
+    <span class="ctrl-val" id="v-tmax">11°</span>
   </div>
   <div class="ctrl-row">
     <span class="ctrl-label">stiffness</span>
@@ -157,6 +159,10 @@ a.back:hover, a.ds-link:hover { color:#333; }
   </div>
 
   <p class="ctrl-section">ghost effect</p>
+  <div class="ctrl-row" style="gap:4px;">
+    <button class="variant-btn active" id="btn-front" onclick="setVariant('front')">on top</button>
+    <button class="variant-btn" id="btn-behind" onclick="setVariant('behind')">behind</button>
+  </div>
   <div class="ctrl-row">
     <span class="ctrl-label">layers</span>
     <input type="range" id="s-glayers" min="3" max="16" step="1" value="8">
@@ -277,7 +283,7 @@ document.getElementById('copyBtn').addEventListener('click', () => {
 
 /* ── Card tilt ── */
 const cardEl = document.getElementById('card');
-const TILT = { max: 8, stiffness: 0.1, damping: 0.75 };
+const TILT = { max: 11, stiffness: 0.1, damping: 0.75 };
 
 let tiltRx = 0, tiltRy = 0, tiltVx = 0, tiltVy = 0, tiltTx = 0, tiltTy = 0;
 
@@ -361,6 +367,13 @@ function drawGhosts() {
 
 buildClones();
 
+function setVariant(v) {
+  const z = v === 'front' ? 3 : 1;
+  ghostClones.forEach(c => { c.style.zIndex = z; });
+  document.getElementById('btn-front').classList.toggle('active', v === 'front');
+  document.getElementById('btn-behind').classList.toggle('active', v === 'behind');
+}
+
 (function tiltLoop() {
   tiltVx += (tiltTx - tiltRx) * TILT.stiffness;
   tiltVy += (tiltTy - tiltRy) * TILT.stiffness;
@@ -388,6 +401,8 @@ document.getElementById('s-glayers').addEventListener('input', e => {
   GHOST.layers = Math.round(+e.target.value);
   document.getElementById('v-glayers').textContent = GHOST.layers;
   buildClones();
+  const active = document.querySelector('.variant-btn.active')?.id === 'btn-behind' ? 'behind' : 'front';
+  setVariant(active);
 });
 
 </script>
