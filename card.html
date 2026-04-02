@@ -12,8 +12,10 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
   min-height: 100dvh;
-  display: flex; align-items: center; justify-content: center;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 32px;
   background: #e8e8e8;
+  padding: 60px 20px;
 }
 .card {
   width: min(92vw, 364px);
@@ -26,6 +28,7 @@ body {
   padding: 24px;
   position: relative;
   background: #d9d9d9;
+  flex-shrink: 0;
 }
 .card-bg {
   position: absolute; inset: 0;
@@ -40,6 +43,62 @@ body {
   display: flex; flex-direction: column; gap: 16px;
   color: #fff;
 }
+
+/* Word reveal */
+.word {
+  display: inline-block;
+  opacity: 0;
+  filter: blur(var(--blur, 8px));
+  transform: translateY(var(--y, 8px));
+  transition:
+    opacity var(--dur, 400ms) ease,
+    filter   var(--dur, 400ms) ease,
+    transform var(--dur, 400ms) ease;
+}
+.word.visible {
+  opacity: 1;
+  filter: blur(0);
+  transform: translateY(0);
+}
+
+/* Controls */
+.controls {
+  width: min(92vw, 364px);
+  background: rgba(255,255,255,0.7);
+  backdrop-filter: blur(16px);
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  font-family: monospace;
+  font-size: 11px;
+  color: #666;
+}
+.ctrl-row {
+  display: flex; align-items: center; gap: 10px;
+}
+.ctrl-label { width: 80px; flex-shrink: 0; letter-spacing: 0.05em; }
+.ctrl-val   { width: 36px; text-align: right; flex-shrink: 0; color: #333; }
+.ctrl-row input[type=range] {
+  flex: 1; height: 3px; appearance: none; -webkit-appearance: none;
+  background: rgba(0,0,0,0.12); border-radius: 2px; outline: none; cursor: pointer;
+}
+.ctrl-row input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%;
+  background: rgba(255,255,255,0.9); border: 1px solid rgba(0,0,0,0.2);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+}
+.replay-btn {
+  margin-top: 4px;
+  width: 100%; padding: 10px;
+  border: 1px solid rgba(0,0,0,0.15); border-radius: 8px;
+  background: #1c1b1f; color: #fff;
+  font-family: monospace; font-size: 12px; letter-spacing: 0.08em;
+  cursor: pointer; transition: opacity 0.15s;
+}
+.replay-btn:hover { opacity: 0.8; }
+
 a.back    { position:fixed;top:20px;left:20px;font-size:12px;color:#999;text-decoration:none;font-family:monospace; }
 a.ds-link { position:fixed;top:20px;right:20px;font-size:12px;color:#999;text-decoration:none;font-family:monospace; }
 a.back:hover, a.ds-link:hover { color:#333; }
@@ -48,13 +107,84 @@ a.back:hover, a.ds-link:hover { color:#333; }
 <body>
 <a class="back" href="./index.html">← lab</a>
 <a class="ds-link" href="./design-system.html">design system →</a>
+
 <div class="card">
   <div class="card-bg"></div>
   <div class="card-overlay"></div>
   <div class="card-content">
-    <p class="type-label-medium">Lead Brand Designer</p>
-    <p class="type-headline-medium">Brand for showmore new 360 agency on the market</p>
+    <p class="type-label-medium" id="line1">Lead Brand Designer</p>
+    <p class="type-headline-medium" id="line2">Brand for showmore new 360 agency on the market</p>
   </div>
 </div>
+
+<div class="controls">
+  <div class="ctrl-row">
+    <span class="ctrl-label">stagger</span>
+    <input type="range" id="s-stagger" min="20" max="200" value="60">
+    <span class="ctrl-val" id="v-stagger">60ms</span>
+  </div>
+  <div class="ctrl-row">
+    <span class="ctrl-label">duration</span>
+    <input type="range" id="s-dur" min="100" max="1200" value="400">
+    <span class="ctrl-val" id="v-dur">400ms</span>
+  </div>
+  <div class="ctrl-row">
+    <span class="ctrl-label">blur</span>
+    <input type="range" id="s-blur" min="0" max="24" value="8">
+    <span class="ctrl-val" id="v-blur">8px</span>
+  </div>
+  <div class="ctrl-row">
+    <span class="ctrl-label">y offset</span>
+    <input type="range" id="s-y" min="0" max="40" value="8">
+    <span class="ctrl-val" id="v-y">8px</span>
+  </div>
+  <button class="replay-btn" id="replayBtn">replay reveal</button>
+</div>
+
+<script>
+const CFG = { stagger: 60, dur: 400, blur: 8, y: 8 };
+
+function wrapWords(el) {
+  el.innerHTML = el.textContent.trim().split(/\s+/).map(w =>
+    `<span class="word">${w}</span>`
+  ).join(' ');
+}
+
+function applyCSS() {
+  document.documentElement.style.setProperty('--blur', CFG.blur + 'px');
+  document.documentElement.style.setProperty('--y', CFG.y + 'px');
+  document.documentElement.style.setProperty('--dur', CFG.dur + 'ms');
+}
+
+function reveal() {
+  const words = document.querySelectorAll('.word');
+  words.forEach(w => w.classList.remove('visible'));
+  applyCSS();
+  words.forEach((w, i) => {
+    setTimeout(() => w.classList.add('visible'), i * CFG.stagger);
+  });
+}
+
+// Init
+['line1','line2'].forEach(id => wrapWords(document.getElementById(id)));
+reveal();
+
+// Sliders
+[
+  ['s-stagger','v-stagger','stagger','ms'],
+  ['s-dur','v-dur','dur','ms'],
+  ['s-blur','v-blur','blur','px'],
+  ['s-y','v-y','y','px'],
+].forEach(([sid, vid, key, unit]) => {
+  const slider = document.getElementById(sid);
+  const val    = document.getElementById(vid);
+  slider.addEventListener('input', () => {
+    CFG[key] = +slider.value;
+    val.textContent = slider.value + unit;
+  });
+});
+
+document.getElementById('replayBtn').addEventListener('click', reveal);
+</script>
 </body>
 </html>
