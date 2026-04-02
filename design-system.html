@@ -19,6 +19,13 @@ section { margin-bottom:56px; }
 .row-label { font-family:monospace; font-size:11px; color:#bbb; width:160px; flex-shrink:0; }
 .row-meta  { font-family:monospace; font-size:10px; color:#ccc; width:140px; flex-shrink:0; }
 .row-sample { flex:1; }
+/* Spacing rows */
+.sp-row { display:flex; align-items:center; gap:20px; padding:8px 0; border-bottom:1px solid #f3f3f3; }
+.sp-label { font-family:monospace; font-size:11px; color:#bbb; width:120px; flex-shrink:0; }
+.sp-val   { font-family:monospace; font-size:10px; color:#ccc; width:48px; flex-shrink:0; }
+.sp-bar   { height:8px; background:#1c1b1f; border-radius:2px; flex-shrink:0; }
+.sp-group { margin-bottom: 8px; }
+.sp-group-label { font-family:monospace; font-size:10px; color:#ccc; letter-spacing:0.08em; margin:16px 0 4px; }
 </style>
 </head>
 <body>
@@ -106,6 +113,45 @@ section { margin-bottom:56px; }
     <span class="row-meta">12 / 16 / 0.4 / 400</span>
     <span class="row-sample type-body-small">Body Small</span>
   </div>
+</section>
+
+<section>
+  <h2>Spacing — 4px base grid / MD3</h2>
+
+  <div class="sp-group-label">scale</div>
+  <div class="sp-row"><span class="sp-label">--space-1</span><span class="sp-val">4px</span><div class="sp-bar" style="width:4px"></div></div>
+  <div class="sp-row"><span class="sp-label">--space-2</span><span class="sp-val">8px</span><div class="sp-bar" style="width:8px"></div></div>
+  <div class="sp-row"><span class="sp-label">--space-3</span><span class="sp-val">12px</span><div class="sp-bar" style="width:12px"></div></div>
+  <div class="sp-row"><span class="sp-label">--space-4</span><span class="sp-val">16px</span><div class="sp-bar" style="width:16px"></div></div>
+  <div class="sp-row"><span class="sp-label">--space-5</span><span class="sp-val">20px</span><div class="sp-bar" style="width:20px"></div></div>
+  <div class="sp-row"><span class="sp-label">--space-6</span><span class="sp-val">24px</span><div class="sp-bar" style="width:24px"></div></div>
+  <div class="sp-row"><span class="sp-label">--space-7</span><span class="sp-val">28px</span><div class="sp-bar" style="width:28px"></div></div>
+  <div class="sp-row"><span class="sp-label">--space-8</span><span class="sp-val">32px</span><div class="sp-bar" style="width:32px"></div></div>
+  <div class="sp-row"><span class="sp-label">--space-10</span><span class="sp-val">40px</span><div class="sp-bar" style="width:40px"></div></div>
+  <div class="sp-row"><span class="sp-label">--space-12</span><span class="sp-val">48px</span><div class="sp-bar" style="width:48px"></div></div>
+  <div class="sp-row"><span class="sp-label">--space-16</span><span class="sp-val">64px</span><div class="sp-bar" style="width:64px"></div></div>
+  <div class="sp-row"><span class="sp-label">--space-20</span><span class="sp-val">80px</span><div class="sp-bar" style="width:80px"></div></div>
+  <div class="sp-row"><span class="sp-label">--space-24</span><span class="sp-val">96px</span><div class="sp-bar" style="width:96px"></div></div>
+
+  <div class="sp-group-label">inset — padding inside components</div>
+  <div class="sp-row"><span class="sp-label">--inset-xs</span><span class="sp-val">8px</span><div class="sp-bar" style="width:8px"></div></div>
+  <div class="sp-row"><span class="sp-label">--inset-sm</span><span class="sp-val">12px</span><div class="sp-bar" style="width:12px"></div></div>
+  <div class="sp-row"><span class="sp-label">--inset-md</span><span class="sp-val">16px</span><div class="sp-bar" style="width:16px"></div></div>
+  <div class="sp-row"><span class="sp-label">--inset-lg</span><span class="sp-val">24px</span><div class="sp-bar" style="width:24px"></div></div>
+  <div class="sp-row"><span class="sp-label">--inset-xl</span><span class="sp-val">32px</span><div class="sp-bar" style="width:32px"></div></div>
+
+  <div class="sp-group-label">stack — vertical rhythm</div>
+  <div class="sp-row"><span class="sp-label">--stack-xs</span><span class="sp-val">4px</span><div class="sp-bar" style="width:4px"></div></div>
+  <div class="sp-row"><span class="sp-label">--stack-sm</span><span class="sp-val">8px</span><div class="sp-bar" style="width:8px"></div></div>
+  <div class="sp-row"><span class="sp-label">--stack-md</span><span class="sp-val">16px</span><div class="sp-bar" style="width:16px"></div></div>
+  <div class="sp-row"><span class="sp-label">--stack-lg</span><span class="sp-val">24px</span><div class="sp-bar" style="width:24px"></div></div>
+  <div class="sp-row"><span class="sp-label">--stack-xl</span><span class="sp-val">48px</span><div class="sp-bar" style="width:48px"></div></div>
+
+  <div class="sp-group-label">inline — horizontal gaps</div>
+  <div class="sp-row"><span class="sp-label">--inline-xs</span><span class="sp-val">4px</span><div class="sp-bar" style="width:4px"></div></div>
+  <div class="sp-row"><span class="sp-label">--inline-sm</span><span class="sp-val">8px</span><div class="sp-bar" style="width:8px"></div></div>
+  <div class="sp-row"><span class="sp-label">--inline-md</span><span class="sp-val">16px</span><div class="sp-bar" style="width:16px"></div></div>
+  <div class="sp-row"><span class="sp-label">--inline-lg</span><span class="sp-val">24px</span><div class="sp-bar" style="width:24px"></div></div>
 </section>
 
 </body>
