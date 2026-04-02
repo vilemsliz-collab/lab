@@ -160,8 +160,8 @@ a.back:hover, a.ds-link:hover { color:#333; }
 
   <p class="ctrl-section">ghost effect</p>
   <div class="ctrl-row" style="gap:4px;">
-    <button class="variant-btn" id="btn-front" onclick="setVariant('front')">on top</button>
-    <button class="variant-btn active" id="btn-behind" onclick="setVariant('behind')">behind</button>
+    <button class="variant-btn active" id="btn-front" onclick="setVariant('front')">on top</button>
+    <button class="variant-btn" id="btn-behind" onclick="setVariant('behind')">behind</button>
   </div>
   <div class="ctrl-row">
     <span class="ctrl-label">layers</span>
@@ -255,7 +255,8 @@ document.getElementById('copyBtn').addEventListener('click', () => {
   const btn = document.getElementById('copyBtn');
   const values = {
     reveal: { stagger: CFG.stagger, duration: CFG.dur, blur: CFG.blur, y: CFG.y },
-    tilt:   { max: TILT.max, radius: TILT.radius, stiffness: TILT.stiffness, damping: TILT.damping }
+    tilt:   { max: TILT.max, stiffness: TILT.stiffness, damping: TILT.damping },
+    ghost:  { layers: GHOST.layers, opacity: GHOST.opacity, blur: GHOST.blur }
   };
   navigator.clipboard.writeText(JSON.stringify(values, null, 2)).then(() => {
     btn.textContent = 'copied!';
@@ -330,6 +331,7 @@ if (isMobile()) {
 const GHOST = { layers: 4, opacity: 0.16, blur: 1 };
 const cardWrap = cardEl.parentElement;
 const ghostClones = [];
+let currentVariant = 'front';
 
 function buildClones() {
   ghostClones.forEach(c => c.remove());
@@ -369,23 +371,34 @@ function drawGhosts() {
     ghostClones.forEach(c => { c.style.opacity = 0; });
     return;
   }
-  const P     = 800; // must match CSS perspective on .card-wrap
+  const P     = 800;
   const halfW = cardEl.offsetWidth  / 2;
   const halfH = cardEl.offsetHeight / 2;
+
+  // Angle pointing toward the receding (far) side of the card
+  const gradDeg = Math.atan2(-tiltRy, -tiltRx) * 180 / Math.PI;
+  // Mask: transparent on the advancing side, opaque on the receding side
+  const mask = `linear-gradient(${gradDeg.toFixed(1)}deg, transparent 30%, black 75%)`;
+
+  const onTop = currentVariant === 'front';
   ghostClones.forEach((clone, i) => {
     const scalar = (i + 1) / (GHOST.layers + 1);
     const rx = perspAngle(tiltRx, scalar, halfH, P);
     const ry = perspAngle(tiltRy, scalar, halfW, P);
-    clone.style.transform = `rotateX(${rx.toFixed(3)}deg) rotateY(${ry.toFixed(3)}deg)`;
-    clone.style.opacity   = GHOST.opacity * scalar;
-    clone.style.filter    = GHOST.blur > 0 ? `blur(${(GHOST.blur * (1 - scalar)).toFixed(2)}px)` : '';
+    clone.style.transform          = `rotateX(${rx.toFixed(3)}deg) rotateY(${ry.toFixed(3)}deg)`;
+    clone.style.opacity            = GHOST.opacity * scalar;
+    clone.style.filter             = GHOST.blur > 0 ? `blur(${(GHOST.blur * (1 - scalar)).toFixed(2)}px)` : '';
+    clone.style.mixBlendMode       = onTop ? 'multiply' : '';
+    clone.style.webkitMaskImage    = onTop ? mask : '';
+    clone.style.maskImage          = onTop ? mask : '';
   });
 }
 
 buildClones();
-setVariant('behind');
+setVariant('front');
 
 function setVariant(v) {
+  currentVariant = v;
   const z = v === 'front' ? 3 : 1;
   ghostClones.forEach(c => { c.style.zIndex = z; });
   document.getElementById('btn-front').classList.toggle('active', v === 'front');
