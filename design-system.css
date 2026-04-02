@@ -77,7 +77,7 @@
   --type-body-small-weight:  300;
 }
 
-[class^="type-"] {
+[class*="type-"] {
   font-family: var(--font-brand);
 }
 
