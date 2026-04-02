@@ -344,17 +344,38 @@ function buildClones() {
 }
 
 
+// Returns the rotation angle (deg) that places the leading edge of a card
+// at exactly `fraction` of the way between its neutral and fully-tilted
+// screen-space positions, accounting for CSS perspective projection.
+function perspAngle(fullDeg, fraction, halfDim, P) {
+  if (Math.abs(fullDeg) < 0.001) return 0;
+  const sign = Math.sign(fullDeg);
+  const r    = Math.abs(fullDeg) * Math.PI / 180;
+  // Screen X of leading edge at full tilt
+  const xFull   = halfDim * Math.cos(r) * P / (P - halfDim * Math.sin(r));
+  // Target screen X at this fraction
+  const xTarget = halfDim + fraction * (xFull - halfDim);
+  // Solve: halfDim·cos(φ)·P/(P−halfDim·sin(φ)) = xTarget
+  // => P·cos(φ) + xTarget·sin(φ) = xTarget·P/halfDim
+  const A = P, B = xTarget, C = xTarget * P / halfDim;
+  const R = Math.hypot(A, B);
+  const phi = Math.atan2(B, A) - Math.acos(Math.min(C / R, 1));
+  return sign * phi * 180 / Math.PI;
+}
+
 function drawGhosts() {
   const mag = Math.abs(tiltRx) + Math.abs(tiltRy);
   if (mag < 0.3) {
     ghostClones.forEach(c => { c.style.opacity = 0; });
     return;
   }
+  const P     = 800; // must match CSS perspective on .card-wrap
+  const halfW = cardEl.offsetWidth  / 2;
+  const halfH = cardEl.offsetHeight / 2;
   ghostClones.forEach((clone, i) => {
-    // step from neutral (0) up toward current tilt, leaving the last step to the real card
     const scalar = (i + 1) / (GHOST.layers + 1);
-    const rx = tiltRx * scalar;
-    const ry = tiltRy * scalar;
+    const rx = perspAngle(tiltRx, scalar, halfH, P);
+    const ry = perspAngle(tiltRy, scalar, halfW, P);
     clone.style.transform = `rotateX(${rx.toFixed(3)}deg) rotateY(${ry.toFixed(3)}deg)`;
     clone.style.opacity   = GHOST.opacity * scalar;
     clone.style.filter    = GHOST.blur > 0 ? `blur(${(GHOST.blur * (1 - scalar)).toFixed(2)}px)` : '';
