@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Portfolio — Lab</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:wght@100..900&family=IBM+Plex+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./design-system.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%; height: 100%;
+      background: #0d0d0d;
+      overflow: hidden;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      font-family: 'IBM Plex Mono', monospace;
+    }
+
+    .back {
+      position: fixed; top: 24px; left: 28px;
+      font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+      color: #444; text-decoration: none; z-index: 100;
+      transition: color 0.2s;
+    }
+    .back:hover { color: #aaa; }
+
+    #dev-toggle {
+      position: fixed; bottom: 80px; right: 16px;
+      min-width: 56px; height: 36px; padding: 0 12px;
+      background: #0a0a0c; border: 1px solid #2a2a30; border-radius: 20px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+      cursor: pointer; color: #666; z-index: 300;
+      display: flex; align-items: center; justify-content: center;
+      transition: color 0.15s, border-color 0.15s;
+      touch-action: auto;
+    }
+    #dev-toggle:hover { color: #c8ff00; border-color: #c8ff00; }
+    .dev-open #dev-toggle { color: #c8ff00; border-color: #c8ff00; }
+
+    /* ── Stage ── */
+    #stage {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 65px;
+      display: flex; align-items: center; justify-content: center;
+      perspective-origin: 50% 50%;
+      overflow: hidden;
+      transition: right 0.28s ease;
+    }
+    .dev-open #stage { right: 260px; }
+
+    /* ── Card scene — carries sphere transform ── */
+    .card-scene {
+      position: absolute;
+      will-change: transform, opacity, filter;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      transform-style: preserve-3d;
+    }
+
+    /* ── Ghost clones — siblings to .card inside .card-scene ── */
+    .ghost-clone {
+      position: absolute; inset: 0;
+      pointer-events: none; opacity: 0;
+      border-radius: 8px; overflow: hidden;
+    }
+    .ghost-clone .card-content { visibility: hidden; }
+
+    /* ── Card ── */
+    .card {
+      width: min(92vw, 364px);
+      aspect-ratio: 364 / 555;
+      border-radius: 8px;
+      overflow: hidden;
+      display: flex; flex-direction: column; justify-content: flex-end;
+      padding: 24px;
+      position: relative;
+      will-change: transform;
+    }
+
+    .card-bg {
+      position: absolute; inset: 0; z-index: 0;
+      width: 100%; height: 100%; object-fit: cover; display: block;
+    }
+    .card-video {
+      position: absolute; inset: 0; z-index: 0;
+      width: 100%; height: 100%; object-fit: cover;
+      display: block; pointer-events: none;
+    }
+    .card-overlay {
+      position: absolute; inset: 0; z-index: 1;
+      background: linear-gradient(to bottom, rgba(0,0,0,0) 30%, rgba(0,0,0,0.72));
+    }
+    .card-shine {
+      position: absolute; inset: 0; z-index: 2;
+      pointer-events: none; border-radius: inherit;
+    }
+    .card-content {
+      position: relative; z-index: 3;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+
+    .card-id {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+      color: rgba(255,255,255,0.28); margin-bottom: 8px;
+    }
+    .card-spacer { flex: 1; min-height: 32px; }
+    .card-title  { color: #f0eeeb; }
+    .card-sub    { /* color set inline per card */ }
+    .card-tag {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+      color: rgba(255,255,255,0.22); margin-top: 6px;
+    }
+
+    /* ── Word reveal ── */
+    .word {
+      display: inline-block;
+      opacity: 0;
+      filter: blur(8px);
+      transform: translateY(8px);
+      transition: opacity 797ms ease, filter 797ms ease, transform 797ms ease;
+    }
+    .word.visible { opacity: 1; filter: blur(0); transform: translateY(0); }
+
+    /* ── Info ── */
+    .info {
+      position: fixed; bottom: 80px; left: 28px;
+      z-index: 50; pointer-events: none;
+    }
+    .info-title   { font-size: 13px; font-weight: 500; color: #888; margin-bottom: 3px; }
+    .info-counter { font-size: 11px; color: #444; letter-spacing: 0.08em; }
+
+    /* ── Scrubber ── */
+    #scrubber {
+      position: fixed; bottom: 0; left: 0; right: 0; height: 65px;
+      z-index: 40; background: #0d0d0d; cursor: grab;
+      touch-action: none; border-top: 1px solid #1a1a1a;
+      transition: right 0.28s ease;
+    }
+    .dev-open #scrubber { right: 260px; }
+    #scrubber:active { cursor: grabbing; }
+    #scrubber canvas { display: block; }
+
+    /* ── Dev panel ── */
+    #dev-panel {
+      position: fixed; top: 0; right: 0; bottom: 0; width: 260px;
+      background: rgba(10,10,12,0.96);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      z-index: 200; transform: translateX(100%);
+      transition: transform 0.28s ease;
+      display: flex; flex-direction: column;
+      touch-action: auto; user-select: text; -webkit-user-select: text;
+      overflow: hidden;
+    }
+    .dev-open #dev-panel { transform: translateX(0); }
+    #dev-panel-inner {
+      flex: 1; overflow-y: auto;
+      padding: 56px 16px 16px;
+      scrollbar-width: thin; scrollbar-color: #333 transparent;
+    }
+    .dev-section { margin-bottom: 20px; }
+    .dev-section-title {
+      font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase;
+      color: #555; margin-bottom: 10px; padding-bottom: 5px;
+      border-bottom: 1px solid #1e1e22;
+    }
+    .dev-row {
+      display: grid; grid-template-columns: 72px 1fr 44px;
+      align-items: center; gap: 6px; margin-bottom: 8px;
+    }
+    .dev-label {
+      font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .dev-row input[type="range"] { width: 100%; height: 3px; accent-color: #c8ff00; cursor: pointer; }
+    .dev-row input[type="number"] {
+      width: 100%; background: #111115; border: 1px solid #2a2a30;
+      border-radius: 3px; color: #c8ff00;
+      font-family: 'IBM Plex Mono', monospace; font-size: 10px;
+      padding: 3px 4px; text-align: right; -moz-appearance: textfield;
+    }
+    .dev-row input[type="number"]::-webkit-inner-spin-button,
+    .dev-row input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
+    .dev-row input[type="number"]:focus { outline: none; border-color: #c8ff00; }
+    #dev-copy {
+      margin: 12px 16px 16px; padding: 9px;
+      background: #c8ff00; border: none; border-radius: 5px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase;
+      color: #0a0a0c; cursor: pointer; transition: background 0.15s; touch-action: auto;
+    }
+    #dev-copy:hover { background: #d4ff33; }
+    #dev-copy.copied { background: #333; color: #c8ff00; }
+
+    @media (max-width: 767px) {
+      #dev-toggle { min-width: 96px; height: 108px; font-size: 13px; letter-spacing: 0.14em; border-radius: 28px; bottom: 88px; }
+    }
+  </style>
+</head>
+<body>
+
+<a class="back" href="./index.html">← lab</a>
+<button id="dev-toggle" title="Toggle dev tools (D)">DEV</button>
+<div id="stage"></div>
+<div class="info">
+  <div class="info-title"   id="info-title"></div>
+  <div class="info-counter" id="info-counter"></div>
+</div>
+<div id="scrubber"></div>
+<div id="dev-panel">
+  <div id="dev-panel-inner"></div>
+  <button id="dev-copy">Copy config</button>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  /* ══════════════════════════════════════════
+     SPHERE CONFIG
+  ══════════════════════════════════════════ */
+  const PRESETS = {
+    mobile: {
+      R_MULT: 1.5, R_MAX: 1010, PERSPECTIVE: 200,
+      LAT: [-62, 66, -19, 42, -31], LON_SPREAD: 0.88,
+      ROT_MULT: 0, ROLL_MAX: 0,
+      SCALE_ACTIVE: 0.79, SCALE_SPHERE: 0.83,
+      OPACITY_MULT: 0.46, OPACITY_BASE: 1, BLUR_MAX: 0,
+      FRICTION: 0.70, SPRING: 0.23, DRAG_SENS: 1.3,
+    },
+    desktop: {
+      R_MULT: 1.5, R_MAX: 1010, PERSPECTIVE: 590,
+      LAT: [-8, 32, -29, 42, 24], LON_SPREAD: 0.56,
+      ROT_MULT: 0, ROLL_MAX: 0,
+      SCALE_ACTIVE: 1.29, SCALE_SPHERE: 0.83,
+      OPACITY_MULT: 0.46, OPACITY_BASE: 1, BLUR_MAX: 0,
+      FRICTION: 0.90, SPRING: 0.10, DRAG_SENS: 0.60,
+    },
+  };
+  const CFG = Object.assign({}, PRESETS.mobile);
+
+  /* ══ TILT ══ */
+  const TILT = { max: 12, stiffness: 0.10, damping: 0.75 };
+
+  /* ══ LIGHT ══ */
+  const LIGHT = { intensity: 0.50, size: 52, travel: 68, diffuse: 0.10, shadow: 0.18 };
+
+  /* ══ GHOST ══ */
+  const GHOST = { layers: 4, opacity: 0.16, blur: 1 };
+
+  /* ══════════════════════════════════════════
+     CARD DATA
+  ══════════════════════════════════════════ */
+  const CARDS = [
+    { id:'001', title:'Ink Text',  sub:'Typographic animation',    tag:'2025-03', href:'./ink-text/',    bg:'#12131a', ac:'#c8ff00', video:'./assets/portfolio-reel.mp4' },
+    { id:'002', title:'Orbs v5',   sub:'Generative particle field', tag:'2025-03', href:'./orbs-v5.html',bg:'#080e1c', ac:'#4dd0e1' },
+    { id:'003', title:'Signal',    sub:'Audio visualiser',          tag:'wip',     href:null,             bg:'#1e0a0a', ac:'#ff5252' },
+    { id:'004', title:'Terrain',   sub:'Procedural landscape',      tag:'wip',     href:null,             bg:'#071207', ac:'#66ff99' },
+    { id:'005', title:'Fluid',     sub:'Particle simulation',       tag:'planned', href:null,             bg:'#141414', ac:'#e0e0e0' },
+  ];
+  const N = CARDS.length;
+
+  /* ══════════════════════════════════════════
+     BUILD DOM
+  ══════════════════════════════════════════ */
+  const stage     = document.getElementById('stage');
+  const titleEl   = document.getElementById('info-title');
+  const counterEl = document.getElementById('info-counter');
+
+  const sceneEls = [];
+  const cardEls  = [];
+
+  function wrapWords(el) {
+    el.innerHTML = el.textContent.trim().split(/\s+/)
+      .map(w => `<span class="word">${w}</span>`).join(' ');
+  }
+
+  CARDS.forEach(card => {
+    const scene = document.createElement('div');
+    scene.className = 'card-scene';
+
+    const el = document.createElement('div');
+    el.className = 'card';
+    el.style.background = card.bg;
+    el.style.borderTop  = `3px solid ${card.ac}`;
+
+    el.innerHTML = `
+      ${card.video ? `<video class="card-video" src="${card.video}" autoplay loop muted playsinline></video>` : ''}
+      <div class="card-overlay"></div>
+      <div class="card-shine"></div>
+      <div class="card-content">
+        <p class="card-id">${card.id}</p>
+        <div class="card-spacer"></div>
+        <p class="card-title type-headline-medium">${card.title}</p>
+        <p class="card-sub type-label-medium" style="color:${card.ac}">${card.sub}</p>
+        <p class="card-tag">${card.tag}</p>
+      </div>
+    `;
+
+    wrapWords(el.querySelector('.card-title'));
+    wrapWords(el.querySelector('.card-sub'));
+
+    scene.appendChild(el);
+    stage.appendChild(scene);
+    sceneEls.push(scene);
+    cardEls.push(el);
+  });
+
+  /* ══════════════════════════════════════════
+     SPHERE PHYSICS
+  ══════════════════════════════════════════ */
+  function seededRng(seed) {
+    let s = seed | 0;
+    return () => { s = (Math.imul(s, 1664525) + 1013904223) | 0; return (s >>> 0) / 0xFFFFFFFF; };
+  }
+  const ROLL_BASE = CARDS.map((_, i) => { const r = seededRng(i * 6271 + 3491); return (r() - 0.5) * 2; });
+
+  let posY  = 0;
+  let velY  = 0;
+  let rafId = null;
+
+  const lerp       = (a, b, t) => a + (b - a) * t;
+  const smoothstep = t => t * t * (3 - 2 * t);
+
+  function syncPerspective() { stage.style.perspective = CFG.PERSPECTIVE + 'px'; }
+  syncPerspective();
+
+  /* ══════════════════════════════════════════
+     TILT STATE — one spring per card, only
+     active card follows mouse; others return to 0
+  ══════════════════════════════════════════ */
+  const tiltState = CARDS.map(() => ({ rx: 0, ry: 0, vx: 0, vy: 0 }));
+  let tiltTx = 0, tiltTy = 0;
+  let activeIdx     = 0;
+  let lastActiveIdx = -1;
+
+  /* ══════════════════════════════════════════
+     GHOST CLONES
+  ══════════════════════════════════════════ */
+  const ghostClones = CARDS.map(() => []);
+
+  function buildClones(i) {
+    ghostClones[i].forEach(c => c.remove());
+    ghostClones[i].length = 0;
+    for (let j = 0; j < GHOST.layers; j++) {
+      const clone = cardEls[i].cloneNode(true);
+      clone.removeAttribute('id');
+      clone.classList.add('ghost-clone');
+      // clear any live inline shine gradient copied from the original
+      const cs = clone.querySelector('.card-shine');
+      if (cs) cs.style.background = 'none';
+      sceneEls[i].insertBefore(clone, cardEls[i]);
+      ghostClones[i].push(clone);
+    }
+  }
+
+  /* ── perspective-correct rotation for ghost layers ── */
+  function perspAngle(fullDeg, fraction, halfDim, P) {
+    if (Math.abs(fullDeg) < 0.001) return 0;
+    const sign  = Math.sign(fullDeg);
+    const r     = Math.abs(fullDeg) * Math.PI / 180;
+    const xFull   = halfDim * Math.cos(r) * P / (P - halfDim * Math.sin(r));
+    const xTarget = halfDim + fraction * (xFull - halfDim);
+    const A = P, B = xTarget, C = xTarget * P / halfDim;
+    const R = Math.hypot(A, B);
+    const phi = Math.atan2(B, A) - Math.acos(Math.min(C / R, 1));
+    return sign * phi * 180 / Math.PI;
+  }
+
+  function drawGhosts(i) {
+    const ts  = tiltState[i];
+    const clones = ghostClones[i];
+    if (!clones.length) return;
+    const mag = Math.abs(ts.rx) + Math.abs(ts.ry);
+    if (mag < 0.3) { clones.forEach(c => { c.style.opacity = 0; }); return; }
+
+    const P     = 800;
+    const halfW = cardEls[i].offsetWidth  / 2;
+    const halfH = cardEls[i].offsetHeight / 2;
+    const gradDeg = Math.atan2(-ts.ry, -ts.rx) * 180 / Math.PI;
+    const mask    = `linear-gradient(${gradDeg.toFixed(1)}deg, transparent 30%, black 75%)`;
+
+    clones.forEach((clone, j) => {
+      const scalar = (j + 1) / (GHOST.layers + 1);
+      const rx = perspAngle(ts.rx, scalar, halfH, P);
+      const ry = perspAngle(ts.ry, scalar, halfW, P);
+      clone.style.transform       = `rotateX(${rx.toFixed(3)}deg) rotateY(${ry.toFixed(3)}deg)`;
+      clone.style.opacity         = GHOST.opacity * scalar;
+      clone.style.filter          = GHOST.blur > 0 ? `blur(${(GHOST.blur * (1 - scalar)).toFixed(2)}px)` : '';
+      clone.style.webkitMaskImage = mask;
+      clone.style.maskImage       = mask;
+    });
+  }
+
+  /* ══════════════════════════════════════════
+     HIGHLIGHT / SHINE
+  ══════════════════════════════════════════ */
+  function updateShine(i) {
+    const ts      = tiltState[i];
+    const shineEl = cardEls[i].querySelector('.card-shine');
+    if (!shineEl) return;
+    const nx  =  ts.ry / (TILT.max || 12);
+    const ny  = -ts.rx / (TILT.max || 12);
+    const mag = Math.min(Math.hypot(nx, ny), 1);
+
+    if (mag < 0.015) { shineEl.style.background = 'none'; return; }
+
+    const hx        = (50 - nx * LIGHT.travel).toFixed(1);
+    const hy        = (50 + ny * LIGHT.travel).toFixed(1);
+    const specPeak  = (LIGHT.intensity * mag).toFixed(3);
+    const specMid   = (LIGHT.intensity * 0.12 * mag).toFixed(3);
+    const sz        = LIGHT.size;
+    const litAngle  = (Math.atan2(-nx, -ny) * 180 / Math.PI).toFixed(1);
+    const diffAmt   = (LIGHT.diffuse * mag).toFixed(3);
+    const shadowAmt = (LIGHT.shadow  * mag).toFixed(3);
+
+    shineEl.style.background = [
+      `radial-gradient(ellipse ${sz}% ${sz}% at ${hx}% ${hy}%, rgba(255,255,255,${specPeak}) 0%, rgba(255,255,255,${specMid}) 45%, transparent 72%)`,
+      `linear-gradient(${litAngle}deg, rgba(255,255,255,${diffAmt}) 0%, transparent 55%)`,
+      `linear-gradient(${(+litAngle + 180).toFixed(1)}deg, rgba(0,0,0,${shadowAmt}) 0%, transparent 60%)`
+    ].join(',');
+  }
+
+  /* ══════════════════════════════════════════
+     WORD REVEAL
+  ══════════════════════════════════════════ */
+  function revealCard(i) {
+    const words = cardEls[i].querySelectorAll('.card-content .word');
+    words.forEach(w => w.classList.remove('visible'));
+    words.forEach((w, j) => setTimeout(() => w.classList.add('visible'), j * 70));
+  }
+
+  /* ══════════════════════════════════════════
+     SPHERE TRANSFORMS
+  ══════════════════════════════════════════ */
+  function applyTransforms(pos) {
+    const vw  = innerWidth;
+    const R   = Math.min(vw * CFG.R_MULT, CFG.R_MAX);
+    const LAT = CFG.LAT.map(d => d * Math.PI / 180);
+
+    let newActive = activeIdx;
+    let minAbs    = Infinity;
+
+    CARDS.forEach((_, i) => {
+      let off = i - pos;
+      while (off >  N / 2) off -= N;
+      while (off < -N / 2) off += N;
+
+      const scene   = sceneEls[i];
+      const phi     = LAT[i % LAT.length];
+      const theta   = off * (2 * Math.PI / N) * CFG.LON_SPREAD;
+      const abs     = Math.abs(off);
+      const st      = smoothstep(Math.min(1, abs));
+      const cosPhi  = Math.cos(phi);
+      const sinPhi  = Math.sin(phi);
+
+      const tx = cosPhi * Math.sin(theta) * R * st;
+      const ty = sinPhi  * R * st;
+      const tz = (cosPhi * Math.cos(theta) - 1) * R * st;
+
+      const facing  = cosPhi * Math.cos(theta);
+      const sRy     = -(theta * 180 / Math.PI) * CFG.ROT_MULT * st;
+      const sRx     = -(phi   * 180 / Math.PI) * CFG.ROT_MULT * st;
+      const rollDeg = ROLL_BASE[i] * CFG.ROLL_MAX;
+
+      const scale   = lerp(CFG.SCALE_ACTIVE, CFG.SCALE_SPHERE, st);
+      const opacity = Math.max(0, Math.min(1, facing * CFG.OPACITY_MULT + CFG.OPACITY_BASE));
+      const blur    = Math.max(0, (1 - facing) * CFG.BLUR_MAX);
+
+      scene.style.transform = [
+        `translateX(${tx.toFixed(1)}px)`,
+        `translateY(${ty.toFixed(1)}px)`,
+        `translateZ(${tz.toFixed(1)}px)`,
+        `rotateX(${sRx.toFixed(1)}deg)`,
+        `rotateY(${sRy.toFixed(1)}deg)`,
+        `rotateZ(${rollDeg.toFixed(1)}deg)`,
+        `scale(${scale.toFixed(3)})`,
+      ].join(' ');
+      scene.style.opacity = opacity.toFixed(3);
+      scene.style.filter  = blur < 0.1 ? 'none' : `blur(${blur.toFixed(1)}px)`;
+      scene.style.zIndex  = abs < 0.5 ? '20' : String(Math.max(1, Math.round(facing * 10 + 5)));
+
+      if (abs < minAbs) { minAbs = abs; newActive = i; }
+    });
+
+    // Update activeIdx every frame (drives tilt target)
+    activeIdx = newActive;
+
+    // Reveal words only on full snap
+    if (Math.abs(velY) < 0.02 && minAbs < 0.05 && newActive !== lastActiveIdx) {
+      lastActiveIdx = newActive;
+      buildClones(newActive);
+      revealCard(newActive);
+    }
+
+    const idx = (((Math.round(pos) % N) + N) % N);
+    titleEl.textContent   = CARDS[idx].title;
+    counterEl.textContent = `${String(idx + 1).padStart(2,'0')} / ${String(N).padStart(2,'0')}`;
+    drawScrubber(pos);
+  }
+
+  /* ══════════════════════════════════════════
+     TILT LOOP — independent of carousel loop
+  ══════════════════════════════════════════ */
+  function tiltLoop() {
+    const ai = activeIdx;
+    CARDS.forEach((_, i) => {
+      const ts = tiltState[i];
+      const tx = i === ai ? tiltTx : 0;
+      const ty = i === ai ? tiltTy : 0;
+      ts.vx += (tx - ts.rx) * TILT.stiffness;
+      ts.vy += (ty - ts.ry) * TILT.stiffness;
+      ts.vx *= TILT.damping;
+      ts.vy *= TILT.damping;
+      ts.rx += ts.vx;
+      ts.ry += ts.vy;
+      // tilt sits on top of sphere transform — applied to .card inside .card-scene
+      cardEls[i].style.transform = `rotateX(${ts.rx.toFixed(3)}deg) rotateY(${ts.ry.toFixed(3)}deg)`;
+    });
+    drawGhosts(ai);
+    updateShine(ai);
+    requestAnimationFrame(tiltLoop);
+  }
+
+  /* ══════════════════════════════════════════
+     CAROUSEL LOOP
+  ══════════════════════════════════════════ */
+  function loop() {
+    velY *= CFG.FRICTION;
+    posY += velY;
+    const target = Math.round(posY);
+    if (Math.abs(velY) < 0.02) {
+      const spring = (target - posY) * CFG.SPRING;
+      posY += spring;
+      if (Math.abs(velY) < 0.0003 && Math.abs(posY - target) < 0.001) {
+        posY = ((target % N) + N) % N;
+        velY = 0;
+        applyTransforms(posY);
+        rafId = null;
+        return;
+      }
+    }
+    applyTransforms(posY);
+    rafId = requestAnimationFrame(loop);
+  }
+
+  function kick() { if (!rafId) rafId = requestAnimationFrame(loop); }
+
+  /* ══════════════════════════════════════════
+     SCRUBBER
+  ══════════════════════════════════════════ */
+  const scrubEl = document.getElementById('scrubber');
+  const sc      = document.createElement('canvas');
+  scrubEl.appendChild(sc);
+  const DPR = Math.min(devicePixelRatio, 2);
+
+  function resizeScrubber() {
+    sc.width  = innerWidth * DPR;
+    sc.height = 65 * DPR;
+    sc.style.width  = innerWidth + 'px';
+    sc.style.height = '65px';
+  }
+  resizeScrubber();
+  const sctx = sc.getContext('2d');
+
+  function drawScrubber(pos) {
+    const w = sc.width, h = sc.height;
+    sctx.clearRect(0, 0, w, h);
+    const SPACING = 7 * DPR, LINE_H = 26 * DPR, LINE_W = 1 * DPR, cy = h / 2;
+    const total    = Math.ceil(w / SPACING) + 2;
+    const rawShift = -(pos / N) * w;
+    const shift    = ((rawShift % SPACING) + SPACING) % SPACING;
+    const activeX  = w / 2;
+    for (let i = -1; i < total; i++) {
+      const x           = i * SPACING + shift;
+      const lineCardPos = ((i * SPACING + shift - activeX) / w) * N + pos;
+      const nearest     = Math.round(lineCardPos);
+      const dist        = Math.abs(lineCardPos - nearest);
+      const hl          = Math.max(0, 1 - dist * N * 0.9);
+      const col         = Math.round(40 + 160 * hl);
+      sctx.fillStyle    = `rgb(${col},${col},${col})`;
+      sctx.fillRect(x - LINE_W / 2, cy - LINE_H / 2, LINE_W, LINE_H);
+    }
+  }
+
+  /* ══════════════════════════════════════════
+     INPUT — TILT
+  ══════════════════════════════════════════ */
+  const clamp    = (v, a, b) => Math.max(a, Math.min(b, v));
+  const isMobile = () => navigator.maxTouchPoints > 0;
+
+  document.addEventListener('mousemove', e => {
+    if (isMobile()) return;
+    tiltTy =  (e.clientX / innerWidth  - 0.5) * 2 * TILT.max;
+    tiltTx = -(e.clientY / innerHeight - 0.5) * 2 * TILT.max;
+  });
+
+  function attachGyro() {
+    window.addEventListener('deviceorientation', e => {
+      tiltTy = clamp( (e.gamma ?? 0) / 30 * TILT.max, -TILT.max,  TILT.max);
+      tiltTx = clamp(((e.beta  ?? 0) - 45) / 30 * TILT.max, -TILT.max, TILT.max);
+    });
+  }
+  if (isMobile()) {
+    if (typeof DeviceOrientationEvent !== 'undefined' &&
+        typeof DeviceOrientationEvent.requestPermission === 'function') {
+      const pb = document.createElement('button');
+      pb.textContent = 'enable tilt';
+      pb.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);padding:10px 16px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:#1c1b1f;color:#fff;font-family:IBM Plex Mono,monospace;font-size:12px;cursor:pointer;z-index:999;touch-action:auto';
+      document.body.appendChild(pb);
+      pb.addEventListener('click', () => {
+        DeviceOrientationEvent.requestPermission().then(s => { if (s === 'granted') attachGyro(); pb.remove(); }).catch(() => pb.remove());
+      });
+    } else { attachGyro(); }
+  }
+
+  /* ══════════════════════════════════════════
+     INPUT — CAROUSEL DRAG
+  ══════════════════════════════════════════ */
+  const dragK  = () => 1 / (innerWidth * CFG.DRAG_SENS);
+  const scrubK = () => 1 / (innerWidth * 0.45);
+
+  let stageTouch = null, scrubTouch = null;
+  let stageMouse = null, scrubMouse = null;
+
+  stage.addEventListener('touchstart', e => { stageTouch = e.touches[0].clientX; velY = 0; }, { passive: true });
+  stage.addEventListener('touchmove',  e => {
+    if (stageTouch === null) return;
+    const dPos = -(e.touches[0].clientX - stageTouch) * dragK();
+    velY = velY * 0.5 + dPos * 0.5;
+    posY += dPos; stageTouch = e.touches[0].clientX;
+    applyTransforms(posY);
+  }, { passive: true });
+  stage.addEventListener('touchend', () => { stageTouch = null; kick(); }, { passive: true });
+
+  scrubEl.addEventListener('touchstart', e => { e.stopPropagation(); scrubTouch = e.touches[0].clientX; velY = 0; }, { passive: true });
+  scrubEl.addEventListener('touchmove',  e => {
+    if (scrubTouch === null) return;
+    const dPos = -(e.touches[0].clientX - scrubTouch) * scrubK();
+    velY = velY * 0.5 + dPos * 0.5;
+    posY += dPos; scrubTouch = e.touches[0].clientX;
+    applyTransforms(posY);
+  }, { passive: true });
+  scrubEl.addEventListener('touchend', () => { scrubTouch = null; kick(); }, { passive: true });
+
+  stage.addEventListener('mousedown',  e => { stageMouse = e.clientX; velY = 0; });
+  scrubEl.addEventListener('mousedown', e => { scrubMouse = e.clientX; velY = 0; });
+
+  window.addEventListener('mousemove', e => {
+    if (stageMouse !== null) {
+      const dPos = -(e.clientX - stageMouse) * dragK();
+      velY = velY * 0.5 + dPos * 0.5;
+      posY += dPos; stageMouse = e.clientX;
+      applyTransforms(posY);
+    } else if (scrubMouse !== null) {
+      const dPos = -(e.clientX - scrubMouse) * scrubK();
+      velY = velY * 0.5 + dPos * 0.5;
+      posY += dPos; scrubMouse = e.clientX;
+      applyTransforms(posY);
+    }
+  });
+  window.addEventListener('mouseup', () => {
+    if (stageMouse !== null || scrubMouse !== null) kick();
+    stageMouse = null; scrubMouse = null;
+  });
+  window.addEventListener('wheel', e => { e.preventDefault(); velY += (e.deltaX + e.deltaY) * 0.004; kick(); }, { passive: false });
+  window.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight') { velY += 0.12; kick(); }
+    if (e.key === 'ArrowLeft')  { velY -= 0.12; kick(); }
+    if (e.key === 'd' || e.key === 'D') toggleDev();
+  });
+  window.addEventListener('resize', () => { checkBreakpoint(); resizeScrubber(); applyTransforms(posY); });
+
+  /* ══════════════════════════════════════════
+     DEV PANEL
+  ══════════════════════════════════════════ */
+  const devPanel  = document.getElementById('dev-panel');
+  const devInner  = document.getElementById('dev-panel-inner');
+  const devToggle = document.getElementById('dev-toggle');
+  const devCopy   = document.getElementById('dev-copy');
+
+  const bpLabel = document.createElement('div');
+  bpLabel.style.cssText = 'font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:#555;padding:14px 16px 0;';
+  devPanel.insertBefore(bpLabel, devInner);
+
+  const rowMap = {};
+
+  function devGet(key) {
+    const [ns, k, idx] = key.split('.');
+    if (ns === 'CFG')   return idx !== undefined ? CFG[k][+idx] : CFG[k];
+    if (ns === 'TILT')  return TILT[k];
+    if (ns === 'LIGHT') return LIGHT[k];
+    if (ns === 'GHOST') return GHOST[k];
+  }
+  function devSet(key, val) {
+    const [ns, k, idx] = key.split('.');
+    if (ns === 'CFG') {
+      if (idx !== undefined) CFG[k][+idx] = val; else CFG[k] = val;
+      if (k === 'PERSPECTIVE') syncPerspective();
+    } else if (ns === 'TILT') {
+      TILT[k] = val;
+    } else if (ns === 'LIGHT') {
+      LIGHT[k] = val;
+    } else if (ns === 'GHOST') {
+      GHOST[k] = val;
+      if (k === 'layers') buildClones(activeIdx);
+    }
+  }
+
+  const SECTIONS = [
+    { title: 'Sphere', rows: [
+      { label:'R mult',      key:'CFG.R_MULT',      min:0.3,  max:1.5,  step:0.01 },
+      { label:'R max',       key:'CFG.R_MAX',        min:200,  max:1200, step:10   },
+      { label:'Perspective', key:'CFG.PERSPECTIVE',  min:200,  max:2000, step:10   },
+    ]},
+    { title: 'Placement', rows: [
+      { label:'Lat 0',       key:'CFG.LAT.0',        min:-90,  max:90,   step:1    },
+      { label:'Lat 1',       key:'CFG.LAT.1',        min:-90,  max:90,   step:1    },
+      { label:'Lat 2',       key:'CFG.LAT.2',        min:-90,  max:90,   step:1    },
+      { label:'Lat 3',       key:'CFG.LAT.3',        min:-90,  max:90,   step:1    },
+      { label:'Lat 4',       key:'CFG.LAT.4',        min:-90,  max:90,   step:1    },
+      { label:'Lon spread',  key:'CFG.LON_SPREAD',   min:0.2,  max:1.0,  step:0.01 },
+    ]},
+    { title: 'Rotation', rows: [
+      { label:'Rot mult',    key:'CFG.ROT_MULT',     min:0,    max:1.5,  step:0.01 },
+      { label:'Roll max',    key:'CFG.ROLL_MAX',      min:0,    max:45,   step:1    },
+    ]},
+    { title: 'Appearance', rows: [
+      { label:'Scale act',   key:'CFG.SCALE_ACTIVE', min:0.5,  max:1.5,  step:0.01 },
+      { label:'Scale sph',   key:'CFG.SCALE_SPHERE', min:0.3,  max:1.2,  step:0.01 },
+      { label:'Opacity ×',   key:'CFG.OPACITY_MULT', min:0,    max:2.0,  step:0.01 },
+      { label:'Opacity base',key:'CFG.OPACITY_BASE', min:0,    max:1.0,  step:0.01 },
+      { label:'Blur max',    key:'CFG.BLUR_MAX',      min:0,    max:20,   step:0.5  },
+    ]},
+    { title: 'Physics', rows: [
+      { label:'Friction',    key:'CFG.FRICTION',     min:0.70, max:0.99, step:0.01 },
+      { label:'Spring',      key:'CFG.SPRING',        min:0.01, max:0.40, step:0.01 },
+      { label:'Drag sens',   key:'CFG.DRAG_SENS',    min:0.1,  max:2.0,  step:0.05 },
+    ]},
+    { title: 'Tilt', rows: [
+      { label:'Max tilt',    key:'TILT.max',         min:1,    max:20,   step:0.5  },
+      { label:'Stiffness',   key:'TILT.stiffness',   min:0.01, max:0.4,  step:0.01 },
+      { label:'Damping',     key:'TILT.damping',     min:0.50, max:0.99, step:0.01 },
+    ]},
+    { title: 'Highlight', rows: [
+      { label:'Intensity',   key:'LIGHT.intensity',  min:0,    max:1.0,  step:0.01 },
+      { label:'Size',        key:'LIGHT.size',       min:10,   max:100,  step:1    },
+      { label:'Travel',      key:'LIGHT.travel',     min:0,    max:120,  step:1    },
+      { label:'Diffuse',     key:'LIGHT.diffuse',    min:0,    max:0.5,  step:0.01 },
+      { label:'Shadow',      key:'LIGHT.shadow',     min:0,    max:0.5,  step:0.01 },
+    ]},
+    { title: 'Ghost', rows: [
+      { label:'Layers',      key:'GHOST.layers',     min:1,    max:16,   step:1    },
+      { label:'Opacity',     key:'GHOST.opacity',    min:0,    max:1.0,  step:0.01 },
+      { label:'Blur',        key:'GHOST.blur',       min:0,    max:20,   step:0.5  },
+    ]},
+  ];
+
+  SECTIONS.forEach(section => {
+    const secEl = document.createElement('div');
+    secEl.className = 'dev-section';
+    secEl.innerHTML = `<div class="dev-section-title">${section.title}</div>`;
+
+    section.rows.forEach(row => {
+      const rowEl = document.createElement('div');
+      rowEl.className = 'dev-row';
+
+      const label = document.createElement('span');
+      label.className = 'dev-label';
+      label.textContent = row.label;
+
+      const range = document.createElement('input');
+      range.type = 'range'; range.min = row.min; range.max = row.max; range.step = row.step;
+      range.value = devGet(row.key);
+
+      const num = document.createElement('input');
+      num.type = 'number'; num.min = row.min; num.max = row.max; num.step = row.step;
+      num.value = devGet(row.key);
+
+      function update(val) {
+        const v = parseFloat(val);
+        if (isNaN(v)) return;
+        const c = Math.min(row.max, Math.max(row.min, v));
+        devSet(row.key, c);
+        range.value = c; num.value = c;
+        applyTransforms(posY);
+      }
+
+      range.addEventListener('input',  () => update(range.value));
+      num.addEventListener('change',   () => update(num.value));
+      num.addEventListener('keydown',  e => { if (e.key === 'Enter') update(num.value); e.stopPropagation(); });
+      range.addEventListener('mousedown',  e => e.stopPropagation());
+      range.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
+
+      rowMap[row.key] = { range, num };
+      rowEl.appendChild(label); rowEl.appendChild(range); rowEl.appendChild(num);
+      secEl.appendChild(rowEl);
+    });
+
+    devInner.appendChild(secEl);
+  });
+
+  function syncDevPanel() {
+    bpLabel.textContent = innerWidth >= 768 ? 'breakpoint: desktop' : 'breakpoint: mobile';
+    Object.entries(rowMap).forEach(([key, { range, num }]) => {
+      const v = devGet(key); range.value = v; num.value = v;
+    });
+  }
+
+  function toggleDev() {
+    document.body.classList.toggle('dev-open');
+    setTimeout(() => { resizeScrubber(); applyTransforms(posY); }, 300);
+  }
+  let devTouchFired = false;
+  devToggle.addEventListener('touchend', e => { e.stopPropagation(); devTouchFired = true; toggleDev(); }, { passive: true });
+  devToggle.addEventListener('click', () => { if (devTouchFired) { devTouchFired = false; return; } toggleDev(); });
+
+  devCopy.addEventListener('click', () => {
+    const out = {
+      sphere:    { R_MULT:CFG.R_MULT, R_MAX:CFG.R_MAX, PERSPECTIVE:CFG.PERSPECTIVE, LAT:[...CFG.LAT], LON_SPREAD:CFG.LON_SPREAD, ROT_MULT:CFG.ROT_MULT, ROLL_MAX:CFG.ROLL_MAX, SCALE_ACTIVE:CFG.SCALE_ACTIVE, SCALE_SPHERE:CFG.SCALE_SPHERE, OPACITY_MULT:CFG.OPACITY_MULT, OPACITY_BASE:CFG.OPACITY_BASE, BLUR_MAX:CFG.BLUR_MAX, FRICTION:CFG.FRICTION, SPRING:CFG.SPRING, DRAG_SENS:CFG.DRAG_SENS },
+      tilt:      { ...TILT },
+      light:     { ...LIGHT },
+      ghost:     { ...GHOST },
+    };
+    navigator.clipboard.writeText(JSON.stringify(out, null, 2)).then(() => {
+      devCopy.textContent = 'Copied!'; devCopy.classList.add('copied');
+      setTimeout(() => { devCopy.textContent = 'Copy config'; devCopy.classList.remove('copied'); }, 1500);
+    });
+  });
+
+  /* ══════════════════════════════════════════
+     BREAKPOINT + INIT
+  ══════════════════════════════════════════ */
+  function loadPreset(name) {
+    const p = PRESETS[name];
+    Object.keys(p).forEach(k => { CFG[k] = Array.isArray(p[k]) ? [...p[k]] : p[k]; });
+    syncPerspective(); syncDevPanel();
+  }
+  function checkBreakpoint() { loadPreset(innerWidth >= 768 ? 'desktop' : 'mobile'); }
+
+  checkBreakpoint();
+  applyTransforms(0);
+  activeIdx     = 0;
+  lastActiveIdx = 0;
+  buildClones(0);
+  revealCard(0);
+  tiltLoop();
+
+})();
+</script>
+</body>
+</html>
