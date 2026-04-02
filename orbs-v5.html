@@ -176,6 +176,16 @@ canvas { display: block; width: 100vw; height: 100dvh; }
     <button class="blend-btn active" data-mode="0">Multiply</button>
     <button class="blend-btn" data-mode="1">Difference</button>
   </div>
+  <div style="border-top:1px solid rgba(0,0,0,0.05);padding:8px 0 2px;pointer-events:auto;">
+    <div class="orb-slider-row">
+      <span class="orb-slider-label">Size</span>
+      <input type="range" id="typoSize" class="orb-slider" min="0.4" max="2.5" step="0.05" value="1">
+    </div>
+    <div class="orb-slider-row" style="margin-top:6px">
+      <span class="orb-slider-label">Weight</span>
+      <input type="range" id="typoWeight" class="orb-slider" min="100" max="800" step="100" value="400">
+    </div>
+  </div>
 </div>
 
 <script>
@@ -426,9 +436,10 @@ function rebuildBg() {
   x.fillStyle = "#fff";
   x.fillRect(0, 0, W, H);
 
-  const sz = W >= 1200 ? 163 : W >= 768 ? Math.round(W * 0.115) : Math.round(W * 0.1);
+  const szBase = W >= 1200 ? 163 : W >= 768 ? Math.round(W * 0.115) : Math.round(W * 0.1);
+  const sz = Math.round(szBase * typoScale);
   const lh = sz * 1.15;
-  x.font = `400 ${sz}px "Plus Jakarta Sans", sans-serif`;
+  x.font = `${typoWeight} ${sz}px "Plus Jakarta Sans", sans-serif`;
   if (x.letterSpacing !== undefined) x.letterSpacing = `${sz * -0.02}px`;
   x.fillStyle = "#111"; x.textAlign = "left"; x.textBaseline = "top";
   const lines = BG_TEXT.split("\n");
@@ -738,6 +749,17 @@ function buildBar() {
 }
 
 addBtn.addEventListener("click", () => addOrb());
+
+let typoScale = 1.0;
+let typoWeight = 400;
+document.getElementById("typoSize").addEventListener("input", e => {
+  typoScale = parseFloat(e.target.value);
+  rebuildBg();
+});
+document.getElementById("typoWeight").addEventListener("input", e => {
+  typoWeight = parseInt(e.target.value);
+  rebuildBg();
+});
 
 let blendMode = 0;
 const blendBtns = toolbar.querySelectorAll(".blend-btn");
