@@ -1,7 +1,7 @@
-@import url('https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,100..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Google+Sans+Flex:wght@100..900&display=swap');
 
 :root {
-  --font-brand: 'Roboto Flex', system-ui, sans-serif;
+  --font-brand: 'Google Sans Flex', system-ui, sans-serif;
 
   --type-display-large-size:    57px;
   --type-display-large-lh:      64px;
