@@ -166,6 +166,33 @@ a.back:hover, a.ds-link:hover { color:#333; }
     <span class="ctrl-val" id="v-tdamp">0.75</span>
   </div>
 
+  <p class="ctrl-section">highlight</p>
+  <div class="ctrl-row">
+    <span class="ctrl-label">intensity</span>
+    <input type="range" id="s-lintensity" min="0" max="1" step="0.01" value="0.5">
+    <span class="ctrl-val" id="v-lintensity">0.5</span>
+  </div>
+  <div class="ctrl-row">
+    <span class="ctrl-label">size</span>
+    <input type="range" id="s-lsize" min="10" max="100" step="1" value="52">
+    <span class="ctrl-val" id="v-lsize">52%</span>
+  </div>
+  <div class="ctrl-row">
+    <span class="ctrl-label">travel</span>
+    <input type="range" id="s-ltravel" min="0" max="120" step="1" value="68">
+    <span class="ctrl-val" id="v-ltravel">68</span>
+  </div>
+  <div class="ctrl-row">
+    <span class="ctrl-label">diffuse</span>
+    <input type="range" id="s-ldiffuse" min="0" max="0.5" step="0.01" value="0.1">
+    <span class="ctrl-val" id="v-ldiffuse">0.1</span>
+  </div>
+  <div class="ctrl-row">
+    <span class="ctrl-label">shadow</span>
+    <input type="range" id="s-lshadow" min="0" max="0.5" step="0.01" value="0.18">
+    <span class="ctrl-val" id="v-lshadow">0.18</span>
+  </div>
+
   <p class="ctrl-section">ghost effect</p>
   <div class="ctrl-row" style="gap:4px;">
     <button class="variant-btn" id="btn-front" onclick="setVariant('front')">on top</button>
@@ -402,30 +429,28 @@ function setVariant(v) {
 
 /* ── Highlight / lighting ── */
 const shineEl = document.getElementById('card-shine');
+const LIGHT = { intensity: 0.50, size: 52, travel: 68, diffuse: 0.10, shadow: 0.18 };
 
 function updateShine() {
   const maxT = TILT.max || 12;
-  // Normalised tilt: +1 = tilted right / top-toward-viewer
   const nx =  tiltRy / maxT;
   const ny = -tiltRx / maxT;
   const mag = Math.min(Math.hypot(nx, ny), 1);
 
   if (mag < 0.015) { shineEl.style.background = 'none'; return; }
 
-  // Specular highlight — reflection of an overhead-front light source.
-  // Tilting right (nx > 0) moves the highlight LEFT; tilting top forward (ny < 0) moves it UP.
-  const hx = (50 - nx * 68).toFixed(1);
-  const hy = (50 + ny * 68).toFixed(1);
-  const specPeak  = (0.50 * mag).toFixed(3);
-  const specMid   = (0.06 * mag).toFixed(3);
+  const hx = (50 - nx * LIGHT.travel).toFixed(1);
+  const hy = (50 + ny * LIGHT.travel).toFixed(1);
+  const specPeak  = (LIGHT.intensity * mag).toFixed(3);
+  const specMid   = (LIGHT.intensity * 0.12 * mag).toFixed(3);
+  const sz        = LIGHT.size;
 
-  // Diffuse edge brightening — lit side faces light, opposite side in relative shadow.
   const litAngle  = (Math.atan2(-nx, -ny) * 180 / Math.PI).toFixed(1);
-  const diffAmt   = (0.10 * mag).toFixed(3);
-  const shadowAmt = (0.18 * mag).toFixed(3);
+  const diffAmt   = (LIGHT.diffuse * mag).toFixed(3);
+  const shadowAmt = (LIGHT.shadow  * mag).toFixed(3);
 
   shineEl.style.background = [
-    `radial-gradient(ellipse 52% 52% at ${hx}% ${hy}%, rgba(255,255,255,${specPeak}) 0%, rgba(255,255,255,${specMid}) 45%, transparent 72%)`,
+    `radial-gradient(ellipse ${sz}% ${sz}% at ${hx}% ${hy}%, rgba(255,255,255,${specPeak}) 0%, rgba(255,255,255,${specMid}) 45%, transparent 72%)`,
     `linear-gradient(${litAngle}deg, rgba(255,255,255,${diffAmt}) 0%, transparent 55%)`,
     `linear-gradient(${(+litAngle + 180).toFixed(1)}deg, rgba(0,0,0,${shadowAmt}) 0%, transparent 60%)`
   ].join(',');
@@ -451,6 +476,18 @@ function updateShine() {
   const sl = document.getElementById(sid);
   const vl = document.getElementById(vid);
   sl.addEventListener('input', () => { GHOST[key] = +sl.value; vl.textContent = sl.value + unit; });
+});
+
+[
+  ['s-lintensity', 'v-lintensity', 'intensity', ''  ],
+  ['s-lsize',      'v-lsize',      'size',       '%' ],
+  ['s-ltravel',    'v-ltravel',    'travel',     ''  ],
+  ['s-ldiffuse',   'v-ldiffuse',   'diffuse',    ''  ],
+  ['s-lshadow',    'v-lshadow',    'shadow',     ''  ],
+].forEach(([sid, vid, key, unit]) => {
+  const sl = document.getElementById(sid);
+  const vl = document.getElementById(vid);
+  sl.addEventListener('input', () => { LIGHT[key] = +sl.value; vl.textContent = sl.value + unit; });
 });
 
 
