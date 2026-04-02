@@ -169,11 +169,6 @@ a.back:hover, a.ds-link:hover { color:#333; }
     <span class="ctrl-val" id="v-glayers">4</span>
   </div>
   <div class="ctrl-row">
-    <span class="ctrl-label">spread</span>
-    <input type="range" id="s-spread" min="0" max="80" step="1" value="2">
-    <span class="ctrl-val" id="v-spread">2px</span>
-  </div>
-  <div class="ctrl-row">
     <span class="ctrl-label">opacity</span>
     <input type="range" id="s-gopa" min="0.01" max="1" step="0.01" value="0.16">
     <span class="ctrl-val" id="v-gopa">0.16</span>
@@ -332,7 +327,7 @@ if (isMobile()) {
 }
 
 /* ── Ghost clones ── */
-const GHOST = { layers: 4, spread: 2, opacity: 0.16, blur: 1 };
+const GHOST = { layers: 4, opacity: 0.16, blur: 1 };
 const cardWrap = cardEl.parentElement;
 const ghostClones = [];
 
@@ -356,12 +351,13 @@ function drawGhosts() {
     return;
   }
   ghostClones.forEach((clone, i) => {
-    const scalar = (i + 1) / GHOST.layers;
-    const dx = -tiltRy * GHOST.spread * scalar;
-    const dy =  tiltRx * GHOST.spread * scalar;
-    clone.style.transform = `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px)`;
+    // step from neutral (0) up toward current tilt, leaving the last step to the real card
+    const scalar = (i + 1) / (GHOST.layers + 1);
+    const rx = tiltRx * scalar;
+    const ry = tiltRy * scalar;
+    clone.style.transform = `rotateX(${rx.toFixed(3)}deg) rotateY(${ry.toFixed(3)}deg)`;
     clone.style.opacity   = GHOST.opacity;
-    clone.style.filter    = GHOST.blur > 0 ? `blur(${(GHOST.blur * scalar).toFixed(1)}px)` : '';
+    clone.style.filter    = GHOST.blur > 0 ? `blur(${GHOST.blur.toFixed(1)}px)` : '';
   });
 }
 
@@ -388,9 +384,8 @@ function setVariant(v) {
 })();
 
 [
-  ['s-spread', 'v-spread', 'spread',    'px'],
-  ['s-gopa',   'v-gopa',   'opacity',   ''  ],
-  ['s-gblur',  'v-gblur',  'blur',      'px'],
+  ['s-gopa',  'v-gopa',  'opacity', ''],
+  ['s-gblur', 'v-gblur', 'blur',    'px'],
 ].forEach(([sid, vid, key, unit]) => {
   const sl = document.getElementById(sid);
   const vl = document.getElementById(vid);
