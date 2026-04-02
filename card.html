@@ -17,6 +17,10 @@ body {
   background: #e8e8e8;
   padding: 60px 20px;
 }
+.card-wrap {
+  perspective: 800px;
+  flex-shrink: 0;
+}
 .card {
   width: min(92vw, 364px);
   aspect-ratio: 364 / 555;
@@ -28,7 +32,10 @@ body {
   padding: 24px;
   position: relative;
   background: #d9d9d9;
-  flex-shrink: 0;
+  transform-style: preserve-3d;
+  transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1),
+              box-shadow 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+  will-change: transform;
 }
 .card-bg {
   position: absolute; inset: 0;
@@ -108,13 +115,15 @@ a.back:hover, a.ds-link:hover { color:#333; }
 <a class="back" href="./index.html">← lab</a>
 <a class="ds-link" href="./design-system.html">design system →</a>
 
-<div class="card">
+<div class="card-wrap">
+<div class="card" id="card">
   <div class="card-bg"></div>
   <div class="card-overlay"></div>
   <div class="card-content">
     <p class="type-label-medium" id="line1">Lead Brand Designer</p>
     <p class="type-headline-medium" id="line2">Brand for showmore new 360 agency on the market</p>
   </div>
+</div>
 </div>
 
 <div class="controls">
@@ -185,6 +194,27 @@ reveal();
 });
 
 document.getElementById('replayBtn').addEventListener('click', reveal);
+
+/* ── Card tilt ── */
+const cardEl = document.getElementById('card');
+const MAX_TILT = 8;
+
+cardEl.addEventListener('mousemove', e => {
+  const r = cardEl.getBoundingClientRect();
+  const x = (e.clientX - r.left) / r.width  - 0.5;
+  const y = (e.clientY - r.top)  / r.height - 0.5;
+  const ry =  x * MAX_TILT * 2;
+  const rx = -y * MAX_TILT * 2;
+  cardEl.style.transition = 'none';
+  cardEl.style.transform = `rotateX(${rx}deg) rotateY(${ry}deg)`;
+  cardEl.style.boxShadow = `${-ry * 1.2}px ${rx * 1.2}px 32px rgba(0,0,0,0.18)`;
+});
+
+cardEl.addEventListener('mouseleave', () => {
+  cardEl.style.transition = '';
+  cardEl.style.transform  = 'rotateX(0deg) rotateY(0deg)';
+  cardEl.style.boxShadow  = '';
+});
 </script>
 </body>
 </html>
