@@ -145,9 +145,9 @@ a.back:hover, a.ds-link:hover { color:#333; }
 const CFG = { stagger: 60, dur: 400, blur: 8, y: 8 };
 
 function wrapWords(el) {
-  el.innerHTML = el.textContent.trim().split(/\s+/).map(w =>
-    `<span class="word">${w}</span>`
-  ).join(' ');
+  el.innerHTML = el.textContent.trim().split('').map(ch =>
+    ch === ' ' ? ' ' : `<span class="word">${ch}</span>`
+  ).join('');
 }
 
 function applyCSS() {
