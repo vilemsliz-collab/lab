@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Card</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:wdth,wght@100,300&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  min-height: 100dvh;
+  display: flex; align-items: center; justify-content: center;
+  background: #f0f0f0;
+  font-family: 'Roboto Flex', sans-serif;
+}
+.card {
+  width: min(92vw, 364px);
+  aspect-ratio: 364 / 555;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 22px;
+  background: #12131a;
+  border-top: 3px solid #c8ff00;
+  position: relative;
+}
+.card-id {
+  font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: rgba(255,255,255,0.22);
+}
+.card-spacer { flex: 1; }
+.card-title {
+  font-size: clamp(24px, 6vw, 32px);
+  font-weight: 300;
+  font-variation-settings: 'wdth' 151;
+  color: #f0eeeb;
+  line-height: 1.1;
+  margin-bottom: 5px;
+}
+.card-sub {
+  font-size: 13px;
+  font-weight: 300;
+  font-variation-settings: 'wdth' 151;
+  color: #c8ff00;
+  margin-bottom: 5px;
+}
+.card-tag {
+  font-size: 11px;
+  font-variation-settings: 'wdth' 151;
+  color: rgba(255,255,255,0.22);
+  letter-spacing: 0.08em;
+}
+a.back { position: fixed; top: 20px; left: 20px; font-size: 12px; color: #999; text-decoration: none; }
+a.back:hover { color: #333; }
+</style>
+</head>
+<body>
+<a class="back" href="./index.html">← lab</a>
+<div class="card">
+  <div class="card-id">001</div>
+  <div class="card-spacer"></div>
+  <div class="card-title">Ink Text</div>
+  <div class="card-sub">typographic</div>
+  <div class="card-tag">2025-03</div>
+</div>
+</body>
+</html>
