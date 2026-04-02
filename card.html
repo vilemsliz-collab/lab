@@ -41,7 +41,7 @@ body {
   width: 100%; height: 100%; object-fit: cover; display: block;
 }
 #ghost-canvas {
-  position: absolute; inset: 0; z-index: 1;
+  position: absolute; inset: 0; z-index: 3;
   width: 100%; height: 100%;
   pointer-events: none;
 }
@@ -50,7 +50,7 @@ body {
   background: linear-gradient(to bottom, rgba(0,0,0,0) 55%, rgba(0,0,0,0.55));
 }
 .card-content {
-  position: relative; z-index: 3;
+  position: relative; z-index: 4;
   display: flex; flex-direction: column; gap: var(--stack-md);
   color: #fff;
 }
@@ -341,17 +341,28 @@ const ghostCanvas = document.getElementById('ghost-canvas');
 const gCtx = ghostCanvas.getContext('2d');
 const cardImg = document.getElementById('card-img');
 
-function resizeGhostCanvas() {
-  ghostCanvas.width  = cardEl.offsetWidth;
-  ghostCanvas.height = cardEl.offsetHeight;
+const offscreen = document.createElement('canvas');
+const offCtx    = offscreen.getContext('2d');
+
+function buildOffscreen() {
+  const W = cardEl.offsetWidth, H = cardEl.offsetHeight;
+  ghostCanvas.width = offscreen.width  = W;
+  ghostCanvas.height = offscreen.height = H;
+  offCtx.clearRect(0, 0, W, H);
+  offCtx.drawImage(cardImg, 0, 0, W, H);
+  const grad = offCtx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0.55, 'rgba(0,0,0,0)');
+  grad.addColorStop(1,    'rgba(0,0,0,0.55)');
+  offCtx.fillStyle = grad;
+  offCtx.fillRect(0, 0, W, H);
 }
-resizeGhostCanvas();
-window.addEventListener('resize', resizeGhostCanvas);
+cardImg.addEventListener('load', buildOffscreen);
+window.addEventListener('resize', buildOffscreen);
 
 function drawGhosts() {
   const mag = Math.abs(tiltRx) + Math.abs(tiltRy);
-  if (mag < 0.3) { gCtx.clearRect(0, 0, ghostCanvas.width, ghostCanvas.height); return; }
   const W = ghostCanvas.width, H = ghostCanvas.height;
+  if (mag < 0.3) { gCtx.clearRect(0, 0, W, H); return; }
   gCtx.clearRect(0, 0, W, H);
   gCtx.globalCompositeOperation = GHOST.blend;
   gCtx.globalAlpha = GHOST.opacity;
@@ -359,7 +370,7 @@ function drawGhosts() {
     const scalar = GHOST.layers > 1 ? i / (GHOST.layers - 1) : 0;
     const dx = tiltRy * GHOST.spreadX * scalar;
     const dy = tiltRx * GHOST.spreadY * scalar;
-    gCtx.drawImage(cardImg, dx, dy, W, H);
+    gCtx.drawImage(offscreen, dx, dy, W, H);
   }
 }
 
