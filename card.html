@@ -150,8 +150,8 @@ a.back:hover, a.ds-link:hover { color:#333; }
   <p class="ctrl-section">shape</p>
   <div class="ctrl-row">
     <span class="ctrl-label">roundness</span>
-    <input type="range" id="s-shape-n" min="-182" max="182" step="1" value="60">
-    <span class="ctrl-val" id="v-shape-n">+60px</span>
+    <input type="range" id="s-shape-n" min="-182" max="182" step="1" value="2">
+    <span class="ctrl-val" id="v-shape-n">+2px</span>
   </div>
 
   <p class="ctrl-section">tilt</p>
@@ -263,7 +263,7 @@ a.back:hover, a.ds-link:hover { color:#333; }
 
 <script>
 const CFG   = { stagger: 70, dur: 797, blur: 8, y: 8 };
-const SHAPE = { px: 60 }; // pixels: +182=circle, 0=rectangle, -182=diamond
+const SHAPE = { px: 2 }; // pixels: +182=circle, 0=rectangle, -182=diamond
 
 function wrapWords(el) {
   el.innerHTML = el.textContent.trim().split(/\s+/).map(w =>
