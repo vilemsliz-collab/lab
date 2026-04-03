@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Portfolio — Lab</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:wght@100..900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./design-system.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%; height: 100%;
+      background: var(--color-background);
+      overflow: hidden;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .back {
+      position: fixed;
+      top: 20px; left: 24px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--color-outline); text-decoration: none;
+      z-index: 100;
+      transition: color 0.2s;
+    }
+    .back:hover { color: var(--color-on-surface); }
+
+    #stage {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 108px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      perspective-origin: 50% 50%;
+      overflow: hidden;
+    }
+
+    /* ── Card wrap: receives carousel 3D transform ── */
+    .card-wrap {
+      position: absolute;
+      width: min(92vw, var(--card-width));
+      aspect-ratio: var(--card-aspect-w) / var(--card-aspect-h);
+      perspective: var(--card-perspective);
+      will-change: transform, opacity, filter;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+    }
+
+    /* ── Card: receives tilt transform ── */
+    .card {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: var(--card-padding);
+      position: relative;
+      z-index: 2;
+      background: var(--card-bg);
+      will-change: transform;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+    }
+
+    .card-bg {
+      position: absolute; inset: 0; z-index: 0;
+      width: 100%; height: 100%; object-fit: cover; display: block;
+      transition: transform 1.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+    .card:hover .card-bg {
+      transform: scale(1.2);
+      transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+    .card-overlay {
+      position: absolute; inset: 0; z-index: 2;
+      background: linear-gradient(to bottom, rgba(0,0,0,0) 55%, rgba(0,0,0,0.55));
+    }
+    .card-content {
+      position: relative; z-index: 4;
+      display: flex; flex-direction: column; gap: var(--stack-sm);
+      color: #fff;
+    }
+
+    /* ── Ghost clone ── */
+    .ghost-clone {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0;
+      will-change: transform, opacity, filter;
+    }
+    .ghost-clone .card-content { visibility: hidden; }
+
+    /* ── Word reveal ── */
+    .word {
+      display: inline-block;
+      opacity: 0;
+      filter: blur(var(--blur, 8px));
+      transform: translateY(var(--y, 8px));
+      transition:
+        opacity   var(--dur, 400ms) ease,
+        filter    var(--dur, 400ms) ease,
+        transform var(--dur, 400ms) ease;
+    }
+    .word.visible {
+      opacity: 1;
+      filter: blur(0);
+      transform: translateY(0);
+    }
+
+    /* ── Card button ── */
+    .card-btn {
+      align-self: flex-end;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: var(--card-btn-size);
+      height: var(--card-btn-size);
+      padding: 0;
+      border: none;
+      background: none;
+      color: rgba(255,255,255,0.9);
+      font-size: 28px;
+      line-height: 1;
+      cursor: pointer;
+      position: relative;
+      transition:
+        opacity   var(--dur, 400ms) ease,
+        filter    var(--dur, 400ms) ease,
+        transform var(--dur, 400ms) ease;
+      pointer-events: auto;
+    }
+    .card-btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.06) 100%);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    .card:hover .card-btn::before { opacity: 1; }
+
+    /* ── Scrubber ── */
+    #scrubber {
+      position: fixed;
+      bottom: 56px; left: 0; right: 0; height: 52px;
+      z-index: 40;
+      background: var(--color-surface);
+      cursor: grab;
+      touch-action: none;
+      border-top: 1px solid var(--color-outline-variant);
+    }
+    #scrubber:active { cursor: grabbing; }
+    #scrubber canvas { display: block; }
+
+    /* ── Controls bar ── */
+    #controls-bar {
+      position: fixed;
+      bottom: 0; left: 0; right: 0; height: 56px;
+      z-index: 50;
+      background: var(--color-surface);
+      border-top: 1px solid var(--color-outline-variant);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--inline-lg);
+      touch-action: auto;
+    }
+
+    .ctrl-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      padding: 6px 16px;
+      background: none;
+      border: 1px solid transparent;
+      border-radius: 20px;
+      font-family: 'IBM Plex Mono', monospace;
+      cursor: pointer;
+      color: var(--color-outline);
+      transition: color 0.15s, border-color 0.15s, background 0.15s;
+      touch-action: auto;
+    }
+    .ctrl-btn .icon  { font-size: 16px; line-height: 1; }
+    .ctrl-btn .label { font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; }
+    .ctrl-btn:hover  { color: var(--color-on-surface); }
+    .ctrl-btn.active {
+      color: var(--color-on-surface);
+      border-color: var(--color-outline-variant);
+      background: var(--color-surface-variant);
+    }
+
+    /* ── Panels ── */
+    .panel {
+      position: fixed;
+      bottom: 116px;
+      left: 50%;
+      transform: translateX(-50%) translateY(calc(100% + 24px));
+      width: min(92vw, 364px);
+      z-index: 45;
+      background: rgba(243,244,249,0.9);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--color-outline-variant);
+      border-radius: 16px;
+      padding: var(--inset-lg);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      color: var(--color-on-surface-variant);
+      max-height: calc(100vh - 220px);
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--gray-300) transparent;
+      opacity: 0;
+      pointer-events: none;
+      touch-action: auto;
+      user-select: text;
+      -webkit-user-select: text;
+      transition: transform 0.3s cubic-bezier(0.34, 1.4, 0.64, 1), opacity 0.2s ease;
+    }
+    .panel.open {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .panel-title {
+      font-size: 9px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-outline);
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--color-outline-variant);
+      margin-top: 6px;
+    }
+    .panel-title:first-child { margin-top: 0; }
+
+    .panel-row {
+      display: grid;
+      grid-template-columns: 80px 1fr 46px;
+      align-items: center;
+      gap: 8px;
+    }
+    .panel-label {
+      font-size: 9px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--color-outline);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .panel-row input[type="range"] {
+      width: 100%;
+      height: 3px;
+      accent-color: var(--color-on-surface);
+      cursor: pointer;
+    }
+    .panel-val {
+      font-size: 10px;
+      text-align: right;
+      color: var(--color-on-surface);
+    }
+    .panel-btn-row {
+      display: flex;
+      gap: 6px;
+    }
+    .panel-btn {
+      flex: 1;
+      padding: 8px 0;
+      border: 1px solid var(--color-outline-variant);
+      border-radius: 8px;
+      background: var(--color-background);
+      color: var(--color-on-surface-variant);
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+      transition: all 0.15s;
+      touch-action: auto;
+    }
+    .panel-btn:hover  { border-color: var(--color-on-surface); color: var(--color-on-surface); }
+    .panel-btn.active { background: var(--color-on-surface); color: var(--color-background); border-color: var(--color-on-surface); }
+
+    .replay-btn {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid var(--color-outline-variant);
+      border-radius: 8px;
+      background: var(--color-on-surface);
+      color: var(--color-background);
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      margin-top: 4px;
+      touch-action: auto;
+    }
+    .replay-btn:hover { opacity: 0.75; }
+  </style>
+</head>
+<body>
+
+  <a class="back" href="./index.html">← lab</a>
+
+  <div id="stage"></div>
+  <div id="scrubber"></div>
+
+  <div id="controls-bar">
+    <button class="ctrl-btn" data-panel="sphere">
+      <span class="icon">⬡</span>
+      <span class="label">sphere</span>
+    </button>
+    <button class="ctrl-btn" data-panel="physics">
+      <span class="icon">⌁</span>
+      <span class="label">physics</span>
+    </button>
+    <button class="ctrl-btn" data-panel="card">
+      <span class="icon">◻</span>
+      <span class="label">card</span>
+    </button>
+    <button class="ctrl-btn" data-panel="reveal">
+      <span class="icon">↺</span>
+      <span class="label">reveal</span>
+    </button>
+  </div>
+
+  <div id="panel-sphere"  class="panel"></div>
+  <div id="panel-physics" class="panel"></div>
+  <div id="panel-card"    class="panel"></div>
+  <div id="panel-reveal"  class="panel"></div>
+
+<script>
+(() => {
+  'use strict';
+
+  const DS = getComputedStyle(document.documentElement);
+
+  /* ══ CAROUSEL CONFIG ══ */
+  const PRESETS = {
+    mobile: {
+      R_MULT: 1.5, R_MAX: 1010, PERSPECTIVE: 200,
+      LAT: [-62, 66, -19, 42, -31], LON_SPREAD: 0.88,
+      ROT_MULT: 0, ROLL_MAX: 0,
+      SCALE_ACTIVE: 0.79, SCALE_SPHERE: 0.83,
+      OPACITY_MULT: 0.46, OPACITY_BASE: 1, BLUR_MAX: 0,
+      FRICTION: 0.7, SPRING: 0.23, DRAG_SENS: 1.3,
+    },
+    desktop: {
+      R_MULT: 1.5, R_MAX: 1010, PERSPECTIVE: 590,
+      LAT: [-8, 32, -29, 42, 24], LON_SPREAD: 0.56,
+      ROT_MULT: 0, ROLL_MAX: 0,
+      SCALE_ACTIVE: 1.29, SCALE_SPHERE: 0.83,
+      OPACITY_MULT: 0.46, OPACITY_BASE: 1, BLUR_MAX: 0,
+      FRICTION: 0.90, SPRING: 0.10, DRAG_SENS: 0.60,
+    },
+  };
+  const CFG = Object.assign({}, PRESETS.mobile);
+
+  /* ══ CARD EFFECT CONFIG ══ */
+  const REVEAL = { stagger: 58, dur: 682, blur: 8, y: 8 };
+  const SHAPE  = { px: +DS.getPropertyValue('--shape-card') || 2 };
+  const TILT   = { max: 16, stiffness: 0.1, damping: 0.75 };
+  const GHOST  = { layers: 6, opacity: 0.16, blur: 0, blend: 'normal', variant: 'behind' };
+  const BTN_SHAPE = +DS.getPropertyValue('--shape-pill') || 182;
+
+  /* ══ CARDS DATA ══ */
+  const CARDS = [
+    { id:'001', title:'Ink Text',  sub:'typographic', tag:'2025-03', href:'./ink-text/',    bg:'#12131a', ac:'#c8ff00', video:'./assets/portfolio-reel.mp4' },
+    { id:'002', title:'Orbs v5',   sub:'generative',  tag:'2025-03', href:'./orbs-v5.html', bg:'#080e1c', ac:'#4dd0e1' },
+    { id:'003', title:'Signal',    sub:'audio viz',   tag:'wip',     href:null,             bg:'#1e0a0a', ac:'#ff5252' },
+    { id:'004', title:'Terrain',   sub:'procedural',  tag:'wip',     href:null,             bg:'#071207', ac:'#66ff99' },
+    { id:'005', title:'Fluid',     sub:'simulation',  tag:'planned', href:null,             bg:'#141414', ac:'#e0e0e0' },
+  ];
+  const N = CARDS.length;
+
+  /* ══ BUILD CARD DOM ══ */
+  const stage    = document.getElementById('stage');
+  const wrapEls  = [];
+  const cardEls  = [];
+
+  CARDS.forEach((card, i) => {
+    const wrap = document.createElement('div');
+    wrap.className    = 'card-wrap';
+    wrap.dataset.index = i;
+
+    const el = document.createElement('div');
+    el.className      = 'card';
+    el.dataset.index  = i;
+    el.style.background = card.bg;
+    el.innerHTML = `
+      ${card.video ? `<video class="card-bg" src="${card.video}" autoplay loop muted playsinline></video>` : ''}
+      <div class="card-overlay"></div>
+      <div class="card-content">
+        <p class="type-label-medium card-line">${card.id}</p>
+        <p class="type-headline-medium card-line">${card.title}</p>
+        <button class="card-btn word" aria-label="View project">›</button>
+      </div>
+    `;
+
+    wrap.appendChild(el);
+    stage.appendChild(wrap);
+    wrapEls.push(wrap);
+    cardEls.push(el);
+  });
+
+  /* ══ STATE ══ */
+  let posY = 0, velY = 0, rafId = null;
+  let activeIdx = -1;
+
+  let tiltRx = 0, tiltRy = 0, tiltVx = 0, tiltVy = 0, tiltTx = 0, tiltTy = 0;
+  let activeCardEl = null;
+  const ghostClones = [];
+
+  /* ══ HELPERS ══ */
+  const lerp       = (a, b, t) => a + (b - a) * t;
+  const smoothstep = t => t * t * (3 - 2 * t);
+  const clamp      = (v, a, b) => Math.max(a, Math.min(b, v));
+
+  function syncPerspective() { stage.style.perspective = CFG.PERSPECTIVE + 'px'; }
+  syncPerspective();
+
+  /* Seeded roll for ROLL_MAX (currently 0 in presets) */
+  function seededRng(seed) {
+    let s = seed | 0;
+    return () => { s = (Math.imul(s, 1664525) + 1013904223) | 0; return (s >>> 0) / 0xFFFFFFFF; };
+  }
+  const ROLL_BASE = CARDS.map((_, i) => {
+    const r = seededRng(i * 6271 + 3491);
+    return (r() - 0.5) * 2;
+  });
+
+  /* ══ SUPERELLIPSE SHAPE PATH ══ */
+  function shapePath(w, h, px) {
+    const cx = w / 2, cy = h / 2;
+    const maxR = Math.min(cx, cy);
+    px = Math.max(-maxR, Math.min(maxR, px));
+    if (px >= 0) {
+      const t = px / maxR;
+      const n = Math.pow(2, 4 - 3 * t);
+      let d = '';
+      for (let i = 0; i <= 200; i++) {
+        const a  = (i / 200) * 2 * Math.PI;
+        const ct = Math.cos(a), st = Math.sin(a);
+        const x  = cx + cx * Math.sign(ct) * Math.pow(Math.abs(ct), 2 / n);
+        const y  = cy + cy * Math.sign(st) * Math.pow(Math.abs(st), 2 / n);
+        d += (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1) + ' ';
+      }
+      return d + 'Z';
+    } else {
+      const t  = -px / maxR;
+      const rc = [[0,0],[w,0],[w,h],[0,h]];
+      const dc = [[cx,0],[w,cy],[cx,h],[0,cy]];
+      const pts = rc.map((p, j) => [
+        (p[0] * (1 - t) + dc[j][0] * t).toFixed(1),
+        (p[1] * (1 - t) + dc[j][1] * t).toFixed(1),
+      ]);
+      return `M${pts[0].join(',')} L${pts[1].join(',')} L${pts[2].join(',')} L${pts[3].join(',')} Z`;
+    }
+  }
+
+  /* ══ CLIP PATH — all cards + active ghosts + active button ══ */
+  function updateClipPath() {
+    cardEls.forEach(el => {
+      const w = el.offsetWidth, h = el.offsetHeight;
+      if (!w || !h) return;
+      el.style.clipPath     = `path('${shapePath(w, h, SHAPE.px)}')`;
+      el.style.borderRadius = '0';
+    });
+    if (activeCardEl) {
+      const w = activeCardEl.offsetWidth, h = activeCardEl.offsetHeight;
+      if (w && h) {
+        const p = `path('${shapePath(w, h, SHAPE.px)}')`;
+        ghostClones.forEach(c => { c.style.clipPath = p; c.style.borderRadius = '0'; });
+      }
+      const btn = activeCardEl.querySelector('.card-btn');
+      if (btn) {
+        const bw = btn.offsetWidth, bh = btn.offsetHeight;
+        if (bw && bh) {
+          btn.style.clipPath     = `path('${shapePath(bw, bh, BTN_SHAPE)}')`;
+          btn.style.borderRadius = '0';
+        }
+      }
+    }
+  }
+
+  /* ══ GHOST CLONES ══ */
+  function buildActiveClones() {
+    ghostClones.forEach(c => c.remove());
+    ghostClones.length = 0;
+    if (!activeCardEl) return;
+    const wrap = activeCardEl.parentElement;
+    const zVal = GHOST.variant === 'front' ? '3' : '1';
+    for (let i = 0; i < GHOST.layers; i++) {
+      const clone = activeCardEl.cloneNode(true);
+      clone.classList.add('ghost-clone');
+      clone.style.zIndex = zVal;
+      wrap.insertBefore(clone, activeCardEl);
+      ghostClones.push(clone);
+    }
+  }
+
+  function perspAngle(fullDeg, fraction, halfDim, P) {
+    if (Math.abs(fullDeg) < 0.001) return 0;
+    const sign   = Math.sign(fullDeg);
+    const r      = Math.abs(fullDeg) * Math.PI / 180;
+    const xFull  = halfDim * Math.cos(r) * P / (P - halfDim * Math.sin(r));
+    const xTgt   = halfDim + fraction * (xFull - halfDim);
+    const A = P, B = xTgt, C = xTgt * P / halfDim;
+    const R = Math.hypot(A, B);
+    const phi = Math.atan2(B, A) - Math.acos(Math.min(C / R, 1));
+    return sign * phi * 180 / Math.PI;
+  }
+
+  function drawGhosts() {
+    if (!activeCardEl || ghostClones.length === 0) return;
+    const mag = Math.abs(tiltRx) + Math.abs(tiltRy);
+    if (mag < 0.3) { ghostClones.forEach(c => { c.style.opacity = '0'; }); return; }
+    const P     = parseFloat(DS.getPropertyValue('--card-perspective')) || 800;
+    const halfW = activeCardEl.offsetWidth  / 2;
+    const halfH = activeCardEl.offsetHeight / 2;
+    ghostClones.forEach((clone, i) => {
+      const scalar = (i + 1) / (GHOST.layers + 1);
+      const rx = perspAngle(tiltRx, scalar, halfH, P);
+      const ry = perspAngle(tiltRy, scalar, halfW, P);
+      clone.style.transform    = `rotateX(${rx.toFixed(3)}deg) rotateY(${ry.toFixed(3)}deg)`;
+      clone.style.opacity      = String(GHOST.opacity * scalar);
+      clone.style.filter       = GHOST.blur > 0 ? `blur(${(GHOST.blur * (1 - scalar)).toFixed(2)}px)` : '';
+      clone.style.mixBlendMode = GHOST.blend;
+    });
+  }
+
+  /* ══ WORD REVEAL ══ */
+  function wrapWords(el) {
+    el.innerHTML = el.textContent.trim().split(/\s+/).map(w =>
+      `<span class="word">${w}</span>`
+    ).join(' ');
+  }
+
+  function applyCSS() {
+    document.documentElement.style.setProperty('--blur', REVEAL.blur + 'px');
+    document.documentElement.style.setProperty('--y',    REVEAL.y    + 'px');
+    document.documentElement.style.setProperty('--dur',  REVEAL.dur  + 'ms');
+  }
+
+  function revealActiveCard() {
+    if (!activeCardEl) return;
+    activeCardEl.querySelectorAll('.card-line').forEach(l => wrapWords(l));
+    const words = [...activeCardEl.querySelectorAll('.word')];
+    words.forEach(w => w.classList.remove('visible'));
+    applyCSS();
+    words.forEach((w, i) => setTimeout(() => w.classList.add('visible'), i * REVEAL.stagger));
+  }
+
+  /* ══ TILT RESET ══ */
+  function resetTilt() {
+    tiltTx = tiltTy = tiltRx = tiltRy = tiltVx = tiltVy = 0;
+    ghostClones.forEach(c => { c.style.opacity = '0'; });
+  }
+
+  /* ══ ACTIVE CARD LIFECYCLE ══ */
+  function onActiveChange(newIdx) {
+    activeIdx    = newIdx;
+    activeCardEl = cardEls[newIdx];
+    resetTilt();
+    buildActiveClones();
+    revealActiveCard();
+    updateClipPath();
+  }
+
+  /* ══ CAROUSEL TRANSFORMS ══ */
+  function applyTransforms(pos) {
+    const vw  = innerWidth;
+    const R   = Math.min(vw * CFG.R_MULT, CFG.R_MAX);
+    const LAT = CFG.LAT.map(d => d * Math.PI / 180);
+
+    CARDS.forEach((_, i) => {
+      let off = i - pos;
+      while (off >  N / 2) off -= N;
+      while (off < -N / 2) off += N;
+
+      const wrap    = wrapEls[i];
+      const phi     = LAT[i % LAT.length];
+      const theta   = off * (2 * Math.PI / N) * CFG.LON_SPREAD;
+      const abs     = Math.abs(off);
+      const st      = smoothstep(Math.min(1, abs));
+      const cosPhi  = Math.cos(phi);
+      const sinPhi  = Math.sin(phi);
+      const tx      = cosPhi * Math.sin(theta) * R * st;
+      const ty      = sinPhi * R * st;
+      const tz      = (cosPhi * Math.cos(theta) - 1) * R * st;
+      const facing  = cosPhi * Math.cos(theta);
+      const ry      = -(theta * 180 / Math.PI) * CFG.ROT_MULT * st;
+      const rx      = -(phi   * 180 / Math.PI) * CFG.ROT_MULT * st;
+      const rollDeg = ROLL_BASE[i] * CFG.ROLL_MAX;
+      const scale   = lerp(CFG.SCALE_ACTIVE, CFG.SCALE_SPHERE, st);
+      const opacity = Math.max(0, Math.min(1, facing * CFG.OPACITY_MULT + CFG.OPACITY_BASE));
+      const blur    = Math.max(0, (1 - facing) * CFG.BLUR_MAX);
+
+      wrap.style.transform = [
+        `translateX(${tx.toFixed(1)}px)`,
+        `translateY(${ty.toFixed(1)}px)`,
+        `translateZ(${tz.toFixed(1)}px)`,
+        `rotateX(${rx.toFixed(1)}deg)`,
+        `rotateY(${ry.toFixed(1)}deg)`,
+        `rotateZ(${rollDeg.toFixed(1)}deg)`,
+        `scale(${scale.toFixed(3)})`,
+      ].join(' ');
+      wrap.style.opacity = opacity.toFixed(3);
+      wrap.style.filter  = blur < 0.1 ? 'none' : `blur(${blur.toFixed(1)}px)`;
+      wrap.style.zIndex  = abs < 0.5 ? '20' : String(Math.max(1, Math.round(facing * 10 + 5)));
+    });
+
+    drawScrubber(pos);
+  }
+
+  /* ══ PHYSICS LOOP ══ */
+  function loop() {
+    velY *= CFG.FRICTION;
+    posY += velY;
+
+    const target = Math.round(posY);
+    if (Math.abs(velY) < 0.02) {
+      const spring = (target - posY) * CFG.SPRING;
+      posY += spring;
+      if (Math.abs(velY) < 0.0003 && Math.abs(posY - target) < 0.001) {
+        posY = ((target % N) + N) % N;
+        velY = 0;
+        applyTransforms(posY);
+        const newIdx = (((Math.round(posY) % N) + N) % N);
+        if (newIdx !== activeIdx) onActiveChange(newIdx);
+        rafId = null;
+        return;
+      }
+    }
+    applyTransforms(posY);
+    rafId = requestAnimationFrame(loop);
+  }
+
+  function kick() { if (!rafId) rafId = requestAnimationFrame(loop); }
+
+  /* ══ TILT LOOP (independent rAF) ══ */
+  (function tiltLoop() {
+    tiltVx += (tiltTx - tiltRx) * TILT.stiffness;
+    tiltVy += (tiltTy - tiltRy) * TILT.stiffness;
+    tiltVx *= TILT.damping;
+    tiltVy *= TILT.damping;
+    tiltRx += tiltVx;
+    tiltRy += tiltVy;
+    if (activeCardEl) {
+      activeCardEl.style.transform = `rotateX(${tiltRx.toFixed(3)}deg) rotateY(${tiltRy.toFixed(3)}deg)`;
+    }
+    drawGhosts();
+    requestAnimationFrame(tiltLoop);
+  })();
+
+  /* ══ TILT INPUT ══ */
+  const isMobile = () => navigator.maxTouchPoints > 0;
+
+  document.addEventListener('mousemove', e => {
+    if (isMobile()) return;
+    tiltTy =  (e.clientX / window.innerWidth  - 0.5) * 2 * TILT.max;
+    tiltTx = -(e.clientY / window.innerHeight - 0.5) * 2 * TILT.max;
+  });
+
+  function attachGyro() {
+    window.addEventListener('deviceorientation', e => {
+      const gamma = e.gamma ?? 0;
+      const beta  = e.beta  ?? 0;
+      tiltTy = clamp( (gamma / 30) * TILT.max, -TILT.max, TILT.max);
+      tiltTx = clamp(((beta - 45) / 30) * TILT.max, -TILT.max, TILT.max);
+    });
+  }
+
+  if (isMobile()) {
+    if (typeof DeviceOrientationEvent !== 'undefined' &&
+        typeof DeviceOrientationEvent.requestPermission === 'function') {
+      const permBtn = document.createElement('button');
+      permBtn.textContent = 'enable tilt';
+      permBtn.style.cssText = 'position:fixed;bottom:120px;right:20px;padding:10px 16px;border-radius:8px;border:1px solid rgba(0,0,0,0.15);background:#1c1b1f;color:#fff;font-family:IBM Plex Mono,monospace;font-size:12px;cursor:pointer;z-index:999;touch-action:auto';
+      document.body.appendChild(permBtn);
+      permBtn.addEventListener('click', () => {
+        DeviceOrientationEvent.requestPermission().then(state => {
+          if (state === 'granted') attachGyro();
+          permBtn.remove();
+        }).catch(() => permBtn.remove());
+      });
+    } else {
+      attachGyro();
+    }
+  }
+
+  /* ══ SCRUBBER ══ */
+  const scrubEl = document.getElementById('scrubber');
+  const sc      = document.createElement('canvas');
+  scrubEl.appendChild(sc);
+  const DPR = Math.min(devicePixelRatio, 2);
+
+  function resizeScrubber() {
+    sc.width        = innerWidth * DPR;
+    sc.height       = 52 * DPR;
+    sc.style.width  = innerWidth + 'px';
+    sc.style.height = '52px';
+  }
+  resizeScrubber();
+  const sctx = sc.getContext('2d');
+
+  function drawScrubber(pos) {
+    const w = sc.width, h = sc.height;
+    sctx.clearRect(0, 0, w, h);
+    const SPACING  = 7  * DPR;
+    const LINE_H   = 22 * DPR;
+    const LINE_W   = 1  * DPR;
+    const cy       = h / 2;
+    const total    = Math.ceil(w / SPACING) + 2;
+    const rawShift = -(pos / N) * w;
+    const shift    = ((rawShift % SPACING) + SPACING) % SPACING;
+    const activeX  = w / 2;
+    for (let i = -1; i < total; i++) {
+      const x           = i * SPACING + shift;
+      const lineCardPos = ((i * SPACING + shift - activeX) / w) * N + pos;
+      const nearest     = Math.round(lineCardPos);
+      const distToCard  = Math.abs(lineCardPos - nearest);
+      const hl          = Math.max(0, 1 - distToCard * N * 0.9);
+      const col         = Math.round(200 - 100 * hl);
+      sctx.fillStyle    = `rgb(${col},${col},${col})`;
+      sctx.fillRect(x - LINE_W / 2, cy - LINE_H / 2, LINE_W, LINE_H);
+    }
+  }
+
+  /* ══ DRAG INPUTS ══ */
+  const dragK  = () => 1 / (innerWidth * CFG.DRAG_SENS);
+  const scrubK = () => 1 / (innerWidth * 0.45);
+
+  let stageTouch = null, stageMouse = null;
+  let scrubTouch = null, scrubMouse = null;
+
+  stage.addEventListener('touchstart', e => { stageTouch = e.touches[0].clientX; velY = 0; }, { passive: true });
+  stage.addEventListener('touchmove',  e => {
+    if (stageTouch === null) return;
+    const dPos = -(e.touches[0].clientX - stageTouch) * dragK();
+    velY = velY * 0.5 + dPos * 0.5; posY += dPos;
+    stageTouch = e.touches[0].clientX;
+    applyTransforms(posY);
+  }, { passive: true });
+  stage.addEventListener('touchend', () => { stageTouch = null; kick(); }, { passive: true });
+  stage.addEventListener('mousedown', e => { stageMouse = e.clientX; velY = 0; });
+
+  scrubEl.addEventListener('touchstart', e => { e.stopPropagation(); scrubTouch = e.touches[0].clientX; velY = 0; }, { passive: true });
+  scrubEl.addEventListener('touchmove',  e => {
+    if (scrubTouch === null) return;
+    const dPos = -(e.touches[0].clientX - scrubTouch) * scrubK();
+    velY = velY * 0.5 + dPos * 0.5; posY += dPos;
+    scrubTouch = e.touches[0].clientX;
+    applyTransforms(posY);
+  }, { passive: true });
+  scrubEl.addEventListener('touchend', () => { scrubTouch = null; kick(); }, { passive: true });
+  scrubEl.addEventListener('mousedown', e => { scrubMouse = e.clientX; velY = 0; });
+
+  window.addEventListener('mousemove', e => {
+    if (stageMouse !== null) {
+      const dPos = -(e.clientX - stageMouse) * dragK();
+      velY = velY * 0.5 + dPos * 0.5; posY += dPos;
+      stageMouse = e.clientX;
+      applyTransforms(posY);
+    } else if (scrubMouse !== null) {
+      const dPos = -(e.clientX - scrubMouse) * scrubK();
+      velY = velY * 0.5 + dPos * 0.5; posY += dPos;
+      scrubMouse = e.clientX;
+      applyTransforms(posY);
+    }
+  });
+  window.addEventListener('mouseup', () => {
+    if (stageMouse !== null || scrubMouse !== null) kick();
+    stageMouse = null; scrubMouse = null;
+  });
+
+  window.addEventListener('wheel', e => { e.preventDefault(); velY += (e.deltaX + e.deltaY) * 0.004; kick(); }, { passive: false });
+  window.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight') { velY += 0.12; kick(); }
+    if (e.key === 'ArrowLeft')  { velY -= 0.12; kick(); }
+  });
+
+  /* ══ BREAKPOINT ══ */
+  const panelRowMap = {};
+
+  function loadPreset(name) {
+    const p = PRESETS[name];
+    Object.keys(p).forEach(k => { CFG[k] = Array.isArray(p[k]) ? [...p[k]] : p[k]; });
+    syncPerspective();
+    syncPanelRows();
+  }
+  function checkBreakpoint() { loadPreset(innerWidth >= 768 ? 'desktop' : 'mobile'); }
+
+  window.addEventListener('resize', () => {
+    checkBreakpoint();
+    resizeScrubber();
+    applyTransforms(posY);
+    updateClipPath();
+  });
+
+  /* ══ PANEL SYSTEM ══ */
+  const panelEls = {
+    sphere:  document.getElementById('panel-sphere'),
+    physics: document.getElementById('panel-physics'),
+    card:    document.getElementById('panel-card'),
+    reveal:  document.getElementById('panel-reveal'),
+  };
+  let openPanel = null;
+
+  document.querySelectorAll('.ctrl-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const name = btn.dataset.panel;
+      if (openPanel === name) {
+        panelEls[name].classList.remove('open');
+        btn.classList.remove('active');
+        openPanel = null;
+      } else {
+        if (openPanel) {
+          panelEls[openPanel].classList.remove('open');
+          document.querySelector(`.ctrl-btn[data-panel="${openPanel}"]`).classList.remove('active');
+        }
+        panelEls[name].classList.add('open');
+        btn.classList.add('active');
+        openPanel = name;
+      }
+    });
+    btn.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
+  });
+
+  /* ── Panel builder helpers ── */
+  function addTitle(panel, text) {
+    const t = document.createElement('div');
+    t.className   = 'panel-title';
+    t.textContent = text;
+    panel.appendChild(t);
+  }
+
+  function addRow(panel, label, key, min, max, step, fmt, onChange) {
+    const row = document.createElement('div'); row.className = 'panel-row';
+    const lbl = document.createElement('span'); lbl.className = 'panel-label'; lbl.textContent = label;
+    const range = document.createElement('input');
+    range.type = 'range'; range.min = min; range.max = max; range.step = step;
+    range.value = key ? cfgGet(key) : 0;
+    const val = document.createElement('span'); val.className = 'panel-val';
+    val.textContent = fmt(parseFloat(range.value));
+
+    range.addEventListener('input', () => {
+      const v = parseFloat(range.value);
+      if (key) cfgSet(key, v);
+      val.textContent = fmt(v);
+      if (onChange) onChange(v); else applyTransforms(posY);
+    });
+    range.addEventListener('mousedown',  e => e.stopPropagation());
+    range.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
+
+    row.appendChild(lbl); row.appendChild(range); row.appendChild(val);
+    panel.appendChild(row);
+    if (key) panelRowMap[key] = { range, val, fmt };
+    return range;
+  }
+
+  function cfgGet(key) {
+    const [k, idx] = key.split('.');
+    return idx !== undefined ? CFG[k][+idx] : CFG[k];
+  }
+  function cfgSet(key, val) {
+    const [k, idx] = key.split('.');
+    if (idx !== undefined) CFG[k][+idx] = val;
+    else CFG[k] = val;
+    if (k === 'PERSPECTIVE') syncPerspective();
+  }
+  function syncPanelRows() {
+    Object.entries(panelRowMap).forEach(([key, { range, val, fmt }]) => {
+      const v = cfgGet(key);
+      range.value = v;
+      val.textContent = fmt(v);
+    });
+  }
+
+  /* ── Sphere panel ── */
+  const sp = panelEls.sphere;
+  addTitle(sp, 'Sphere');
+  addRow(sp, 'R mult',       'R_MULT',       0.3,  1.5,  0.01, v => v.toFixed(2));
+  addRow(sp, 'Perspective',  'PERSPECTIVE',  100,  2000, 10,   v => Math.round(v) + 'px');
+  addTitle(sp, 'Placement');
+  addRow(sp, 'Lat 0',        'LAT.0',        -90, 90, 1, v => Math.round(v) + '°');
+  addRow(sp, 'Lat 1',        'LAT.1',        -90, 90, 1, v => Math.round(v) + '°');
+  addRow(sp, 'Lat 2',        'LAT.2',        -90, 90, 1, v => Math.round(v) + '°');
+  addRow(sp, 'Lat 3',        'LAT.3',        -90, 90, 1, v => Math.round(v) + '°');
+  addRow(sp, 'Lat 4',        'LAT.4',        -90, 90, 1, v => Math.round(v) + '°');
+  addRow(sp, 'Lon spread',   'LON_SPREAD',   0.2, 1.0, 0.01, v => v.toFixed(2));
+  addTitle(sp, 'Appearance');
+  addRow(sp, 'Scale active', 'SCALE_ACTIVE', 0.5, 1.8, 0.01, v => v.toFixed(2));
+  addRow(sp, 'Scale sphere', 'SCALE_SPHERE', 0.3, 1.2, 0.01, v => v.toFixed(2));
+  addRow(sp, 'Opacity ×',    'OPACITY_MULT', 0,   2.0, 0.01, v => v.toFixed(2));
+  addRow(sp, 'Opacity base', 'OPACITY_BASE', 0,   1.0, 0.01, v => v.toFixed(2));
+  addRow(sp, 'Blur max',     'BLUR_MAX',     0,   20,  0.5,  v => v.toFixed(1) + 'px');
+
+  /* ── Physics panel ── */
+  const pp = panelEls.physics;
+  addTitle(pp, 'Physics');
+  addRow(pp, 'Friction',  'FRICTION',  0.70, 0.99, 0.01, v => v.toFixed(2));
+  addRow(pp, 'Spring',    'SPRING',    0.01, 0.40, 0.01, v => v.toFixed(2));
+  addRow(pp, 'Drag sens', 'DRAG_SENS', 0.1,  2.0,  0.05, v => v.toFixed(2));
+
+  /* ── Card panel ── */
+  const cp = panelEls.card;
+  addTitle(cp, 'Shape');
+  {
+    const row = document.createElement('div'); row.className = 'panel-row';
+    const lbl = document.createElement('span'); lbl.className = 'panel-label'; lbl.textContent = 'roundness';
+    const range = document.createElement('input');
+    range.type = 'range'; range.min = '-182'; range.max = '182'; range.step = '1'; range.value = SHAPE.px;
+    const val = document.createElement('span'); val.className = 'panel-val';
+    val.textContent = (SHAPE.px > 0 ? '+' : '') + SHAPE.px + 'px';
+    range.addEventListener('input', () => {
+      SHAPE.px = +range.value;
+      val.textContent = (SHAPE.px > 0 ? '+' : '') + SHAPE.px + 'px';
+      updateClipPath();
+    });
+    range.addEventListener('mousedown',  e => e.stopPropagation());
+    range.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
+    row.appendChild(lbl); row.appendChild(range); row.appendChild(val);
+    cp.appendChild(row);
+  }
+
+  addTitle(cp, 'Ghost');
+  {
+    const brow = document.createElement('div'); brow.className = 'panel-btn-row';
+    const btnF = document.createElement('button'); btnF.className = 'panel-btn';        btnF.textContent = 'on top';
+    const btnB = document.createElement('button'); btnB.className = 'panel-btn active'; btnB.textContent = 'behind';
+    btnF.addEventListener('click', () => {
+      GHOST.variant = 'front';
+      btnF.classList.add('active'); btnB.classList.remove('active');
+      ghostClones.forEach(c => { c.style.zIndex = '3'; });
+    });
+    btnB.addEventListener('click', () => {
+      GHOST.variant = 'behind';
+      btnB.classList.add('active'); btnF.classList.remove('active');
+      ghostClones.forEach(c => { c.style.zIndex = '1'; });
+    });
+    brow.appendChild(btnF); brow.appendChild(btnB);
+    cp.appendChild(brow);
+  }
+  addRow(cp, 'layers',  null, 1,    16, 1,    v => Math.round(v), v => {
+    GHOST.layers = Math.round(v);
+    buildActiveClones(); updateClipPath();
+  });
+  addRow(cp, 'opacity', null, 0.01, 1,  0.01, v => v.toFixed(2),  v => { GHOST.opacity = v; });
+  addRow(cp, 'blur',    null, 0,    40, 0.5,  v => v.toFixed(1) + 'px', v => { GHOST.blur = v; });
+
+  // Set initial values for non-keyed rows
+  (() => {
+    const rows = cp.querySelectorAll('.panel-row');
+    const ghostRows = [...rows].slice(1); // skip roundness row
+    if (ghostRows[0]) ghostRows[0].querySelector('input').value = GHOST.layers;
+    if (ghostRows[1]) ghostRows[1].querySelector('input').value = GHOST.opacity;
+    if (ghostRows[2]) ghostRows[2].querySelector('input').value = GHOST.blur;
+  })();
+
+  /* ── Reveal panel ── */
+  const rp = panelEls.reveal;
+  addTitle(rp, 'Reveal');
+  [
+    ['stagger',  20,  300,  1,    v => Math.round(v) + 'ms',     v => { REVEAL.stagger = v; }],
+    ['duration', 100, 1200, 1,    v => Math.round(v) + 'ms',     v => { REVEAL.dur    = v; applyCSS(); }],
+    ['blur',     0,   24,   0.5,  v => v.toFixed(1) + 'px',      v => { REVEAL.blur   = v; applyCSS(); }],
+    ['y offset', 0,   40,   1,    v => Math.round(v) + 'px',     v => { REVEAL.y      = v; applyCSS(); }],
+  ].forEach(([label, min, max, step, fmt, onChange]) => {
+    const key = label === 'stagger' ? 'stagger' : label === 'duration' ? 'dur' : label === 'blur' ? 'blur' : 'y';
+    const range = addRow(rp, label, null, min, max, step, fmt, onChange);
+    range.value = REVEAL[key];
+    // update display value
+    const row = range.closest('.panel-row');
+    if (row) row.querySelector('.panel-val').textContent = fmt(REVEAL[key]);
+  });
+  {
+    const btn = document.createElement('button');
+    btn.className   = 'replay-btn';
+    btn.textContent = 'replay reveal';
+    btn.addEventListener('click', revealActiveCard);
+    btn.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
+    rp.appendChild(btn);
+  }
+
+  /* ══ INIT ══ */
+  checkBreakpoint();
+  applyTransforms(0);
+  requestAnimationFrame(() => { onActiveChange(0); });
+
+})();
+</script>
+</body>
+</html>
