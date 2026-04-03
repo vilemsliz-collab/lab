@@ -256,6 +256,17 @@
       margin-top: 4px; touch-action: auto;
     }
     .dev-replay:hover { background: #d4ff33; }
+    .dev-copy {
+      width: 100%; padding: 7px 0;
+      border: 1px solid #2a2a30; border-radius: 6px;
+      background: transparent; color: #555;
+      font-family: 'IBM Plex Mono', monospace; font-size: 9px;
+      letter-spacing: 0.12em; text-transform: uppercase;
+      cursor: pointer; transition: all 0.15s;
+      margin-top: 6px; touch-action: auto;
+    }
+    .dev-copy:hover  { border-color: #555; color: #ddd; }
+    .dev-copy.copied { border-color: #c8ff00; color: #c8ff00; }
   </style>
 </head>
 <body>
@@ -784,6 +795,21 @@
   });
 
   /* ── Builder helpers ── */
+  function addCopyBtn(sec, getValues) {
+    const btn = document.createElement('button');
+    btn.className = 'dev-copy';
+    btn.textContent = 'copy';
+    btn.addEventListener('click', () => {
+      navigator.clipboard.writeText(getValues()).then(() => {
+        btn.textContent = 'copied!';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('copied'); }, 1500);
+      });
+    });
+    btn.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
+    sec.appendChild(btn);
+  }
+
   function addSection(text) {
     const s = document.createElement('div'); s.className = 'dev-section';
     const t = document.createElement('div'); t.className = 'dev-section-title'; t.textContent = text;
@@ -838,6 +864,7 @@
   let sec = addSection('Sphere');
   addRow(sec, 'R mult',       'R_MULT',      0.3,  1.5,  0.01, v => v.toFixed(2));
   addRow(sec, 'Perspective',  'PERSPECTIVE', 100,  2000, 10,   v => Math.round(v) + 'px');
+  addCopyBtn(sec, () => `R_MULT: ${CFG.R_MULT.toFixed(2)}, PERSPECTIVE: ${Math.round(CFG.PERSPECTIVE)}`);
   sec = addSection('Placement');
   addRow(sec, 'Lat 0',        'LAT.0',       -90, 90, 1, v => Math.round(v) + '°');
   addRow(sec, 'Lat 1',        'LAT.1',       -90, 90, 1, v => Math.round(v) + '°');
@@ -845,18 +872,21 @@
   addRow(sec, 'Lat 3',        'LAT.3',       -90, 90, 1, v => Math.round(v) + '°');
   addRow(sec, 'Lat 4',        'LAT.4',       -90, 90, 1, v => Math.round(v) + '°');
   addRow(sec, 'Lon spread',   'LON_SPREAD',  0.2, 1.0, 0.01, v => v.toFixed(2));
+  addCopyBtn(sec, () => `LAT: [${CFG.LAT.map(v => Math.round(v)).join(', ')}], LON_SPREAD: ${CFG.LON_SPREAD.toFixed(2)}`);
   sec = addSection('Appearance');
   addRow(sec, 'Scale active', 'SCALE_ACTIVE',0.5, 1.8, 0.01, v => v.toFixed(2));
   addRow(sec, 'Scale sphere', 'SCALE_SPHERE',0.3, 1.2, 0.01, v => v.toFixed(2));
   addRow(sec, 'Opacity ×',    'OPACITY_MULT',0,   2.0, 0.01, v => v.toFixed(2));
   addRow(sec, 'Opacity base', 'OPACITY_BASE',0,   1.0, 0.01, v => v.toFixed(2));
   addRow(sec, 'Blur max',     'BLUR_MAX',    0,   20,  0.5,  v => v.toFixed(1) + 'px');
+  addCopyBtn(sec, () => `SCALE_ACTIVE: ${CFG.SCALE_ACTIVE.toFixed(2)}, SCALE_SPHERE: ${CFG.SCALE_SPHERE.toFixed(2)}, OPACITY_MULT: ${CFG.OPACITY_MULT.toFixed(2)}, OPACITY_BASE: ${CFG.OPACITY_BASE.toFixed(2)}, BLUR_MAX: ${CFG.BLUR_MAX.toFixed(1)}`);
 
   /* ── Physics section ── */
   sec = addSection('Physics');
   addRow(sec, 'Friction',  'FRICTION',  0.70, 0.99, 0.01, v => v.toFixed(2));
   addRow(sec, 'Spring',    'SPRING',    0.01, 0.40, 0.01, v => v.toFixed(2));
   addRow(sec, 'Drag sens', 'DRAG_SENS', 0.1,  2.0,  0.05, v => v.toFixed(2));
+  addCopyBtn(sec, () => `FRICTION: ${CFG.FRICTION.toFixed(2)}, SPRING: ${CFG.SPRING.toFixed(2)}, DRAG_SENS: ${CFG.DRAG_SENS.toFixed(2)}`);
 
   /* ── Card section ── */
   sec = addSection('Shape');
@@ -877,6 +907,7 @@
     row.appendChild(lbl); row.appendChild(range); row.appendChild(val);
     sec.appendChild(row);
   }
+  addCopyBtn(sec, () => `SHAPE.px: ${SHAPE.px}`);
 
   sec = addSection('Ghost');
   {
@@ -913,6 +944,7 @@
     blurRange.value = GHOST.blur;
     blurRange.closest('.dev-row').querySelector('.dev-val').textContent = GHOST.blur + 'px';
   }
+  addCopyBtn(sec, () => `layers: ${GHOST.layers}, opacity: ${GHOST.opacity.toFixed(2)}, blur: ${GHOST.blur.toFixed(1)}, variant: '${GHOST.variant}'`);
 
   /* ── Reveal section ── */
   sec = addSection('Reveal');
@@ -934,6 +966,7 @@
     btn.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
     sec.appendChild(btn);
   }
+  addCopyBtn(sec, () => `stagger: ${Math.round(REVEAL.stagger)}, dur: ${Math.round(REVEAL.dur)}, blur: ${REVEAL.blur.toFixed(1)}, y: ${Math.round(REVEAL.y)}`);
 
   /* ══ INIT ══ */
   checkBreakpoint();
