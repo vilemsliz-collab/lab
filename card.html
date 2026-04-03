@@ -149,9 +149,9 @@ a.back:hover, a.ds-link:hover { color:#333; }
 <div class="controls">
   <p class="ctrl-section">shape</p>
   <div class="ctrl-row">
-    <span class="ctrl-label">roundness n</span>
-    <input type="range" id="s-shape-n" min="1" max="16" step="0.1" value="4">
-    <span class="ctrl-val" id="v-shape-n">4.0</span>
+    <span class="ctrl-label">roundness</span>
+    <input type="range" id="s-shape-n" min="-182" max="182" step="1" value="60">
+    <span class="ctrl-val" id="v-shape-n">+60px</span>
   </div>
 
   <p class="ctrl-section">tilt</p>
@@ -263,7 +263,7 @@ a.back:hover, a.ds-link:hover { color:#333; }
 
 <script>
 const CFG   = { stagger: 70, dur: 797, blur: 8, y: 8 };
-const SHAPE = { n: 4 }; // superellipse exponent: 2=circle, 4=squircle, 16=rect
+const SHAPE = { px: 60 }; // pixels: +182=circle, 0=rectangle, -182=diamond
 
 function wrapWords(el) {
   el.innerHTML = el.textContent.trim().split(/\s+/).map(w =>
@@ -382,25 +382,43 @@ if (isMobile()) {
   }
 }
 
-/* ── Superellipse clip-path ── */
-function superellipsePath(w, h, n) {
-  const cx = w / 2, cy = h / 2;
-  let d = '';
-  for (let i = 0; i <= 200; i++) {
-    const t  = (i / 200) * 2 * Math.PI;
-    const ct = Math.cos(t), st = Math.sin(t);
-    const x  = cx + cx * Math.sign(ct) * Math.pow(Math.abs(ct), 2 / n);
-    const y  = cy + cy * Math.sign(st) * Math.pow(Math.abs(st), 2 / n);
-    d += (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1) + ' ';
+/* ── Shape clip-path (superellipse for +px, polygon for -px) ── */
+function shapePath(w, h, px) {
+  const cx   = w / 2, cy = h / 2;
+  const maxR = Math.min(cx, cy);
+  px = Math.max(-maxR, Math.min(maxR, px));
+
+  if (px >= 0) {
+    // Positive: superellipse — 0px = rectangle (n=16), +maxR = circle (n=2)
+    const t = px / maxR;
+    const n = Math.pow(2, 4 - 3 * t); // 16 → 2 exponentially
+    let d = '';
+    for (let i = 0; i <= 200; i++) {
+      const a  = (i / 200) * 2 * Math.PI;
+      const ct = Math.cos(a), st = Math.sin(a);
+      const x  = cx + cx * Math.sign(ct) * Math.pow(Math.abs(ct), 2 / n);
+      const y  = cy + cy * Math.sign(st) * Math.pow(Math.abs(st), 2 / n);
+      d += (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1) + ' ';
+    }
+    return d + 'Z';
+  } else {
+    // Negative: straight-polygon — lerp rectangle corners → diamond corners
+    const t  = -px / maxR;
+    const rc = [[0,0],[w,0],[w,h],[0,h]];
+    const dc = [[cx,0],[w,cy],[cx,h],[0,cy]];
+    const pts = rc.map((p, i) => [
+      (p[0] * (1 - t) + dc[i][0] * t).toFixed(1),
+      (p[1] * (1 - t) + dc[i][1] * t).toFixed(1),
+    ]);
+    return `M${pts[0].join(',')} L${pts[1].join(',')} L${pts[2].join(',')} L${pts[3].join(',')} Z`;
   }
-  return d + 'Z';
 }
 
 function updateClipPath() {
   const w = cardEl.offsetWidth;
   const h = cardEl.offsetHeight;
   if (!w || !h) return;
-  const p = `path('${superellipsePath(w, h, SHAPE.n)}')`;
+  const p = `path('${shapePath(w, h, SHAPE.px)}')`;
   cardEl.style.clipPath     = p;
   cardEl.style.borderRadius = '0';
   ghostClones.forEach(c => { c.style.clipPath = p; c.style.borderRadius = '0'; });
@@ -550,8 +568,9 @@ document.getElementById('s-glayers').addEventListener('input', e => {
 });
 
 document.getElementById('s-shape-n').addEventListener('input', e => {
-  SHAPE.n = +e.target.value;
-  document.getElementById('v-shape-n').textContent = (+e.target.value).toFixed(1);
+  SHAPE.px = +e.target.value;
+  const v = SHAPE.px;
+  document.getElementById('v-shape-n').textContent = (v > 0 ? '+' : '') + v + 'px';
   updateClipPath();
 });
 
