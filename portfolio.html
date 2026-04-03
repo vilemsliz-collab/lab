@@ -158,10 +158,8 @@
       position: fixed;
       bottom: 0; left: 0; right: 0; height: 52px;
       z-index: 40;
-      background: var(--color-surface);
       cursor: grab;
       touch-action: none;
-      border-top: 1px solid var(--color-outline-variant);
       transition: right 0.28s ease;
     }
     #scrubber:active { cursor: grabbing; }
@@ -310,6 +308,7 @@
 
   /* ══ CARD EFFECT CONFIG ══ */
   const REVEAL = { stagger: 58, dur: 682, blur: 8, y: 8 };
+  const SCRUB  = { spacing: 8, minH: 3, maxH: 26, curve: 3.5, hoverAmt: 10, hoverSpread: 60 };
   const SHAPE  = { px: +DS.getPropertyValue('--shape-card') || 2 };
   const TILT   = { max: 16, stiffness: 0.1, damping: 0.75 };
   const GHOST  = { layers: 6, opacity: 0.16, blur: 0, blend: 'normal', variant: 'behind' };
@@ -683,26 +682,37 @@
   resizeScrubber();
   const sctx = sc.getContext('2d');
 
+  scrubEl.addEventListener('mousemove', e => { scrubHoverX = e.clientX; drawScrubber(posY); });
+  scrubEl.addEventListener('mouseleave', () => { scrubHoverX = null; drawScrubber(posY); });
+
+  let scrubHoverX = null;
+
   function drawScrubber(pos) {
-    const w = sc.width, h = sc.height;
+    const w  = sc.width, h = sc.height;
     sctx.clearRect(0, 0, w, h);
-    const SPACING  = 7  * DPR;
-    const LINE_H   = 22 * DPR;
-    const LINE_W   = 1  * DPR;
+
+    const spacing  = SCRUB.spacing * DPR;
     const cy       = h / 2;
-    const total    = Math.ceil(w / SPACING) + 2;
+    const cx       = w / 2;
+    const total    = Math.ceil(w / spacing) + 2;
     const rawShift = -(pos / N) * w;
-    const shift    = ((rawShift % SPACING) + SPACING) % SPACING;
-    const activeX  = w / 2;
+    const shift    = ((rawShift % spacing) + spacing) % spacing;
+
+    sctx.fillStyle = 'rgba(255,255,255,0.55)';
+
     for (let i = -1; i < total; i++) {
-      const x           = i * SPACING + shift;
-      const lineCardPos = ((i * SPACING + shift - activeX) / w) * N + pos;
-      const nearest     = Math.round(lineCardPos);
-      const distToCard  = Math.abs(lineCardPos - nearest);
-      const hl          = Math.max(0, 1 - distToCard * N * 0.9);
-      const col         = Math.round(200 - 100 * hl);
-      sctx.fillStyle    = `rgb(${col},${col},${col})`;
-      sctx.fillRect(x - LINE_W / 2, cy - LINE_H / 2, LINE_W, LINE_H);
+      const x    = i * spacing + shift;
+      const dist = Math.abs(x - cx) / cx;
+      const t    = Math.exp(-SCRUB.curve * dist);
+      let lh     = (SCRUB.minH + (SCRUB.maxH - SCRUB.minH) * t) * DPR;
+
+      if (scrubHoverX !== null) {
+        const hDist   = Math.abs(x - scrubHoverX * DPR);
+        const hSpread = SCRUB.hoverSpread * DPR;
+        lh += SCRUB.hoverAmt * DPR * Math.exp(-(hDist * hDist) / (hSpread * hSpread));
+      }
+
+      sctx.fillRect(x - DPR / 2, cy - lh / 2, DPR, lh);
     }
   }
 
