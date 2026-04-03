@@ -308,7 +308,7 @@
 
   /* ══ CARD EFFECT CONFIG ══ */
   const REVEAL = { stagger: 58, dur: 682, blur: 8, y: 8 };
-  const SCRUB  = { spacing: 8, minH: 3, maxH: 26, curve: 3.5, hoverAmt: 10, hoverSpread: 60 };
+  const SCRUB  = { spacing: 4, minH: 9, maxH: 78, curve: 3.5, hoverAmt: 30, hoverSpread: 60 };
   const SHAPE  = { px: +DS.getPropertyValue('--shape-card') || 2 };
   const TILT   = { max: 16, stiffness: 0.1, damping: 0.75 };
   const GHOST  = { layers: 6, opacity: 0.16, blur: 0, blend: 'normal', variant: 'behind' };
@@ -674,9 +674,10 @@
   const DPR = Math.min(devicePixelRatio, 2);
 
   function resizeScrubber() {
-    sc.width        = innerWidth * DPR;
+    const elW       = scrubEl.offsetWidth;
+    sc.width        = elW * DPR;
     sc.height       = 52 * DPR;
-    sc.style.width  = innerWidth + 'px';
+    sc.style.width  = elW + 'px';
     sc.style.height = '52px';
   }
   resizeScrubber();
@@ -692,7 +693,6 @@
     sctx.clearRect(0, 0, w, h);
 
     const spacing  = SCRUB.spacing * DPR;
-    const cy       = h / 2;
     const cx       = w / 2;
     const total    = Math.ceil(w / spacing) + 2;
     const rawShift = -(pos / N) * w;
@@ -712,7 +712,7 @@
         lh += SCRUB.hoverAmt * DPR * Math.exp(-(hDist * hDist) / (hSpread * hSpread));
       }
 
-      sctx.fillRect(x - DPR / 2, cy - lh / 2, DPR, lh);
+      sctx.fillRect(x - DPR / 2, h - lh, DPR, lh);
     }
   }
 
@@ -978,6 +978,23 @@
     sec.appendChild(btn);
   }
   addCopyBtn(sec, () => `stagger: ${Math.round(REVEAL.stagger)}, dur: ${Math.round(REVEAL.dur)}, blur: ${REVEAL.blur.toFixed(1)}, y: ${Math.round(REVEAL.y)}`);
+
+  /* ── Scrubber section ── */
+  sec = addSection('Scrubber');
+  [
+    ['spacing',  2,  20,  1,   v => Math.round(v) + 'px', v => { SCRUB.spacing     = v; drawScrubber(posY); }],
+    ['min h',    1,  40,  0.5, v => v.toFixed(1) + 'px',  v => { SCRUB.minH        = v; drawScrubber(posY); }],
+    ['max h',    4, 120,  0.5, v => v.toFixed(1) + 'px',  v => { SCRUB.maxH        = v; drawScrubber(posY); }],
+    ['curve',   0.5, 10,  0.1, v => v.toFixed(1),          v => { SCRUB.curve       = v; drawScrubber(posY); }],
+    ['hover +h', 0,  60,  0.5, v => v.toFixed(1) + 'px',  v => { SCRUB.hoverAmt    = v; }],
+    ['hover r', 10, 200,  5,   v => Math.round(v) + 'px', v => { SCRUB.hoverSpread = v; }],
+  ].forEach(([label, min, max, step, fmt, onChange]) => {
+    const keyMap = { 'spacing': 'spacing', 'min h': 'minH', 'max h': 'maxH', 'curve': 'curve', 'hover +h': 'hoverAmt', 'hover r': 'hoverSpread' };
+    const r = addRow(sec, label, null, min, max, step, fmt, onChange);
+    r.value = SCRUB[keyMap[label]];
+    r.closest('.dev-row').querySelector('.dev-val').textContent = fmt(SCRUB[keyMap[label]]);
+  });
+  addCopyBtn(sec, () => `spacing: ${SCRUB.spacing}, minH: ${SCRUB.minH}, maxH: ${SCRUB.maxH}, curve: ${SCRUB.curve.toFixed(1)}, hoverAmt: ${SCRUB.hoverAmt}, hoverSpread: ${SCRUB.hoverSpread}`);
 
   /* ══ INIT ══ */
   checkBreakpoint();
