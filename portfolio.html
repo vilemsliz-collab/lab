@@ -571,7 +571,7 @@
       if (abs < 0.5 && cardEls[i] !== activeCardEl) {
         activeCardEl = cardEls[i];
         tiltRx = tiltRy = tiltVx = tiltVy = 0;
-        ghostClones.forEach(c => { c.style.opacity = '0'; });
+        buildActiveClones();
       }
     });
 
