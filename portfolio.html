@@ -518,10 +518,7 @@
 
   /* ══ ACTIVE CARD LIFECYCLE ══ */
   function onActiveChange(newIdx) {
-    activeIdx    = newIdx;
-    activeCardEl = cardEls[newIdx];
-    resetTilt();
-    buildActiveClones();
+    activeIdx = newIdx;
     revealActiveCard();
     updateClipPath();
   }
