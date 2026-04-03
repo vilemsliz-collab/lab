@@ -295,7 +295,7 @@
       ROT_MULT: 0, ROLL_MAX: 0,
       SCALE_ACTIVE: 0.79, SCALE_SPHERE: 0.83,
       OPACITY_MULT: 0.46, OPACITY_BASE: 1, BLUR_MAX: 0,
-      FRICTION: 0.72, SPRING: 0.10, DRAG_SENS: 0.10,
+      FRICTION: 0.72, SPRING: 0.10, DRAG_SENS: 0.10, WHEEL_SENS: 0.004,
     },
     desktop: {
       R_MULT: 1.5, R_MAX: 1010, PERSPECTIVE: 590,
@@ -303,7 +303,7 @@
       ROT_MULT: 0, ROLL_MAX: 0,
       SCALE_ACTIVE: 1.29, SCALE_SPHERE: 0.83,
       OPACITY_MULT: 0.46, OPACITY_BASE: 1, BLUR_MAX: 0,
-      FRICTION: 0.72, SPRING: 0.10, DRAG_SENS: 0.10,
+      FRICTION: 0.72, SPRING: 0.10, DRAG_SENS: 0.10, WHEEL_SENS: 0.004,
     },
   };
   const CFG = Object.assign({}, PRESETS.mobile);
@@ -753,7 +753,7 @@
     stageMouse = null; scrubMouse = null;
   });
 
-  window.addEventListener('wheel', e => { e.preventDefault(); velY += (e.deltaX + e.deltaY) * 0.004; kick(); }, { passive: false });
+  window.addEventListener('wheel', e => { e.preventDefault(); velY += (e.deltaX + e.deltaY) * CFG.WHEEL_SENS; kick(); }, { passive: false });
   window.addEventListener('keydown', e => {
     if (e.key === 'ArrowRight') { velY += 0.12; kick(); }
     if (e.key === 'ArrowLeft')  { velY -= 0.12; kick(); }
@@ -885,8 +885,9 @@
   sec = addSection('Physics');
   addRow(sec, 'Friction',  'FRICTION',  0.70, 0.99, 0.01, v => v.toFixed(2));
   addRow(sec, 'Spring',    'SPRING',    0.01, 0.40, 0.01, v => v.toFixed(2));
-  addRow(sec, 'Drag sens', 'DRAG_SENS', 0.1,  2.0,  0.05, v => v.toFixed(2));
-  addCopyBtn(sec, () => `FRICTION: ${CFG.FRICTION.toFixed(2)}, SPRING: ${CFG.SPRING.toFixed(2)}, DRAG_SENS: ${CFG.DRAG_SENS.toFixed(2)}`);
+  addRow(sec, 'Drag sens',  'DRAG_SENS',   0.1,   2.0,   0.05,  v => v.toFixed(2));
+  addRow(sec, 'Wheel sens', 'WHEEL_SENS',  0.001, 0.020, 0.001, v => v.toFixed(3));
+  addCopyBtn(sec, () => `FRICTION: ${CFG.FRICTION.toFixed(2)}, SPRING: ${CFG.SPRING.toFixed(2)}, DRAG_SENS: ${CFG.DRAG_SENS.toFixed(2)}, WHEEL_SENS: ${CFG.WHEEL_SENS.toFixed(3)}`);
 
   /* ── Card section ── */
   sec = addSection('Shape');
