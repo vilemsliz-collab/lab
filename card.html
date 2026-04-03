@@ -18,28 +18,32 @@ body {
   padding: 60px 20px;
 }
 .card-wrap {
-  perspective: 800px;
+  perspective: var(--card-perspective);
   flex-shrink: 0;
   position: relative;
 }
 .card {
-  width: min(92vw, 364px);
-  aspect-ratio: 364 / 555;
-  border-radius: var(--space-2);       /* 8px */
+  width: min(92vw, var(--card-width));
+  aspect-ratio: var(--card-aspect-w) / var(--card-aspect-h);
   overflow: hidden;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  padding: var(--inset-lg);            /* 24px */
+  padding: var(--card-padding);
   position: relative;
   z-index: 2;
-  background: #d9d9d9;
+  background: var(--card-bg);
   transition: none;
   will-change: transform;
 }
 .card-bg {
   position: absolute; inset: 0; z-index: 0;
   width: 100%; height: 100%; object-fit: cover; display: block;
+  transition: transform 1.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+.card:hover .card-bg {
+  transform: scale(1.2);
+  transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 .ghost-clone {
   position: absolute;
@@ -50,6 +54,19 @@ body {
   will-change: transform, opacity, filter;
 }
 .ghost-clone .card-content { visibility: hidden; }
+.card-zoom-blur {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  width: 100%;
+  height: 100%;
+}
+.card:hover .card-zoom-blur {
+  opacity: 1;
+}
 .card-overlay {
   position: absolute; inset: 0; z-index: 2;
   background: linear-gradient(to bottom, rgba(0,0,0,0) 55%, rgba(0,0,0,0.55));
@@ -120,6 +137,38 @@ body {
   pointer-events: none;
   border-radius: inherit;
 }
+.card-btn {
+  align-self: flex-end;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--card-btn-size);
+  height: var(--card-btn-size);
+  padding: 0;
+  border: none;
+  background: none;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  position: relative;
+  transition:
+    opacity  var(--dur, 400ms) ease,
+    filter   var(--dur, 400ms) ease,
+    transform var(--dur, 400ms) ease;
+  pointer-events: auto;
+}
+.card-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.06) 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.card:hover .card-btn::before {
+  opacity: 1;
+}
 a.back    { position:fixed;top:20px;left:20px;font-size:12px;color:#999;text-decoration:none;font-family:monospace; }
 a.ds-link { position:fixed;top:20px;right:20px;font-size:12px;color:#999;text-decoration:none;font-family:monospace; }
 a.back:hover, a.ds-link:hover { color:#333; }
@@ -137,11 +186,13 @@ a.back:hover, a.ds-link:hover { color:#333; }
 <div class="card-wrap">
 <div class="card" id="card">
   <img id="card-img" class="card-bg" src="./image-firefly.png" alt="">
+  <canvas id="card-zoom-blur" class="card-zoom-blur"></canvas>
   <div class="card-overlay"></div>
   <div class="card-shine" id="card-shine"></div>
   <div class="card-content">
     <p class="type-label-medium" id="line1">Lead Brand Designer</p>
     <p class="type-headline-medium" id="line2">Brand for showmore new 360 agency on the market</p>
+    <button class="card-btn word" id="card-btn" aria-label="View project">›</button>
   </div>
 </div>
 </div>
@@ -157,8 +208,8 @@ a.back:hover, a.ds-link:hover { color:#333; }
   <p class="ctrl-section">tilt</p>
   <div class="ctrl-row">
     <span class="ctrl-label">max tilt</span>
-    <input type="range" id="s-tmax" min="1" max="20" step="0.5" value="12">
-    <span class="ctrl-val" id="v-tmax">12°</span>
+    <input type="range" id="s-tmax" min="1" max="20" step="0.5" value="16">
+    <span class="ctrl-val" id="v-tmax">16°</span>
   </div>
   <div class="ctrl-row">
     <span class="ctrl-label">stiffness</span>
@@ -205,8 +256,8 @@ a.back:hover, a.ds-link:hover { color:#333; }
   </div>
   <div class="ctrl-row">
     <span class="ctrl-label">layers</span>
-    <input type="range" id="s-glayers" min="3" max="16" step="1" value="4">
-    <span class="ctrl-val" id="v-glayers">4</span>
+    <input type="range" id="s-glayers" min="3" max="16" step="1" value="6">
+    <span class="ctrl-val" id="v-glayers">6</span>
   </div>
   <div class="ctrl-row">
     <span class="ctrl-label">opacity</span>
@@ -215,8 +266,8 @@ a.back:hover, a.ds-link:hover { color:#333; }
   </div>
   <div class="ctrl-row">
     <span class="ctrl-label">blur</span>
-    <input type="range" id="s-gblur" min="0" max="40" step="0.5" value="1">
-    <span class="ctrl-val" id="v-gblur">1px</span>
+    <input type="range" id="s-gblur" min="0" max="40" step="0.5" value="0">
+    <span class="ctrl-val" id="v-gblur">0px</span>
   </div>
   <div class="ctrl-row">
     <span class="ctrl-label">blend</span>
@@ -234,16 +285,28 @@ a.back:hover, a.ds-link:hover { color:#333; }
     </select>
   </div>
 
+  <p class="ctrl-section">vignette blur</p>
+  <div class="ctrl-row">
+    <span class="ctrl-label">blur</span>
+    <input type="range" id="s-vblur" min="0" max="40" step="0.5" value="14">
+    <span class="ctrl-val" id="v-vblur">14px</span>
+  </div>
+  <div class="ctrl-row">
+    <span class="ctrl-label">start</span>
+    <input type="range" id="s-vstart" min="0" max="100" step="1" value="72">
+    <span class="ctrl-val" id="v-vstart">72%</span>
+  </div>
+
   <p class="ctrl-section">reveal</p>
   <div class="ctrl-row">
     <span class="ctrl-label">stagger</span>
-    <input type="range" id="s-stagger" min="20" max="200" value="70">
-    <span class="ctrl-val" id="v-stagger">70ms</span>
+    <input type="range" id="s-stagger" min="20" max="200" value="58">
+    <span class="ctrl-val" id="v-stagger">58ms</span>
   </div>
   <div class="ctrl-row">
     <span class="ctrl-label">duration</span>
-    <input type="range" id="s-dur" min="100" max="1200" value="797">
-    <span class="ctrl-val" id="v-dur">797ms</span>
+    <input type="range" id="s-dur" min="100" max="1200" value="682">
+    <span class="ctrl-val" id="v-dur">682ms</span>
   </div>
   <div class="ctrl-row">
     <span class="ctrl-label">blur</span>
@@ -262,8 +325,9 @@ a.back:hover, a.ds-link:hover { color:#333; }
 </div>
 
 <script>
-const CFG   = { stagger: 70, dur: 797, blur: 8, y: 8 };
-const SHAPE = { px: 2 }; // pixels: +182=circle, 0=rectangle, -182=diamond
+const CFG      = { stagger: 58, dur: 682, blur: 8, y: 8 };
+const SHAPE    = { px: +getComputedStyle(document.documentElement).getPropertyValue('--shape-card') || 2 };
+const VIGNETTE = { blur: 14, start: 72 }; // pixels: +182=circle, 0=rectangle, -182=diamond
 
 function wrapWords(el) {
   el.innerHTML = el.textContent.trim().split(/\s+/).map(w =>
@@ -334,7 +398,7 @@ document.getElementById('copyBtn').addEventListener('click', () => {
 
 /* ── Card tilt ── */
 const cardEl = document.getElementById('card');
-const TILT = { max: 12, stiffness: 0.1, damping: 0.75 };
+const TILT = { max: 16, stiffness: 0.1, damping: 0.75 };
 
 let tiltRx = 0, tiltRy = 0, tiltVx = 0, tiltVy = 0, tiltTx = 0, tiltTy = 0;
 
@@ -414,6 +478,9 @@ function shapePath(w, h, px) {
   }
 }
 
+const btnEl    = document.getElementById('card-btn');
+const BTN_SHAPE = +getComputedStyle(document.documentElement).getPropertyValue('--shape-pill') || 182;
+
 function updateClipPath() {
   const w = cardEl.offsetWidth;
   const h = cardEl.offsetHeight;
@@ -422,10 +489,18 @@ function updateClipPath() {
   cardEl.style.clipPath     = p;
   cardEl.style.borderRadius = '0';
   ghostClones.forEach(c => { c.style.clipPath = p; c.style.borderRadius = '0'; });
+
+  // Button uses --shape-lg independently from the card shape
+  const bw = btnEl.offsetWidth;
+  const bh = btnEl.offsetHeight;
+  if (bw && bh) {
+    btnEl.style.clipPath     = `path('${shapePath(bw, bh, BTN_SHAPE)}')`;
+    btnEl.style.borderRadius = '0';
+  }
 }
 
 /* ── Ghost clones ── */
-const GHOST = { layers: 4, opacity: 0.16, blur: 1, blend: 'normal' };
+const GHOST = { layers: 6, opacity: 0.16, blur: 0, blend: 'normal' };
 const cardWrap = cardEl.parentElement;
 const ghostClones = [];
 
@@ -467,7 +542,7 @@ function drawGhosts() {
     ghostClones.forEach(c => { c.style.opacity = 0; });
     return;
   }
-  const P     = 800; // must match CSS perspective on .card-wrap
+  const P     = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-perspective')) || 800;
   const halfW = cardEl.offsetWidth  / 2;
   const halfH = cardEl.offsetHeight / 2;
   ghostClones.forEach((clone, i) => {
@@ -575,6 +650,62 @@ document.getElementById('s-shape-n').addEventListener('input', e => {
 });
 
 window.addEventListener('resize', updateClipPath);
+
+/* ── Vignette zoom blur (canvas) ── */
+const zoomCanvas = document.getElementById('card-zoom-blur');
+const zoomCtx    = zoomCanvas.getContext('2d');
+const cardImg    = document.getElementById('card-img');
+const ZOOM_N     = 16;
+
+function renderZoomBlur() {
+  const w = cardEl.offsetWidth;
+  const h = cardEl.offsetHeight;
+  if (!w || !h || !cardImg.complete) return;
+  zoomCanvas.width  = w;
+  zoomCanvas.height = h;
+  const cx = w / 2, cy = h / 2;
+  const spread = VIGNETTE.blur * 0.008; // slider 14 → 0.112 scale spread
+
+  zoomCtx.clearRect(0, 0, w, h);
+  zoomCtx.globalAlpha = 1 / ZOOM_N;
+  for (let i = 0; i < ZOOM_N; i++) {
+    const scale = 1 + (i / (ZOOM_N - 1)) * spread;
+    zoomCtx.save();
+    zoomCtx.translate(cx, cy);
+    zoomCtx.scale(scale, scale);
+    zoomCtx.translate(-cx, -cy);
+    zoomCtx.drawImage(cardImg, 0, 0, w, h);
+    zoomCtx.restore();
+  }
+
+  // Radial mask: transparent center → opaque edges
+  zoomCtx.globalAlpha = 1;
+  zoomCtx.globalCompositeOperation = 'destination-in';
+  const r = Math.hypot(cx, cy);
+  const grad = zoomCtx.createRadialGradient(cx, cy, r * VIGNETTE.start / 100, cx, cy, r);
+  grad.addColorStop(0, 'rgba(0,0,0,0)');
+  grad.addColorStop(1, 'rgba(0,0,0,1)');
+  zoomCtx.fillStyle = grad;
+  zoomCtx.fillRect(0, 0, w, h);
+  zoomCtx.globalCompositeOperation = 'source-over';
+}
+
+if (cardImg.complete) renderZoomBlur();
+else cardImg.addEventListener('load', renderZoomBlur);
+window.addEventListener('resize', renderZoomBlur);
+
+[
+  ['s-vblur',  'v-vblur',  'blur',  'px'],
+  ['s-vstart', 'v-vstart', 'start', '%' ],
+].forEach(([sid, vid, key, unit]) => {
+  const sl = document.getElementById(sid);
+  const vl = document.getElementById(vid);
+  sl.addEventListener('input', () => {
+    VIGNETTE[key] = +sl.value;
+    vl.textContent = sl.value + unit;
+    renderZoomBlur();
+  });
+});
 
 </script>
 </body>

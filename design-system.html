@@ -10,26 +10,104 @@
 <link rel="stylesheet" href="./design-system.css">
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
-body { background:#fff; color:#1c1b1f; padding:48px 40px 80px; max-width:900px; }
-a.back { display:inline-block; margin-bottom:48px; font-family:monospace; font-size:12px; color:#999; text-decoration:none; }
-a.back:hover { color:#333; }
-h2 { font-family:monospace; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:#aaa; margin-bottom:24px; padding-bottom:8px; border-bottom:1px solid #eee; }
+body { background:var(--color-background); color:var(--color-on-background); padding:48px 40px 80px; max-width:900px; }
+a.back { display:inline-block; margin-bottom:48px; font-family:monospace; font-size:12px; color:var(--gray-500); text-decoration:none; }
+a.back:hover { color:var(--gray-800); }
+h2 { font-family:monospace; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--gray-400); margin-bottom:24px; padding-bottom:8px; border-bottom:1px solid var(--gray-100); }
 section { margin-bottom:56px; }
-.row { display:flex; align-items:baseline; gap:32px; padding:12px 0; border-bottom:1px solid #f3f3f3; }
-.row-label { font-family:monospace; font-size:11px; color:#bbb; width:160px; flex-shrink:0; }
-.row-meta  { font-family:monospace; font-size:10px; color:#ccc; width:140px; flex-shrink:0; }
+.row { display:flex; align-items:baseline; gap:32px; padding:12px 0; border-bottom:1px solid var(--gray-50); }
+.row-label { font-family:monospace; font-size:11px; color:var(--gray-400); width:160px; flex-shrink:0; }
+.row-meta  { font-family:monospace; font-size:10px; color:var(--gray-300); width:140px; flex-shrink:0; }
 .row-sample { flex:1; }
 /* Spacing rows */
-.sp-row { display:flex; align-items:center; gap:20px; padding:8px 0; border-bottom:1px solid #f3f3f3; }
-.sp-label { font-family:monospace; font-size:11px; color:#bbb; width:120px; flex-shrink:0; }
-.sp-val   { font-family:monospace; font-size:10px; color:#ccc; width:48px; flex-shrink:0; }
-.sp-bar   { height:8px; background:#1c1b1f; border-radius:2px; flex-shrink:0; }
+.sp-row { display:flex; align-items:center; gap:20px; padding:8px 0; border-bottom:1px solid var(--gray-50); }
+.sp-label { font-family:monospace; font-size:11px; color:var(--gray-400); width:120px; flex-shrink:0; }
+.sp-val   { font-family:monospace; font-size:10px; color:var(--gray-300); width:48px; flex-shrink:0; }
+.sp-bar   { height:8px; background:var(--color-on-background); border-radius:2px; flex-shrink:0; }
 .sp-group { margin-bottom: 8px; }
-.sp-group-label { font-family:monospace; font-size:10px; color:#ccc; letter-spacing:0.08em; margin:16px 0 4px; }
+.sp-group-label { font-family:monospace; font-size:10px; color:var(--gray-300); letter-spacing:0.08em; margin:16px 0 4px; }
+/* Color swatches */
+.color-strip { display:flex; gap:0; margin-bottom:4px; border-radius:6px; overflow:hidden; }
+.swatch { flex:1; height:56px; position:relative; }
+.swatch-meta { display:flex; flex-direction:column; gap:2px; padding:6px 0; border-bottom:1px solid var(--gray-50); }
+.swatch-name { font-family:monospace; font-size:11px; color:var(--gray-400); }
+.swatch-hex  { font-family:monospace; font-size:10px; color:var(--gray-300); }
+.color-role-row { display:flex; align-items:center; gap:16px; padding:8px 0; border-bottom:1px solid var(--gray-50); }
+.color-role-name { font-family:monospace; font-size:11px; color:var(--gray-400); width:220px; flex-shrink:0; }
+.color-role-ref  { font-family:monospace; font-size:10px; color:var(--gray-300); flex:1; }
+.color-role-dot  { width:24px; height:24px; border-radius:4px; flex-shrink:0; border:1px solid var(--color-outline-variant); }
+/* Shape rows */
+.sh-row { display:flex; align-items:center; gap:20px; padding:10px 0; border-bottom:1px solid var(--gray-50); }
+.sh-label { font-family:monospace; font-size:11px; color:var(--gray-400); width:120px; flex-shrink:0; }
+.sh-val   { font-family:monospace; font-size:10px; color:var(--gray-300); width:48px; flex-shrink:0; }
+.sh-box   { width:60px; height:60px; background:var(--color-on-background); flex-shrink:0; }
+.sh-note  { font-family:monospace; font-size:10px; color:var(--gray-300); }
 </style>
 </head>
 <body>
 <a class="back" href="./card.html">← card</a>
+
+<section>
+  <h2>Color — Neutral / gray scale</h2>
+  <div class="color-strip">
+    <div class="swatch" style="background:var(--gray-900)"></div>
+    <div class="swatch" style="background:var(--gray-800)"></div>
+    <div class="swatch" style="background:var(--gray-700)"></div>
+    <div class="swatch" style="background:var(--gray-600)"></div>
+    <div class="swatch" style="background:var(--gray-500)"></div>
+    <div class="swatch" style="background:var(--gray-400)"></div>
+    <div class="swatch" style="background:var(--gray-300)"></div>
+    <div class="swatch" style="background:var(--gray-200)"></div>
+    <div class="swatch" style="background:var(--gray-100)"></div>
+    <div class="swatch" style="background:var(--gray-50)"></div>
+    <div class="swatch" style="background:var(--white);border:1px solid #eee;"></div>
+  </div>
+  <div style="display:flex;gap:0;">
+    <div style="flex:1;font-family:monospace;font-size:9px;color:var(--gray-300);padding-top:4px;">900</div>
+    <div style="flex:1;font-family:monospace;font-size:9px;color:var(--gray-300);padding-top:4px;">800</div>
+    <div style="flex:1;font-family:monospace;font-size:9px;color:var(--gray-300);padding-top:4px;">700</div>
+    <div style="flex:1;font-family:monospace;font-size:9px;color:var(--gray-300);padding-top:4px;">600</div>
+    <div style="flex:1;font-family:monospace;font-size:9px;color:var(--gray-300);padding-top:4px;">500</div>
+    <div style="flex:1;font-family:monospace;font-size:9px;color:var(--gray-300);padding-top:4px;">400</div>
+    <div style="flex:1;font-family:monospace;font-size:9px;color:var(--gray-300);padding-top:4px;">300</div>
+    <div style="flex:1;font-family:monospace;font-size:9px;color:var(--gray-300);padding-top:4px;">200</div>
+    <div style="flex:1;font-family:monospace;font-size:9px;color:var(--gray-300);padding-top:4px;">100</div>
+    <div style="flex:1;font-family:monospace;font-size:9px;color:var(--gray-300);padding-top:4px;">50</div>
+    <div style="flex:1;font-family:monospace;font-size:9px;color:var(--gray-300);padding-top:4px;">white</div>
+  </div>
+
+  <div style="margin-top:24px;">
+    <div class="swatch-meta"><span class="swatch-name">--gray-900</span><span class="swatch-hex">#393A3F  hsl(230, 5%, 24%)</span></div>
+    <div class="swatch-meta"><span class="swatch-name">--gray-800</span><span class="swatch-hex">#4F5055  hsl(230, 4%, 32%)</span></div>
+    <div class="swatch-meta"><span class="swatch-name">--gray-700</span><span class="swatch-hex">#65666B  hsl(230, 3%, 41%)</span></div>
+    <div class="swatch-meta"><span class="swatch-name">--gray-600</span><span class="swatch-hex">#7B7C81  hsl(230, 2%, 49%)</span></div>
+    <div class="swatch-meta"><span class="swatch-name">--gray-500</span><span class="swatch-hex">#909196  hsl(230, 3%, 58%)</span></div>
+    <div class="swatch-meta"><span class="swatch-name">--gray-400</span><span class="swatch-hex">#A6A7AC  hsl(230, 3%, 66%)</span></div>
+    <div class="swatch-meta"><span class="swatch-name">--gray-300</span><span class="swatch-hex">#BCBDC2  hsl(230, 5%, 75%)</span></div>
+    <div class="swatch-meta"><span class="swatch-name">--gray-200</span><span class="swatch-hex">#D2D3D8  hsl(230, 7%, 84%)</span></div>
+    <div class="swatch-meta"><span class="swatch-name">--gray-100</span><span class="swatch-hex">#E8E9EE  hsl(230, 15%, 92%)</span></div>
+    <div class="swatch-meta"><span class="swatch-name">--gray-50 </span><span class="swatch-hex">#F3F4F9  hsl(230, 33%, 96%)</span></div>
+    <div class="swatch-meta"><span class="swatch-name">--white   </span><span class="swatch-hex">#ffffff</span></div>
+  </div>
+</section>
+
+
+<section>
+  <h2>Color — Semantic roles / MD3 light scheme</h2>
+
+  <div class="sp-group-label">surface</div>
+  <div class="color-role-row"><span class="color-role-name">--color-background</span><span class="color-role-ref">--white</span><div class="color-role-dot" style="background:var(--color-background)"></div></div>
+  <div class="color-role-row"><span class="color-role-name">--color-on-background</span><span class="color-role-ref">--gray-900</span><div class="color-role-dot" style="background:var(--color-on-background)"></div></div>
+  <div class="color-role-row"><span class="color-role-name">--color-surface</span><span class="color-role-ref">--gray-50</span><div class="color-role-dot" style="background:var(--color-surface)"></div></div>
+  <div class="color-role-row"><span class="color-role-name">--color-on-surface</span><span class="color-role-ref">--gray-900</span><div class="color-role-dot" style="background:var(--color-on-surface)"></div></div>
+  <div class="color-role-row"><span class="color-role-name">--color-surface-variant</span><span class="color-role-ref">--gray-100</span><div class="color-role-dot" style="background:var(--color-surface-variant)"></div></div>
+  <div class="color-role-row"><span class="color-role-name">--color-on-surface-variant</span><span class="color-role-ref">--gray-700</span><div class="color-role-dot" style="background:var(--color-on-surface-variant)"></div></div>
+
+  <div class="sp-group-label">outline</div>
+  <div class="color-role-row"><span class="color-role-name">--color-outline</span><span class="color-role-ref">--gray-500</span><div class="color-role-dot" style="background:var(--color-outline)"></div></div>
+  <div class="color-role-row"><span class="color-role-name">--color-outline-variant</span><span class="color-role-ref">--gray-200</span><div class="color-role-dot" style="background:var(--color-outline-variant)"></div></div>
+
+</section>
 
 <section>
   <h2>Typography — Google Sans Flex / MD3</h2>
@@ -154,5 +232,145 @@ section { margin-bottom:56px; }
   <div class="sp-row"><span class="sp-label">--inline-lg</span><span class="sp-val">24px</span><div class="sp-bar" style="width:24px"></div></div>
 </section>
 
+<section>
+  <h2>Shape — superellipse clip-path / JS</h2>
+  <div class="sp-group-label">scale (unitless px — used by shapePath() in JS)</div>
+
+  <div class="sh-row">
+    <span class="sh-label">--shape-sharp</span>
+    <span class="sh-val">0</span>
+    <div class="sh-box" id="sh-sharp"></div>
+    <span class="sh-note">perfect rectangle</span>
+  </div>
+  <div class="sh-row">
+    <span class="sh-label">--shape-card</span>
+    <span class="sh-val">2</span>
+    <div class="sh-box" id="sh-card"></div>
+    <span class="sh-note">card default</span>
+  </div>
+  <div class="sh-row">
+    <span class="sh-label">--shape-sm</span>
+    <span class="sh-val">8</span>
+    <div class="sh-box" id="sh-sm"></div>
+    <span class="sh-note"></span>
+  </div>
+  <div class="sh-row">
+    <span class="sh-label">--shape-md</span>
+    <span class="sh-val">16</span>
+    <div class="sh-box" id="sh-md"></div>
+    <span class="sh-note"></span>
+  </div>
+  <div class="sh-row">
+    <span class="sh-label">--shape-lg</span>
+    <span class="sh-val">48</span>
+    <div class="sh-box" id="sh-lg"></div>
+    <span class="sh-note"></span>
+  </div>
+  <div class="sh-row">
+    <span class="sh-label">--shape-pill</span>
+    <span class="sh-val">182</span>
+    <div class="sh-box" id="sh-pill"></div>
+    <span class="sh-note">full circle / pill</span>
+  </div>
+</section>
+
+<section>
+  <h2>Card layout</h2>
+
+  <div class="sp-group-label">dimensions</div>
+  <div class="sh-row">
+    <span class="sh-label">--card-width</span>
+    <span class="sh-val">364px</span>
+    <div id="card-prev" style="background:var(--card-bg);flex-shrink:0;"></div>
+    <span class="sh-note">max width (scales with 92vw)</span>
+  </div>
+  <div class="sh-row">
+    <span class="sh-label">--card-aspect</span>
+    <span class="sh-val">364/555</span>
+    <div style="font-family:monospace;font-size:10px;color:var(--gray-300);">portrait — ~1.52 : 1</div>
+  </div>
+
+  <div class="sp-group-label" style="margin-top:16px;">spacing &amp; depth</div>
+  <div class="sh-row">
+    <span class="sh-label">--card-padding</span>
+    <span class="sh-val">24px</span>
+    <div class="sp-bar" style="width:24px;"></div>
+    <span class="sh-note">→ --inset-lg</span>
+  </div>
+  <div class="sh-row">
+    <span class="sh-label">--card-perspective</span>
+    <span class="sh-val">800px</span>
+    <div style="font-family:monospace;font-size:10px;color:var(--gray-300);">3D tilt depth</div>
+  </div>
+
+  <div class="sp-group-label" style="margin-top:16px;">background</div>
+  <div class="sh-row">
+    <span class="sh-label">--card-bg</span>
+    <span class="sh-val">#d9d9d9</span>
+    <div style="width:60px;height:24px;background:var(--card-bg);flex-shrink:0;"></div>
+    <span class="sh-note">placeholder while image loads</span>
+  </div>
+
+  <div class="sp-group-label" style="margin-top:16px;">button</div>
+  <div class="sh-row">
+    <span class="sh-label">--card-btn-size</span>
+    <span class="sh-val">64px</span>
+    <div id="btn-prev" style="width:64px;height:64px;background:var(--color-on-background);flex-shrink:0;"></div>
+    <span class="sh-note">circle — --shape-pill</span>
+  </div>
+</section>
+
+<script>
+function shapePath(w, h, px) {
+  const cx = w/2, cy = h/2;
+  const maxR = Math.min(cx, cy);
+  px = Math.max(-maxR, Math.min(maxR, px));
+  if (px >= 0) {
+    const t = px / maxR;
+    const n = Math.pow(2, 4 - 3*t);
+    let d = '';
+    for (let i = 0; i <= 200; i++) {
+      const a = (i/200)*2*Math.PI;
+      const ct = Math.cos(a), st = Math.sin(a);
+      const x = cx + cx * Math.sign(ct) * Math.pow(Math.abs(ct), 2/n);
+      const y = cy + cy * Math.sign(st) * Math.pow(Math.abs(st), 2/n);
+      d += (i===0?'M':'L') + x.toFixed(1) + ',' + y.toFixed(1) + ' ';
+    }
+    return d + 'Z';
+  } else {
+    const t = -px / maxR;
+    const rc = [[0,0],[w,0],[w,h],[0,h]];
+    const dc = [[cx,0],[w,cy],[cx,h],[0,cy]];
+    const pts = rc.map((p,i) => [
+      (p[0]*(1-t)+dc[i][0]*t).toFixed(1),
+      (p[1]*(1-t)+dc[i][1]*t).toFixed(1)
+    ]);
+    return `M${pts[0].join(',')} L${pts[1].join(',')} L${pts[2].join(',')} L${pts[3].join(',')} Z`;
+  }
+}
+
+[
+  ['sh-sharp', 0],
+  ['sh-card',  2],
+  ['sh-sm',    8],
+  ['sh-md',   16],
+  ['sh-lg',   48],
+  ['sh-pill', 182],
+].forEach(([id, px]) => {
+  const el = document.getElementById(id);
+  el.style.clipPath = `path('${shapePath(60, 60, px)}')`;
+});
+
+// Card preview — scaled down to 91px × 138px (364×555 at 25%)
+const cardPrev = document.getElementById('card-prev');
+const cw = 91, ch = 138;
+cardPrev.style.width  = cw + 'px';
+cardPrev.style.height = ch + 'px';
+cardPrev.style.clipPath = `path('${shapePath(cw, ch, 2)}')`;
+
+// Button preview — 64×64 circle
+const btnPrev = document.getElementById('btn-prev');
+btnPrev.style.clipPath = `path('${shapePath(64, 64, 182)}')`;
+</script>
 </body>
 </html>

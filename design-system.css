@@ -1,6 +1,31 @@
 :root {
   --font-brand: 'Google Sans Flex', system-ui, sans-serif;
 
+  /* ── Color — Neutral (gray, hue 230, blue-tinted) ── */
+  --white:    #ffffff;
+  --gray-900: #393A3F;
+  --gray-800: #4F5055;
+  --gray-700: #65666B;
+  --gray-600: #7B7C81;
+  --gray-500: #909196;
+  --gray-400: #A6A7AC;
+  --gray-300: #BCBDC2;
+  --gray-200: #D2D3D8;
+  --gray-100: #E8E9EE;
+  --gray-50:  #F3F4F9;
+
+  /* ── Color — Semantic roles (MD3 light scheme) ── */
+  --color-background:           var(--white);
+  --color-on-background:        var(--gray-900);
+
+  --color-surface:              var(--gray-50);
+  --color-on-surface:           var(--gray-900);
+  --color-surface-variant:      var(--gray-100);
+  --color-on-surface-variant:   var(--gray-700);
+
+  --color-outline:              var(--gray-500);
+  --color-outline-variant:      var(--gray-200);
+
   --type-display-large-size:    57px;
   --type-display-large-lh:      64px;
   --type-display-large-ls:      -0.25px;
@@ -110,6 +135,26 @@
   --inline-sm: var(--space-2);  /*  8px */
   --inline-md: var(--space-4);  /* 16px */
   --inline-lg: var(--space-6);  /* 24px */
+
+  /* ── Card layout ── */
+  --card-width:       364px;
+  --card-aspect-w:    364;
+  --card-aspect-h:    555;
+  --card-padding:     var(--inset-lg);   /* 24px */
+  --card-bg:          #d9d9d9;
+  --card-perspective: 800px;
+
+  --card-btn-size:    64px;
+
+  /* ── Shape — superellipse roundness (unitless px for JS clip-path) ── */
+  /* Positive = superellipse toward circle, 0 = rectangle, negative = toward diamond */
+  --shape-sharp:  0;    /* perfect rectangle */
+  --shape-card:   2;    /* card default — barely-off rectangle */
+  --shape-sm:     8;
+  --shape-md:    16;
+  --shape-lg:    48;
+  --shape-pill: 182;    /* full circle / pill */
+
 }
 
 [class*="type-"] {
