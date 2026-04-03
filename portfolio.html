@@ -568,6 +568,11 @@
       wrap.style.filter  = blur < 0.1 ? 'none' : `blur(${blur.toFixed(1)}px)`;
       wrap.style.zIndex  = abs < 0.5 ? '20' : String(Math.max(1, Math.round(facing * 10 + 5)));
       wrap.classList.toggle('is-active', abs < 0.5);
+      if (abs < 0.5 && cardEls[i] !== activeCardEl) {
+        activeCardEl = cardEls[i];
+        tiltRx = tiltRy = tiltVx = tiltVy = 0;
+        ghostClones.forEach(c => { c.style.opacity = '0'; });
+      }
     });
 
     drawScrubber(pos);
