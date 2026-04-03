@@ -127,6 +127,7 @@ a.back:hover, a.ds-link:hover { color:#333; }
 .ctrl-section:first-child { margin-top:0; }
 .variant-btn { flex:1; padding:7px 0; border:1px solid rgba(0,0,0,0.15); border-radius:6px; background:#fff; color:#999; font-family:monospace; font-size:11px; cursor:pointer; transition:all 0.15s; }
 .variant-btn.active { background:#1c1b1f; color:#fff; border-color:#1c1b1f; }
+.ctrl-select { flex:1; height:28px; border:1px solid rgba(0,0,0,0.15); border-radius:6px; background:#fff; color:#333; font-family:monospace; font-size:11px; padding:0 6px; cursor:pointer; outline:none; appearance:none; -webkit-appearance:none; }
 </style>
 </head>
 <body>
@@ -209,6 +210,21 @@ a.back:hover, a.ds-link:hover { color:#333; }
     <span class="ctrl-label">blur</span>
     <input type="range" id="s-gblur" min="0" max="40" step="0.5" value="1">
     <span class="ctrl-val" id="v-gblur">1px</span>
+  </div>
+  <div class="ctrl-row">
+    <span class="ctrl-label">blend</span>
+    <select class="ctrl-select" id="s-gblend">
+      <option value="normal">normal</option>
+      <option value="multiply">multiply</option>
+      <option value="screen">screen</option>
+      <option value="overlay">overlay</option>
+      <option value="soft-light">soft-light</option>
+      <option value="hard-light">hard-light</option>
+      <option value="color-dodge">color-dodge</option>
+      <option value="color-burn">color-burn</option>
+      <option value="lighten">lighten</option>
+      <option value="darken">darken</option>
+    </select>
   </div>
 
   <p class="ctrl-section">reveal</p>
@@ -359,7 +375,7 @@ if (isMobile()) {
 }
 
 /* ── Ghost clones ── */
-const GHOST = { layers: 4, opacity: 0.16, blur: 1 };
+const GHOST = { layers: 4, opacity: 0.16, blur: 1, blend: 'normal' };
 const cardWrap = cardEl.parentElement;
 const ghostClones = [];
 
@@ -408,9 +424,10 @@ function drawGhosts() {
     const scalar = (i + 1) / (GHOST.layers + 1);
     const rx = perspAngle(tiltRx, scalar, halfH, P);
     const ry = perspAngle(tiltRy, scalar, halfW, P);
-    clone.style.transform = `rotateX(${rx.toFixed(3)}deg) rotateY(${ry.toFixed(3)}deg)`;
-    clone.style.opacity   = GHOST.opacity * scalar;
-    clone.style.filter    = GHOST.blur > 0 ? `blur(${(GHOST.blur * (1 - scalar)).toFixed(2)}px)` : '';
+    clone.style.transform    = `rotateX(${rx.toFixed(3)}deg) rotateY(${ry.toFixed(3)}deg)`;
+    clone.style.opacity      = GHOST.opacity * scalar;
+    clone.style.filter       = GHOST.blur > 0 ? `blur(${(GHOST.blur * (1 - scalar)).toFixed(2)}px)` : '';
+    clone.style.mixBlendMode = GHOST.blend;
   });
 }
 
@@ -474,6 +491,8 @@ function updateShine() {
   const vl = document.getElementById(vid);
   sl.addEventListener('input', () => { GHOST[key] = +sl.value; vl.textContent = sl.value + unit; });
 });
+
+document.getElementById('s-gblend').addEventListener('change', e => { GHOST.blend = e.target.value; });
 
 [
   ['s-lintensity', 'v-lintensity', 'intensity', ''  ],
