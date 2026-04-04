@@ -765,7 +765,45 @@
     stageMouse = null; scrubMouse = null;
   });
 
-  window.addEventListener('wheel', e => { e.preventDefault(); velY += (e.deltaX + e.deltaY) * CFG.WHEEL_SENS; kick(); }, { passive: false });
+  /* ══ WHEEL INPUT (mouse vs trackpad) ══ */
+  const MOUSE_MIN     = 50;
+  const SNAP_COOLDOWN = 750;
+  const SNAP_KICK     = 0.8;
+  let wheelLock   = false;
+  let trackpadAcc = 0;
+  let recentMags  = [];
+
+  window.addEventListener('wheel', e => {
+    e.preventDefault();
+    const d   = e.deltaX + e.deltaY;
+    const mag = Math.abs(d);
+
+    if (mag >= MOUSE_MIN) {
+      // Mouse: direction only, one snap per cooldown
+      if (wheelLock) return;
+      velY += Math.sign(d) * SNAP_KICK;
+      kick();
+      wheelLock = true;
+      setTimeout(() => { wheelLock = false; }, SNAP_COOLDOWN);
+      trackpadAcc = 0; recentMags = [];
+
+    } else {
+      // Trackpad: accumulate toward threshold, ignore momentum tail
+      recentMags.push(mag);
+      if (recentMags.length > 4) recentMags.shift();
+      if (recentMags.length >= 3) {
+        const [a, b, c] = recentMags.slice(-3);
+        if (a > b && b > c && c < 2) { trackpadAcc = 0; return; }
+      }
+      trackpadAcc += d;
+      const tpThreshold = 1 / CFG.WHEEL_SENS * 0.12; // WHEEL_SENS slider scales sensitivity
+      if (Math.abs(trackpadAcc) >= tpThreshold) {
+        velY += Math.sign(trackpadAcc) * SNAP_KICK;
+        kick();
+        trackpadAcc = 0;
+      }
+    }
+  }, { passive: false });
   window.addEventListener('keydown', e => {
     if (e.key === 'ArrowRight') { velY += 0.12; kick(); }
     if (e.key === 'ArrowLeft')  { velY -= 0.12; kick(); }
