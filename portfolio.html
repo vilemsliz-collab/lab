@@ -586,8 +586,11 @@
   }
 
   /* ══ PHYSICS LOOP ══ */
-  function loop() {
-    velY *= CFG.FRICTION;
+  let lastLoopTime = 0;
+  function loop(t = 0) {
+    const dt = lastLoopTime ? (t - lastLoopTime) / 1000 : 1 / 60;
+    lastLoopTime = t;
+    velY *= Math.pow(CFG.FRICTION, dt * 60);
     posY += velY;
 
     const target = Math.round(posY);
@@ -775,7 +778,7 @@
 
   window.addEventListener('wheel', e => {
     e.preventDefault();
-    const d   = e.deltaX + e.deltaY;
+    const d   = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
     const mag = Math.abs(d);
 
     if (mag >= MOUSE_MIN) {
