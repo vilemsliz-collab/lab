@@ -316,11 +316,11 @@
 
   /* ══ CARDS DATA ══ */
   const CARDS = [
-    { id:'001', title:'Ink Text',  sub:'typographic', tag:'2025-03', href:'./ink-text/',    bg:'#12131a', ac:'#c8ff00', video:'./assets/portfolio-reel.mp4' },
-    { id:'002', title:'Orbs v5',   sub:'generative',  tag:'2025-03', href:'./orbs-v5.html', bg:'#080e1c', ac:'#4dd0e1' },
-    { id:'003', title:'Signal',    sub:'audio viz',   tag:'wip',     href:null,             bg:'#1e0a0a', ac:'#ff5252' },
-    { id:'004', title:'Terrain',   sub:'procedural',  tag:'wip',     href:null,             bg:'#071207', ac:'#66ff99' },
-    { id:'005', title:'Fluid',     sub:'simulation',  tag:'planned', href:null,             bg:'#141414', ac:'#e0e0e0' },
+    { id:'001', title:'Ink Text',  sub:'typographic', tag:'2025-03', href:'./ink-text/',    bg:'#12131a', ac:'#c8ff00', video:'./assets/portfolio-reel.mp4', img:'./Cases Files/Frame 1000005628.png' },
+    { id:'002', title:'Orbs v5',   sub:'generative',  tag:'2025-03', href:'./orbs-v5.html', bg:'#080e1c', ac:'#4dd0e1', img:'./Cases Files/Free_Dropper_Bottle_Mockup.png' },
+    { id:'003', title:'Signal',    sub:'audio viz',   tag:'wip',     href:null,             bg:'#1e0a0a', ac:'#ff5252', img:'./Cases Files/Frame 1000005182.png' },
+    { id:'004', title:'Terrain',   sub:'procedural',  tag:'wip',     href:null,             bg:'#071207', ac:'#66ff99', img:'./Cases Files/image-60.png' },
+    { id:'005', title:'Fluid',     sub:'simulation',  tag:'planned', href:null,             bg:'#141414', ac:'#e0e0e0', img:'./Cases Files/Firefly%2020250309110302-enhanced 1 1.png' },
   ];
   const N = CARDS.length;
 
@@ -339,7 +339,7 @@
     el.dataset.index  = i;
     el.style.background = card.bg;
     el.innerHTML = `
-      ${card.video ? `<video class="card-bg" src="${card.video}" autoplay loop muted playsinline></video>` : ''}
+      ${card.video ? `<video class="card-bg" src="${card.video}" autoplay loop muted playsinline></video>` : card.img ? `<img class="card-bg" src="${card.img}" alt="">` : ''}
       <div class="card-overlay"></div>
       <div class="card-content">
         <p class="type-label-medium card-line">${card.id}</p>
