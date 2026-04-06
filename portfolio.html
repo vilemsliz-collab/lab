@@ -291,7 +291,7 @@
       ROT_MULT: 0, ROLL_MAX: 0,
       SCALE_ACTIVE: 0.79, SCALE_SPHERE: 0.83,
       OPACITY_MULT: 0.46, OPACITY_BASE: 1, BLUR_MAX: 0,
-      FRICTION: 0.76, SPRING: 0,
+      FRICTION: 0.76, SPRING: 0.18,
     },
     desktop: {
       R_MULT: 1.5, R_MAX: 1010, PERSPECTIVE: 590,
@@ -299,7 +299,7 @@
       ROT_MULT: 0, ROLL_MAX: 0,
       SCALE_ACTIVE: 1.29, SCALE_SPHERE: 0.83,
       OPACITY_MULT: 0.46, OPACITY_BASE: 1, BLUR_MAX: 0,
-      FRICTION: 0.76, SPRING: 0,
+      FRICTION: 0.76, SPRING: 0.18,
     },
   };
   const CFG = Object.assign({}, PRESETS.mobile);
@@ -603,7 +603,7 @@
     if (Math.abs(velY) < 0.02) {
       const spring = (target - posY) * CFG.SPRING;
       posY += spring;
-      if (Math.abs(velY) < 0.003) {
+      if (Math.abs(velY) < 0.003 && Math.abs(posY - target) < 0.002) {
         posY = ((target % N) + N) % N;
         velY = 0;
         applyTransforms(posY);
@@ -809,7 +809,7 @@
     const now = Date.now();
     const gap = now - lastWheelMs;
     if (mag >= 15) lastWheelMs = now;        // track active-swipe events only
-    const nearSnap = Math.abs(posY - Math.round(posY)) < 0.30;
+    const nearSnap = Math.abs(posY - Math.round(posY)) < 0.15;
     if ((!rafId || nearSnap) && gap >= 150 && mag >= 15) {
       posY = ((Math.round(posY) % N) + N) % N;  // snap clean before new kick
       velY  = Math.sign(d) * INPUT.mouseKick;    // replace, don't add
