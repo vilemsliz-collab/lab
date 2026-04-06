@@ -426,7 +426,7 @@
     frontFrame.addEventListener('load', () => {
       frontFrame.style.opacity = '1';
     }, { once: true });
-    frontFrame.src = CARDS[activeIdx]?.href || './case-study.html';
+    frontFrame.src = './case-study.html';
     document.body.classList.add('case-open');
     caseOpen = true;
     baseTiltY = TILT.max * 0.5; tiltTy = baseTiltY;
@@ -572,7 +572,7 @@
   /* ══ ACTIVE CARD LIFECYCLE ══ */
   function onActiveChange(newIdx) {
     activeIdx = newIdx;
-    if (caseOpen) switchCaseContent(CARDS[newIdx].href || './case-study.html');
+    if (caseOpen) switchCaseContent('./case-study.html');
     revealActiveCard();
   }
 
@@ -619,7 +619,7 @@
       const rollDeg = ROLL_BASE[i] * CFG.ROLL_MAX;
       const scale   = lerp(CFG.SCALE_ACTIVE, CFG.SCALE_SPHERE, st);
       const opacity = Math.max(0, Math.min(1, facing * CFG.OPACITY_MULT + CFG.OPACITY_BASE));
-      const blur    = Math.max(0, (1 - facing) * CFG.BLUR_MAX);
+      const blur    = st * CFG.BLUR_MAX;
 
       wrap.style.transform = [
         `translateX(${tx.toFixed(1)}px)`,
@@ -696,8 +696,11 @@
   document.addEventListener('mousemove', e => {
     if (isMobile()) return;
     if (caseOpen) {
-      const rel = (e.clientX / stage.offsetWidth - 0.5) * 2;
-      tiltTy = clamp(baseTiltY + rel * TILT.max * 0.6, -TILT.max, TILT.max);
+      const stW = stage.offsetWidth;
+      if (e.clientX <= stW) {
+        const rel = (e.clientX / stW - 0.5) * 2;
+        tiltTy = clamp(baseTiltY + rel * TILT.max * 0.6, -TILT.max, TILT.max);
+      }
     } else {
       tiltTy = (e.clientX / window.innerWidth - 0.5) * 2 * TILT.max;
     }
