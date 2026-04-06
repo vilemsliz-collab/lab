@@ -526,29 +526,57 @@
   }
 
   /* ══ CAROUSEL TRANSFORMS ══ */
+  const STEP_H  = (2 * Math.PI) / 3;          // 120° — three H steps = full circle
+  const STEP_V  = 35 * Math.PI / 180;          // 35° vertical step
+  // Camera waypoints: pattern H, +V, H, −V, H(wrap) — wraps at (360°, 0°) ✓
+  const CAM_PATH = [
+    { th: 0,          ph: 0       },
+    { th: STEP_H,     ph: 0       },
+    { th: STEP_H,     ph: STEP_V  },
+    { th: 2 * STEP_H, ph: STEP_V  },
+    { th: 2 * STEP_H, ph: 0       },
+  ];
+
   function applyTransforms(pos) {
     const vw  = innerWidth;
     const R   = Math.min(vw * CFG.R_MULT, CFG.R_MAX);
     const LAT = CFG.LAT.map(d => d * Math.PI / 180);
 
-    CARDS.forEach((_, i) => {
-      let off = i - pos;
-      while (off >  N / 2) off -= N;
-      while (off < -N / 2) off += N;
+    // Interpolate camera position along the alternating-axis path
+    const posW = ((pos % N) + N) % N;
+    const i0   = Math.floor(posW) % N;
+    const i1   = (i0 + 1) % N;
+    const frac = posW - Math.floor(posW);
+    const c0   = CAM_PATH[i0], c1 = CAM_PATH[i1];
+    let dTh = c1.th - c0.th;
+    if (dTh < -Math.PI) dTh += 2 * Math.PI;   // 4→0 wrap: −240° → +120°
+    if (dTh >  Math.PI) dTh -= 2 * Math.PI;
+    const camTh = c0.th + frac * dTh;
+    const camPh = c0.ph + frac * (c1.ph - c0.ph);
 
-      const wrap    = wrapEls[i];
-      const phi     = LAT[i % LAT.length];
-      const theta   = off * (2 * Math.PI / N) * CFG.LON_SPREAD;
-      const abs     = Math.abs(off);
+    CARDS.forEach((_, i) => {
+      const wrap   = wrapEls[i];
+      const cp     = CAM_PATH[i];
+      const latRad = LAT[i % LAT.length];
+
+      let relTh = cp.th - camTh;
+      while (relTh >  Math.PI) relTh -= 2 * Math.PI;
+      while (relTh < -Math.PI) relTh += 2 * Math.PI;
+      const relPh   = cp.ph - camPh;
+      const totalPh = relPh + latRad;
+
+      const absTh   = Math.abs(relTh) / STEP_H;
+      const absPh   = Math.abs(relPh) / STEP_V;
+      const abs     = Math.sqrt(absTh * absTh + absPh * absPh);
       const st      = smoothstep(Math.min(1, abs));
-      const cosPhi  = Math.cos(phi);
-      const sinPhi  = Math.sin(phi);
-      const tx      = cosPhi * Math.sin(theta) * R * st;
-      const ty      = sinPhi * R * st;
-      const tz      = (cosPhi * Math.cos(theta) - 1) * R * st;
-      const facing  = cosPhi * Math.cos(theta);
-      const ry      = -(theta * 180 / Math.PI) * CFG.ROT_MULT * st;
-      const rx      = -(phi   * 180 / Math.PI) * CFG.ROT_MULT * st;
+      const cosTph  = Math.cos(totalPh);
+      const sinTph  = Math.sin(totalPh);
+      const tx      = cosTph * Math.sin(relTh) * R * st;
+      const ty      = sinTph * R * st;
+      const tz      = (cosTph * Math.cos(relTh) - 1) * R * st;
+      const facing  = Math.cos(relPh) * Math.cos(relTh);
+      const ry      = -(relTh * 180 / Math.PI) * CFG.ROT_MULT * st;
+      const rx      = -(totalPh * 180 / Math.PI) * CFG.ROT_MULT * st;
       const rollDeg = ROLL_BASE[i] * CFG.ROLL_MAX;
       const scale   = lerp(CFG.SCALE_ACTIVE, CFG.SCALE_SPHERE, st);
       const opacity = Math.max(0, Math.min(1, facing * CFG.OPACITY_MULT + CFG.OPACITY_BASE));
