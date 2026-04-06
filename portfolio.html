@@ -367,7 +367,7 @@
     document.body.classList.add('case-open');
     caseOpen = true;
     caseToggleBtn.innerHTML = '&#x2715;'; // × close icon
-    setTimeout(() => applyTransforms(posY), 570);
+    setTimeout(() => { checkBreakpoint(); applyTransforms(posY); updateClipPath(); }, 570);
   }
 
   function closeCasePanel() {
@@ -376,7 +376,7 @@
     caseToggleBtn.innerHTML = '&#x2922;'; // ⤢ expand icon
     setTimeout(() => {
       caseFrame.src = '';
-      applyTransforms(posY);
+      checkBreakpoint(); applyTransforms(posY); updateClipPath();
     }, 570);
   }
 
@@ -861,7 +861,7 @@
     syncPerspective();
     syncCtrlRows();
   }
-  function checkBreakpoint() { loadPreset(innerWidth >= 768 ? 'desktop' : 'mobile'); }
+  function checkBreakpoint() { loadPreset((stage.offsetWidth || innerWidth) >= 768 ? 'desktop' : 'mobile'); }
 
   window.addEventListener('resize', () => {
     checkBreakpoint();
