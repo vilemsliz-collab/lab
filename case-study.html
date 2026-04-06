@@ -354,10 +354,14 @@
 
 <script>
 (() => {
-  const DS      = getComputedStyle(document.documentElement);
-  const SHP_SM  = +DS.getPropertyValue('--shape-sm') || 8;
-  const REF_MAXR = 182; // portfolio card min(364/2, 555/2) — reference size for consistent t
-  const CORNER_T = SHP_SM / REF_MAXR; // ≈ 0.044 — fixed t applied to all elements
+  const DS        = getComputedStyle(document.documentElement);
+  const SHP_CARD  = +DS.getPropertyValue('--shape-card') || 2;  // gallery/hero images — nearly sharp
+  const SHP_SM    = +DS.getPropertyValue('--shape-sm')   || 8;  // step images — matches prev card feel
+  const REF_MAXR  = 182; // portfolio card min(364/2, 555/2) — reference for proportional t
+
+  const T_IMG      = SHP_CARD / REF_MAXR;  // ≈ 0.011 — very subtle, gallery & hero images
+  const T_CARD     = 4      / REF_MAXR;    // ≈ 0.022 — cards, half of prev
+  const T_STEP_IMG = SHP_SM  / REF_MAXR;   // ≈ 0.044 — step card images, same as prev card corners
 
   function shapePath(w, h, px) {
     const cx = w / 2, cy = h / 2;
@@ -376,21 +380,17 @@
     return d + 'Z';
   }
 
+  function applyShape(el, t) {
+    const w = el.offsetWidth, h = el.offsetHeight;
+    if (!w || !h) return;
+    const maxR = Math.min(w, h) / 2;
+    el.style.clipPath = `path('${shapePath(w, h, t * maxR)}')`;
+  }
+
   function applyShapes() {
-    // Cards — consistent proportional superellipse
-    document.querySelectorAll('.impact-item, .step').forEach(el => {
-      const w = el.offsetWidth, h = el.offsetHeight;
-      if (!w || !h) return;
-      const maxR = Math.min(w, h) / 2;
-      el.style.clipPath = `path('${shapePath(w, h, CORNER_T * maxR)}')`;
-    });
-    // Images — same t, same proportional shape
-    document.querySelectorAll('.gallery-item img, .step-img, .hero img').forEach(el => {
-      const w = el.offsetWidth, h = el.offsetHeight;
-      if (!w || !h) return;
-      const maxR = Math.min(w, h) / 2;
-      el.style.clipPath = `path('${shapePath(w, h, CORNER_T * maxR)}')`;
-    });
+    document.querySelectorAll('.impact-item, .step').forEach(el => applyShape(el, T_CARD));
+    document.querySelectorAll('.step-img').forEach(el => applyShape(el, T_STEP_IMG));
+    document.querySelectorAll('.gallery-item img, .hero img').forEach(el => applyShape(el, T_IMG));
   }
 
   window.addEventListener('load',   applyShapes);
