@@ -153,7 +153,7 @@
     }
     .card-wrap.is-active .card:hover .card-btn::before { opacity: 1; }
 
-    /* ── Scrubber ── */
+    /* ── Scrubber ── (hidden, kept for reuse)
     #scrubber {
       position: fixed;
       bottom: 0; left: 0; right: 0;
@@ -164,6 +164,7 @@
     }
     #scrubber:active { cursor: grabbing; }
     #scrubber canvas { display: block; }
+    */
 
     /* ── Ctrl toggle ── */
     #ctrl-toggle {
@@ -202,7 +203,7 @@
     }
     .ctrl-open #ctrl-panel  { transform: translateX(0); }
     .ctrl-open #stage       { right: 260px; }
-    .ctrl-open #scrubber    { right: 260px; }
+    /* .ctrl-open #scrubber    { right: 260px; } */
 
     #ctrl-panel-inner {
       flex: 1; overflow-y: auto;
@@ -265,6 +266,15 @@
     }
     .dev-copy:hover  { border-color: #555; color: #ddd; }
     .dev-copy.copied { border-color: #c8ff00; color: #c8ff00; }
+    .dev-val-input {
+      width: 44px; text-align: right;
+      background: transparent; border: none; border-bottom: 1px solid #2a2a30;
+      color: #c8ff00; font-family: 'IBM Plex Mono', monospace; font-size: 10px;
+      padding: 0; outline: none;
+      -moz-appearance: textfield;
+    }
+    .dev-val-input::-webkit-inner-spin-button { display: none; }
+    .dev-val-input:focus { border-bottom-color: #c8ff00; }
   </style>
 </head>
 <body>
@@ -272,7 +282,7 @@
   <a class="back" href="./index.html">← lab</a>
 
   <div id="stage"></div>
-  <div id="scrubber"></div>
+  <!-- <div id="scrubber"></div> -->
 
   <button id="ctrl-toggle">ctrl</button>
   <div id="ctrl-panel">
@@ -289,26 +299,27 @@
   const PRESETS = {
     mobile: {
       R_MULT: 1.5, R_MAX: 1010, PERSPECTIVE: 200,
-      LAT: [-62, 66, -19, 42, -31], LON_SPREAD: 0.88,
+      LAT: [-62, 66, -19, 42, -31], LON_SPREAD: 1.0,
       ROT_MULT: 0, ROLL_MAX: 0,
       SCALE_ACTIVE: 0.79, SCALE_SPHERE: 0.83,
       OPACITY_MULT: 0.46, OPACITY_BASE: 1, BLUR_MAX: 0,
-      FRICTION: 0.70, SPRING: 0.17, DRAG_SENS: 0.10, WHEEL_SENS: 0.001,
+      FRICTION: 0.75, SPRING: 0.04,
     },
     desktop: {
       R_MULT: 1.5, R_MAX: 1010, PERSPECTIVE: 590,
-      LAT: [-8, 32, -29, 42, 24], LON_SPREAD: 0.56,
+      LAT: [-8, 32, -29, 42, 24], LON_SPREAD: 1.0,
       ROT_MULT: 0, ROLL_MAX: 0,
       SCALE_ACTIVE: 1.29, SCALE_SPHERE: 0.83,
       OPACITY_MULT: 0.46, OPACITY_BASE: 1, BLUR_MAX: 0,
-      FRICTION: 0.70, SPRING: 0.17, DRAG_SENS: 0.10, WHEEL_SENS: 0.001,
+      FRICTION: 0.75, SPRING: 0.04,
     },
   };
   const CFG = Object.assign({}, PRESETS.mobile);
 
   /* ══ CARD EFFECT CONFIG ══ */
   const REVEAL = { stagger: 58, dur: 682, blur: 8, y: 8 };
-  const SCRUB  = { spacing: 4, minH: 9, maxH: 78, curve: 3.5, hoverAmt: 30, hoverSpread: 60, boxH: 80, hoverBoxH: 80 };
+  const INPUT  = { mouseKick: 0.30, mouseCooldown: 100, tpKick: 0.05, tpSens: 0.0010, touchSens: 0.02 };
+  /* const SCRUB = { spacing: 4, minH: 9, maxH: 78, curve: 3.5, hoverAmt: 30, hoverSpread: 60, boxH: 80, hoverBoxH: 80 }; */
   const SHAPE  = { px: +DS.getPropertyValue('--shape-card') || 2 };
   const TILT   = { max: 16, stiffness: 0.1, damping: 0.75 };
   const GHOST  = { layers: 6, opacity: 0.16, blur: 0, blend: 'normal', variant: 'behind' };
@@ -582,7 +593,7 @@
       }
     });
 
-    drawScrubber(pos);
+    /* drawScrubber(pos); */
   }
 
   /* ══ PHYSICS LOOP ══ */
@@ -667,7 +678,7 @@
     }
   }
 
-  /* ══ SCRUBBER ══ */
+  /* ══ SCRUBBER (hidden, kept for reuse) ══
   const scrubEl = document.getElementById('scrubber');
   const sc      = document.createElement('canvas');
   scrubEl.appendChild(sc);
@@ -717,13 +728,14 @@
       sctx.fillRect(x - DPR / 2, h - lh, DPR, lh);
     }
   }
+  */
 
   /* ══ DRAG INPUTS ══ */
-  const dragK  = () => 1 / (innerWidth * CFG.DRAG_SENS);
-  const scrubK = () => 1 / (innerWidth * 0.45);
+  const dragK  = () => 1 / (innerWidth * INPUT.touchSens);
+  /* const scrubK = () => 1 / (innerWidth * 0.45); */
 
   let stageTouch = null, stageMouse = null;
-  let scrubTouch = null, scrubMouse = null;
+  /* let scrubTouch = null, scrubMouse = null; */
 
   stage.addEventListener('touchstart', e => { stageTouch = e.touches[0].clientX; velY = 0; }, { passive: true });
   stage.addEventListener('touchmove',  e => {
@@ -736,6 +748,7 @@
   stage.addEventListener('touchend', () => { stageTouch = null; kick(); }, { passive: true });
   stage.addEventListener('mousedown', e => { stageMouse = e.clientX; velY = 0; });
 
+  /* scrubEl drag handlers (hidden, kept for reuse)
   scrubEl.addEventListener('touchstart', e => { e.stopPropagation(); scrubTouch = e.touches[0].clientX; velY = 0; }, { passive: true });
   scrubEl.addEventListener('touchmove',  e => {
     if (scrubTouch === null) return;
@@ -746,6 +759,7 @@
   }, { passive: true });
   scrubEl.addEventListener('touchend', () => { scrubTouch = null; kick(); }, { passive: true });
   scrubEl.addEventListener('mousedown', e => { scrubMouse = e.clientX; velY = 0; });
+  */
 
   window.addEventListener('mousemove', e => {
     if (stageMouse !== null) {
@@ -753,22 +767,20 @@
       velY = velY * 0.5 + dPos * 0.5; posY += dPos;
       stageMouse = e.clientX;
       applyTransforms(posY);
-    } else if (scrubMouse !== null) {
+    /* } else if (scrubMouse !== null) {
       const dPos = -(e.clientX - scrubMouse) * scrubK();
       velY = velY * 0.5 + dPos * 0.5; posY += dPos;
       scrubMouse = e.clientX;
-      applyTransforms(posY);
+      applyTransforms(posY); */
     }
   });
   window.addEventListener('mouseup', () => {
-    if (stageMouse !== null || scrubMouse !== null) kick();
-    stageMouse = null; scrubMouse = null;
+    if (stageMouse !== null) kick();
+    stageMouse = null; /* scrubMouse = null; */
   });
 
   /* ══ WHEEL INPUT (mouse vs trackpad) ══ */
-  const MOUSE_MIN     = 50;
-  const SNAP_COOLDOWN = 750;
-  const SNAP_KICK     = 0.8;
+  const MOUSE_MIN = 50;
   let wheelLock   = false;
   let trackpadAcc = 0;
   let recentMags  = [];
@@ -781,10 +793,10 @@
     if (mag >= MOUSE_MIN) {
       // Mouse: direction only, one snap per cooldown
       if (wheelLock) return;
-      velY += Math.sign(d) * SNAP_KICK;
+      velY += Math.sign(d) * INPUT.mouseKick;
       kick();
       wheelLock = true;
-      setTimeout(() => { wheelLock = false; }, SNAP_COOLDOWN);
+      setTimeout(() => { wheelLock = false; }, INPUT.mouseCooldown);
       trackpadAcc = 0; recentMags = [];
 
     } else {
@@ -796,9 +808,9 @@
         if (a > b && b > c && c < 2) { trackpadAcc = 0; return; }
       }
       trackpadAcc += d;
-      const tpThreshold = 1 / CFG.WHEEL_SENS * 0.12; // WHEEL_SENS slider scales sensitivity
+      const tpThreshold = 1 / INPUT.tpSens * 0.12;
       if (Math.abs(trackpadAcc) >= tpThreshold) {
-        velY += Math.sign(trackpadAcc) * SNAP_KICK;
+        velY += Math.sign(trackpadAcc) * INPUT.tpKick;
         kick();
         trackpadAcc = 0;
       }
@@ -822,7 +834,7 @@
 
   window.addEventListener('resize', () => {
     checkBreakpoint();
-    resizeScrubber();
+    /* resizeScrubber(); */
     applyTransforms(posY);
     updateClipPath();
   });
@@ -833,7 +845,7 @@
 
   function toggleCtrl() {
     document.body.classList.toggle('ctrl-open');
-    setTimeout(() => { resizeScrubber(); applyTransforms(posY); }, 300);
+    setTimeout(() => { /* resizeScrubber(); */ applyTransforms(posY); }, 300);
   }
   let ctrlTouchFired = false;
   ctrlToggle.addEventListener('touchend', e => {
@@ -868,27 +880,43 @@
     return s;
   }
 
-  function addRow(sec, label, key, min, max, step, fmt, onChange) {
+  function addRow(sec, label, key, min, max, step, fmt, onChange, editable = false) {
     const row = document.createElement('div'); row.className = 'dev-row';
     const lbl = document.createElement('span'); lbl.className = 'dev-label'; lbl.textContent = label;
     const range = document.createElement('input');
     range.type = 'range'; range.min = min; range.max = max; range.step = step;
     range.value = key ? cfgGet(key) : 0;
-    const val = document.createElement('span'); val.className = 'dev-val';
-    val.textContent = fmt(parseFloat(range.value));
+
+    let valEl;
+    if (editable) {
+      valEl = document.createElement('input');
+      valEl.type = 'number'; valEl.className = 'dev-val-input';
+      valEl.step = step; valEl.value = parseFloat(range.value);
+      valEl.addEventListener('change', () => {
+        const v = Math.min(max, Math.max(min, parseFloat(valEl.value) || 0));
+        range.value = v; valEl.value = v;
+        if (key) cfgSet(key, v);
+        if (onChange) onChange(v); else applyTransforms(posY);
+      });
+      valEl.addEventListener('mousedown',  e => e.stopPropagation());
+      valEl.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
+    } else {
+      valEl = document.createElement('span'); valEl.className = 'dev-val';
+      valEl.textContent = fmt(parseFloat(range.value));
+    }
 
     range.addEventListener('input', () => {
       const v = parseFloat(range.value);
       if (key) cfgSet(key, v);
-      val.textContent = fmt(v);
+      if (editable) valEl.value = v; else valEl.textContent = fmt(v);
       if (onChange) onChange(v); else applyTransforms(posY);
     });
     range.addEventListener('mousedown',  e => e.stopPropagation());
     range.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
 
-    row.appendChild(lbl); row.appendChild(range); row.appendChild(val);
+    row.appendChild(lbl); row.appendChild(range); row.appendChild(valEl);
     sec.appendChild(row);
-    if (key) ctrlRowMap[key] = { range, val, fmt };
+    if (key) ctrlRowMap[key] = { range, val: valEl, fmt };
     return range;
   }
 
@@ -931,13 +959,23 @@
   addRow(sec, 'Blur max',     'BLUR_MAX',    0,   20,  0.5,  v => v.toFixed(1) + 'px');
   addCopyBtn(sec, () => `SCALE_ACTIVE: ${CFG.SCALE_ACTIVE.toFixed(2)}, SCALE_SPHERE: ${CFG.SCALE_SPHERE.toFixed(2)}, OPACITY_MULT: ${CFG.OPACITY_MULT.toFixed(2)}, OPACITY_BASE: ${CFG.OPACITY_BASE.toFixed(2)}, BLUR_MAX: ${CFG.BLUR_MAX.toFixed(1)}`);
 
-  /* ── Physics section ── */
-  sec = addSection('Physics');
-  addRow(sec, 'Friction',  'FRICTION',  0.70, 0.99, 0.01, v => v.toFixed(2));
-  addRow(sec, 'Spring',    'SPRING',    0.01, 0.40, 0.01, v => v.toFixed(2));
-  addRow(sec, 'Drag sens',  'DRAG_SENS',   0.1,   2.0,   0.05,  v => v.toFixed(2));
-  addRow(sec, 'Wheel sens', 'WHEEL_SENS',  0.001, 0.020, 0.001, v => v.toFixed(3));
-  addCopyBtn(sec, () => `FRICTION: ${CFG.FRICTION.toFixed(2)}, SPRING: ${CFG.SPRING.toFixed(2)}, DRAG_SENS: ${CFG.DRAG_SENS.toFixed(2)}, WHEEL_SENS: ${CFG.WHEEL_SENS.toFixed(3)}`);
+  /* ── Scroll section ── */
+  sec = addSection('Scroll');
+  addRow(sec, 'decel',  'FRICTION', 0.70, 0.99, 0.01, v => v.toFixed(2));
+  addRow(sec, 'spring', 'SPRING',   0.01, 0.40, 0.01, v => v.toFixed(2));
+  const scrollInputRows = [
+    ['card pause ms', 'mouseCooldown', 0,  2000,  50,     v => Math.round(v)+'',  v => { INPUT.mouseCooldown = v; }],
+    ['mouse kick',    'mouseKick',     0,  2.0,   0.05,   v => v.toFixed(2),      v => { INPUT.mouseKick     = v; }],
+    ['tp kick',       'tpKick',        0,  2.0,   0.05,   v => v.toFixed(2),      v => { INPUT.tpKick        = v; }],
+    ['tp sens',       'tpSens',        0,  0.05,  0.0005, v => v.toFixed(4),      v => { INPUT.tpSens        = v; }],
+    ['touch sens',    'touchSens',     0,  3.0,   0.02,   v => v.toFixed(2),      v => { INPUT.touchSens     = v; }],
+  ];
+  scrollInputRows.forEach(([label, inputKey, min, max, step, fmt, onChange]) => {
+    const r = addRow(sec, label, null, min, max, step, fmt, onChange, true);
+    r.value = INPUT[inputKey];
+    r.closest('.dev-row').querySelector('.dev-val-input').value = INPUT[inputKey];
+  });
+  addCopyBtn(sec, () => `FRICTION: ${CFG.FRICTION.toFixed(2)}, SPRING: ${CFG.SPRING.toFixed(2)}, mouseCooldown: ${INPUT.mouseCooldown}, mouseKick: ${INPUT.mouseKick.toFixed(2)}, tpKick: ${INPUT.tpKick.toFixed(2)}, tpSens: ${INPUT.tpSens.toFixed(4)}, touchSens: ${INPUT.touchSens.toFixed(2)}`);
 
   /* ── Card section ── */
   sec = addSection('Shape');
@@ -1019,7 +1057,7 @@
   }
   addCopyBtn(sec, () => `stagger: ${Math.round(REVEAL.stagger)}, dur: ${Math.round(REVEAL.dur)}, blur: ${REVEAL.blur.toFixed(1)}, y: ${Math.round(REVEAL.y)}`);
 
-  /* ── Scrubber section ── */
+  /* ── Scrubber section (hidden, kept for reuse) ──
   sec = addSection('Scrubber');
   [
     ['spacing',  2,  20,  1,   v => Math.round(v) + 'px', v => { SCRUB.spacing     = v; drawScrubber(posY); }],
@@ -1037,6 +1075,7 @@
     r.closest('.dev-row').querySelector('.dev-val').textContent = fmt(SCRUB[keyMap[label]]);
   });
   addCopyBtn(sec, () => `spacing: ${SCRUB.spacing}, minH: ${SCRUB.minH}, maxH: ${SCRUB.maxH}, curve: ${SCRUB.curve.toFixed(1)}, hoverAmt: ${SCRUB.hoverAmt}, hoverSpread: ${SCRUB.hoverSpread}, boxH: ${SCRUB.boxH}, hoverBoxH: ${SCRUB.hoverBoxH}`);
+  */
 
   /* ══ INIT ══ */
   checkBreakpoint();

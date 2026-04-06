@@ -10,14 +10,6 @@ Personal experiment space deployed at **vilemsliz-collab.github.io/lab**.
 
 No build step. No package.json. Pure HTML/CSS/JS files committed directly.
 
-## Style conventions
-
-- Background: `#0d0d0d`
-- Foreground: `#e8e8e0`
-- Muted text: `#555`
-- Accent: `#c8ff00`
-- Font: IBM Plex Mono (`@import` from Google Fonts)
-- Font sizes: 11px labels, 14px body, 18px headings
 
 ## Adding an experiment
 
