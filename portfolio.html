@@ -222,7 +222,7 @@
       width: 100%; height: 100%;
       z-index: 0;
       pointer-events: none;
-      filter: blur(44px) saturate(1.2);
+      filter: blur(28px) saturate(1.1);
     }
   </style>
 </head>
@@ -488,19 +488,18 @@
   }
 
   function samplePalette(src) {
-    // Downsample to 32×32, sample 9 zones: corners, edge mids, center
+    // Downsample to 32×32, sample 4 edge midpoints: [top, right, bottom, left]
     const S = 32;
     const c = document.createElement('canvas'); c.width = c.height = S;
     const x = c.getContext('2d');
     try { x.drawImage(src, 0, 0, S, S); } catch(e) { return null; }
-    // 8 zones: 4 corners + 4 edge midpoints (no center)
-    const pts = [[1,1],[S-2,1],[1,S-2],[S-2,S-2],[S>>1,1],[S-2,S>>1],[S>>1,S-2],[1,S>>1]];
+    const pts = [[S>>1, 1], [S-2, S>>1], [S>>1, S-2], [1, S>>1]];
     return pts.map(([px,py]) => { const d=x.getImageData(px,py,1,1).data; return [d[0],d[1],d[2]]; });
   }
 
   function fallbackPalette(card) {
     const bg = hexToRgb(card.bg), ac = hexToRgb(card.ac);
-    return [bg, ac, bg, ac, ac, bg, ac, bg];
+    return [ac, bg, ac, bg]; // [top, right, bottom, left]
   }
 
   function resizeBgCanvas() {
@@ -510,28 +509,39 @@
   window.addEventListener('resize', resizeBgCanvas);
   resizeBgCanvas();
 
-  // 8 edge/corner positions only — no center blob
-  function meshPositions(w, h) {
-    return [[0,0],[w,0],[0,h],[w,h],[w/2,0],[w,h/2],[w/2,h],[0,h/2]];
-  }
-
-  function drawMesh(palette) {
+  function drawEdgeGradients(palette) {
     const w = bgCanvas.width, h = bgCanvas.height;
-    // Radius reaches ~halfway across the shorter axis — fades before center
-    const R = Math.min(w, h) * 0.55;
+    const sw = w * 0.26;
+    const sh = h * 0.26;
+    const [[tr,tg,tb],[rr,rg,rb],[br,bg_,bb],[lr,lg,lb]] = palette;
     bgCtx.clearRect(0, 0, w, h);
-    meshPositions(w, h).forEach(([x, y], i) => {
-      const [r,g,b] = palette[i] || palette[0];
-      const g2 = bgCtx.createRadialGradient(x, y, 0, x, y, R);
-      g2.addColorStop(0,   `rgba(${r},${g},${b},0.85)`);
-      g2.addColorStop(0.45, `rgba(${r},${g},${b},0.22)`);
-      g2.addColorStop(1,   'rgba(0,0,0,0)');
-      bgCtx.fillStyle = g2;
-      bgCtx.fillRect(0, 0, w, h);
-    });
+
+    // top
+    const gt = bgCtx.createLinearGradient(0, 0, 0, sh);
+    gt.addColorStop(0, `rgba(${tr},${tg},${tb},0.5)`);
+    gt.addColorStop(1, 'rgba(0,0,0,0)');
+    bgCtx.fillStyle = gt; bgCtx.fillRect(0, 0, w, sh);
+
+    // bottom
+    const gb = bgCtx.createLinearGradient(0, h, 0, h - sh);
+    gb.addColorStop(0, `rgba(${br},${bg_},${bb},0.5)`);
+    gb.addColorStop(1, 'rgba(0,0,0,0)');
+    bgCtx.fillStyle = gb; bgCtx.fillRect(0, h - sh, w, sh);
+
+    // left
+    const gl = bgCtx.createLinearGradient(0, 0, sw, 0);
+    gl.addColorStop(0, `rgba(${lr},${lg},${lb},0.5)`);
+    gl.addColorStop(1, 'rgba(0,0,0,0)');
+    bgCtx.fillStyle = gl; bgCtx.fillRect(0, 0, sw, h);
+
+    // right
+    const gr = bgCtx.createLinearGradient(w, 0, w - sw, 0);
+    gr.addColorStop(0, `rgba(${rr},${rg},${rb},0.5)`);
+    gr.addColorStop(1, 'rgba(0,0,0,0)');
+    bgCtx.fillStyle = gr; bgCtx.fillRect(w - sw, 0, sw, h);
   }
 
-  function updateBgMesh(posY) {
+  function updateBgGradient(posY) {
     const posW = ((posY % N) + N) % N;
     const i0   = Math.floor(posW) % N;
     const i1   = (i0 + 1) % N;
@@ -542,7 +552,7 @@
       const [r1,g1,b1] = p1[i] || [r0,g0,b0];
       return [Math.round(r0+(r1-r0)*t), Math.round(g0+(g1-g0)*t), Math.round(b0+(b1-b0)*t)];
     });
-    drawMesh(mixed);
+    drawEdgeGradients(mixed);
   }
 
   // Pre-load image palettes; start with fallback
@@ -629,7 +639,7 @@
       }
     });
 
-    updateBgMesh(pos);
+    updateBgGradient(pos);
   }
 
   /* ══ PHYSICS LOOP ══ */
