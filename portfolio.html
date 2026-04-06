@@ -306,7 +306,7 @@
 
   /* ══ CARD EFFECT CONFIG ══ */
   const REVEAL = { stagger: 58, dur: 682, blur: 8, y: 8 };
-  const INPUT  = { mouseKick: 0.20, mouseCooldown: 100, tpKick: 0.12, tpSens: 0.0010, touchSens: 0.02 };
+  const INPUT  = { mouseKick: 0.20, mouseCooldown: 100, touchSens: 0.02 };
   /* const SCRUB = { spacing: 4, minH: 9, maxH: 78, curve: 3.5, hoverAmt: 30, hoverSpread: 60, boxH: 80, hoverBoxH: 80 }; */
   const SHAPE  = { px: +DS.getPropertyValue('--shape-card') || 2 };
   const TILT   = { max: 16, stiffness: 0.1, damping: 0.75 };
@@ -755,7 +755,7 @@
     if (innerWidth < 768 && swipeStartX !== null) {
       const delta = (e.changedTouches[0]?.clientX ?? swipeStartX) - swipeStartX;
       if (Math.abs(delta) > 20) {
-        velY = Math.sign(-delta) * 0.7;
+        velY = Math.sign(-delta) * INPUT.mouseKick;
         kick();
       } else {
         kick(); // tap: spring back to current card
@@ -798,40 +798,18 @@
     stageMouse = null; /* scrubMouse = null; */
   });
 
-  /* ══ WHEEL INPUT (mouse vs trackpad) ══ */
-  const MOUSE_MIN = 50;
-  let wheelLock   = false;
-  let tpLock      = false;
-  let trackpadAcc = 0;
+  /* ══ WHEEL INPUT ══ */
+  let wheelLock = false;
 
   window.addEventListener('wheel', e => {
     e.preventDefault();
-    const d   = e.deltaX + e.deltaY;
-    const mag = Math.abs(d);
-
-    if (mag >= MOUSE_MIN) {
-      // Mouse: direction only, one snap per cooldown
-      if (wheelLock) return;
-      velY += Math.sign(d) * INPUT.mouseKick;
-      kick();
-      wheelLock = true;
-      setTimeout(() => { wheelLock = false; }, INPUT.mouseCooldown);
-      trackpadAcc = 0;
-
-    } else {
-      // Trackpad: accumulate toward threshold
-      trackpadAcc += d;
-      const tpThreshold = 1 / INPUT.tpSens * 0.12;
-      if (Math.abs(trackpadAcc) >= tpThreshold) {
-        if (!tpLock) {
-          velY += Math.sign(trackpadAcc) * INPUT.tpKick;
-          kick();
-          tpLock = true;
-          setTimeout(() => { tpLock = false; }, INPUT.mouseCooldown);
-        }
-        trackpadAcc = 0;
-      }
-    }
+    const d = e.deltaX + e.deltaY;
+    if (Math.abs(d) < 1) return;
+    if (wheelLock) return;
+    velY += Math.sign(d) * INPUT.mouseKick;
+    kick();
+    wheelLock = true;
+    setTimeout(() => { wheelLock = false; }, INPUT.mouseCooldown);
   }, { passive: false });
   window.addEventListener('keydown', e => {
     if (e.key === 'ArrowRight') { velY += 0.12; kick(); }
@@ -983,8 +961,6 @@
   const scrollInputRows = [
     ['card pause ms', 'mouseCooldown', 0,  2000,  50,     v => Math.round(v)+'',  v => { INPUT.mouseCooldown = v; }],
     ['mouse kick',    'mouseKick',     0,  2.0,   0.05,   v => v.toFixed(2),      v => { INPUT.mouseKick     = v; }],
-    ['tp kick',       'tpKick',        0,  2.0,   0.05,   v => v.toFixed(2),      v => { INPUT.tpKick        = v; }],
-    ['tp sens',       'tpSens',        0,  0.05,  0.0005, v => v.toFixed(4),      v => { INPUT.tpSens        = v; }],
     ['touch sens',    'touchSens',     0,  3.0,   0.02,   v => v.toFixed(2),      v => { INPUT.touchSens     = v; }],
   ];
   scrollInputRows.forEach(([label, inputKey, min, max, step, fmt, onChange]) => {
@@ -992,7 +968,7 @@
     r.value = INPUT[inputKey];
     r.closest('.dev-row').querySelector('.dev-val-input').value = INPUT[inputKey];
   });
-  addCopyBtn(sec, () => `FRICTION: ${CFG.FRICTION.toFixed(2)}, SPRING: ${CFG.SPRING.toFixed(2)}, mouseCooldown: ${INPUT.mouseCooldown}, mouseKick: ${INPUT.mouseKick.toFixed(2)}, tpKick: ${INPUT.tpKick.toFixed(2)}, tpSens: ${INPUT.tpSens.toFixed(4)}, touchSens: ${INPUT.touchSens.toFixed(2)}`);
+  addCopyBtn(sec, () => `FRICTION: ${CFG.FRICTION.toFixed(2)}, SPRING: ${CFG.SPRING.toFixed(2)}, mouseCooldown: ${INPUT.mouseCooldown}, mouseKick: ${INPUT.mouseKick.toFixed(2)}, touchSens: ${INPUT.touchSens.toFixed(2)}`);
 
   /* ── Card section ── */
   sec = addSection('Shape');
