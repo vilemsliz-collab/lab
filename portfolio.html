@@ -61,43 +61,55 @@
       display: block;
     }
 
-    /* ── Card open (fullscreen) button ── */
-    .card-open-btn {
+    /* ── Card ring (stroke overlay, visible when case is open + active) ── */
+    .card-ring {
       position: absolute;
-      bottom: 16px; right: 16px;
-      z-index: 10;
-      background: rgba(255,255,255,0.15);
-      border: none;
-      color: #fff;
-      font-size: 18px;
-      width: 40px; height: 40px;
-      border-radius: 50%;
-      cursor: pointer;
-      opacity: 0;
-      transition: opacity 0.2s, background 0.15s;
+      inset: 0;
       pointer-events: none;
-      display: flex; align-items: center; justify-content: center;
+      z-index: 25;
+      border: 2px solid var(--color-outline);
+      opacity: 0;
+      transition: opacity 0.3s;
     }
-    .card-open-btn:hover { background: rgba(255,255,255,0.28); }
-    .card-wrap.is-active .card-open-btn {
+    body.case-open .card-wrap.is-active .card-ring { opacity: 1; }
+    body.case-open .card-wrap.is-active            { background: var(--color-surface); }
+
+    /* ── Toggle button (bottom-right of carousel, opens/closes case) ── */
+    #case-toggle-btn {
+      position: absolute;
+      bottom: 20px; right: 20px;
+      z-index: 100;
+      width: 40px; height: 40px;
+      background: var(--color-surface);
+      border: 1px solid var(--color-outline-variant);
+      color: var(--color-on-surface-variant);
+      font-size: 18px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s, color 0.15s, opacity 0.2s;
+      opacity: 0;
+      pointer-events: none;
+    }
+    #case-toggle-btn:hover {
+      background: var(--color-surface-variant);
+      color: var(--color-on-surface);
+    }
+    body:has(.card-wrap.is-active) #case-toggle-btn {
       opacity: 1;
       pointer-events: auto;
-    }
-    body.case-open .card-open-btn {
-      opacity: 0;
-      pointer-events: none;
     }
 
     /* ── Split state ── */
     body.case-open #stage {
-      right: 80vw;
+      right: 67vw;
       cursor: pointer;
     }
     body.case-open #case-panel {
-      left: 20vw;
+      left: 33vw;
     }
     body.case-open .card-wrap {
-      width: clamp(100px, 14vw, var(--card-width));
+      width: clamp(120px, 24vw, var(--card-width));
     }
 
     /* ── Card wrap: receives carousel 3D transform ── */
@@ -277,7 +289,9 @@
 
   <a class="back" href="./index.html">← lab</a>
 
-<div id="stage"></div>
+<div id="stage">
+  <button id="case-toggle-btn" aria-label="Toggle case study">&#x2922;</button>
+</div>
 
   <button id="ctrl-toggle">ctrl</button>
   <div id="ctrl-panel">
@@ -357,12 +371,10 @@
       </div>
     `;
 
-    const openBtn = document.createElement('button');
-    openBtn.className   = 'card-open-btn';
-    openBtn.innerHTML   = '&#x2922;';
-    openBtn.setAttribute('aria-label', 'Open case study');
+    const ring = document.createElement('div');
+    ring.className = 'card-ring';
     wrap.appendChild(el);
-    wrap.appendChild(openBtn);
+    wrap.appendChild(ring);
     stage.appendChild(wrap);
     wrapEls.push(wrap);
     cardEls.push(el);
@@ -370,55 +382,41 @@
 
   /* ══ CASE STUDY PANEL ══ */
   let caseOpen = false;
-  const caseFrame = document.getElementById('case-frame');
+  const caseFrame      = document.getElementById('case-frame');
+  const caseToggleBtn  = document.getElementById('case-toggle-btn');
 
   function openCasePanel() {
     caseFrame.src = './case-study.html';
     document.body.classList.add('case-open');
     caseOpen = true;
+    caseToggleBtn.innerHTML = '&#x2715;'; // × close icon
     setTimeout(() => applyTransforms(posY), 570);
   }
 
   function closeCasePanel() {
     document.body.classList.remove('case-open');
     caseOpen = false;
+    caseToggleBtn.innerHTML = '&#x2922;'; // ⤢ expand icon
     setTimeout(() => {
       caseFrame.src = '';
       applyTransforms(posY);
     }, 570);
   }
 
-  // Close case when clicking the stage background
+  caseToggleBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    if (caseOpen) closeCasePanel(); else openCasePanel();
+  });
+
+  // Close case when clicking the stage background (not a card)
   stage.addEventListener('click', e => {
     if (caseOpen && e.target === stage) closeCasePanel();
   });
 
   /* ══ CLICK TO NAVIGATE ══ */
   wrapEls.forEach((wrap, i) => {
-    // Fullscreen button — open case
-    wrap.querySelector('.card-open-btn').addEventListener('click', e => {
-      e.stopPropagation();
-      openCasePanel();
-    });
-
     wrap.addEventListener('click', () => {
-      if (caseOpen) {
-        if (i !== activeIdx) {
-          // Navigate carousel to this card; case updates on snap in onActiveChange
-          const currentMod = (((Math.round(posY) % N) + N) % N);
-          let delta = i - currentMod;
-          if (delta >  N / 2) delta -= N;
-          if (delta < -N / 2) delta += N;
-          velY = delta * 0.4;
-          kick();
-        } else {
-          // Active card clicked while open → close
-          closeCasePanel();
-        }
-        return;
-      }
-      // Normal (case closed): navigate to card
-      if (i === activeIdx) return;
+      if (i === activeIdx) return; // already active — no-op
       const currentMod = (((Math.round(posY) % N) + N) % N);
       let delta = i - currentMod;
       if (delta >  N / 2) delta -= N;
@@ -483,13 +481,16 @@
     }
   }
 
-  /* ══ CLIP PATH — all cards + active ghosts + active button ══ */
+  /* ══ CLIP PATH — all cards + rings + active ghosts + active button ══ */
   function updateClipPath() {
     cardEls.forEach(el => {
       const w = el.offsetWidth, h = el.offsetHeight;
       if (!w || !h) return;
-      el.style.clipPath     = `path('${shapePath(w, h, SHAPE.px)}')`;
+      const p = `path('${shapePath(w, h, SHAPE.px)}')`;
+      el.style.clipPath     = p;
       el.style.borderRadius = '0';
+      const ring = el.parentElement.querySelector('.card-ring');
+      if (ring) ring.style.clipPath = p;
     });
     if (activeCardEl) {
       const w = activeCardEl.offsetWidth, h = activeCardEl.offsetHeight;
