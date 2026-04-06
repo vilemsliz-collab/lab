@@ -501,15 +501,32 @@
   function buildActiveClones() {
     ghostClones.forEach(c => c.remove());
     ghostClones.length = 0;
-    if (!activeCardEl) return;
-    const wrap = activeCardEl.parentElement;
-    const zVal = GHOST.variant === 'front' ? '3' : '1';
+    if (!activeCardEl || activeIdx < 0) return;
+    const card  = CARDS[activeIdx];
+    const bg    = card.bg;
+    const ac    = card.ac;
+    const wrap  = activeCardEl.parentElement;
+    const zVal  = GHOST.variant === 'front' ? '3' : '1';
+    // Mesh gradient anchor points — each layer shifts the gradient centers
+    const anchors = [
+      ['20% 25%', '80% 75%'],
+      ['75% 20%', '25% 80%'],
+      ['50% 10%', '50% 90%'],
+      ['10% 60%', '90% 40%'],
+    ];
     for (let i = 0; i < GHOST.layers; i++) {
-      const clone = activeCardEl.cloneNode(true);
-      clone.classList.add('ghost-clone');
-      clone.style.zIndex = zVal;
-      wrap.insertBefore(clone, activeCardEl);
-      ghostClones.push(clone);
+      const [a1, a2] = anchors[i % anchors.length];
+      const ghost = document.createElement('div');
+      ghost.classList.add('ghost-clone');
+      ghost.style.zIndex = zVal;
+      ghost.style.borderRadius = '32px';
+      ghost.style.background = [
+        `radial-gradient(ellipse 70% 60% at ${a1}, ${ac}55 0%, transparent 65%)`,
+        `radial-gradient(ellipse 60% 70% at ${a2}, ${ac}33 0%, transparent 60%)`,
+        bg,
+      ].join(', ');
+      wrap.insertBefore(ghost, activeCardEl);
+      ghostClones.push(ghost);
     }
   }
 
