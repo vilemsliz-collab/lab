@@ -362,22 +362,30 @@
   const caseFrame      = document.getElementById('case-frame');
   const caseToggleBtn  = document.getElementById('case-toggle-btn');
 
+  function runSplitTransition(onEnd) {
+    const dur = 570;
+    const t0  = performance.now();
+    function frame(now) {
+      applyTransforms(posY);
+      if (now - t0 < dur) { requestAnimationFrame(frame); }
+      else { onEnd(); }
+    }
+    requestAnimationFrame(frame);
+  }
+
   function openCasePanel() {
     caseFrame.src = './case-study.html';
     document.body.classList.add('case-open');
     caseOpen = true;
-    caseToggleBtn.innerHTML = '&#x2715;'; // × close icon
-    setTimeout(() => { checkBreakpoint(); applyTransforms(posY); updateClipPath(); }, 570);
+    caseToggleBtn.innerHTML = '&#x2715;';
+    runSplitTransition(() => { checkBreakpoint(); applyTransforms(posY); updateClipPath(); });
   }
 
   function closeCasePanel() {
     document.body.classList.remove('case-open');
     caseOpen = false;
-    caseToggleBtn.innerHTML = '&#x2922;'; // ⤢ expand icon
-    setTimeout(() => {
-      caseFrame.src = '';
-      checkBreakpoint(); applyTransforms(posY); updateClipPath();
-    }, 570);
+    caseToggleBtn.innerHTML = '&#x2922;';
+    runSplitTransition(() => { caseFrame.src = ''; checkBreakpoint(); applyTransforms(posY); updateClipPath(); });
   }
 
   caseToggleBtn.addEventListener('click', e => {
