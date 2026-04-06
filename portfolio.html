@@ -227,10 +227,10 @@
       z-index: 20;
       transition: --edge-color 0.7s ease;
     }
-    #edge-top    { top: 0;    left: 0; right: 0; height: 6vw; background: linear-gradient(to bottom, var(--edge-color), transparent); }
-    #edge-bottom { bottom: 0; left: 0; right: 0; height: 6vw; background: linear-gradient(to top,    var(--edge-color), transparent); }
-    #edge-left   { left: 0;   top: 0; bottom: 0; width:  6vw; background: linear-gradient(to right,  var(--edge-color), transparent); }
-    #edge-right  { right: 0;  top: 0; bottom: 0; width:  6vw; background: linear-gradient(to left,   var(--edge-color), transparent); }
+    #edge-top    { top: 0;    left: 0; right: 0; height: 3vw; background: linear-gradient(to bottom, var(--edge-color), transparent); }
+    #edge-bottom { bottom: 0; left: 0; right: 0; height: 3vw; background: linear-gradient(to top,    var(--edge-color), transparent); }
+    #edge-left   { left: 0;   top: 0; bottom: 0; width:  3vw; background: linear-gradient(to right,  var(--edge-color), transparent); }
+    #edge-right  { right: 0;  top: 0; bottom: 0; width:  3vw; background: linear-gradient(to left,   var(--edge-color), transparent); }
   </style>
 </head>
 <body>
@@ -499,7 +499,7 @@
 
   function onActiveChange(newIdx) {
     activeIdx = newIdx;
-    document.documentElement.style.setProperty('--edge-color', accentRgba(CARDS[newIdx].ac, 0.35));
+    document.documentElement.style.setProperty('--edge-color', accentRgba(CARDS[newIdx].bg, 0.9));
     revealActiveCard();
     updateClipPath();
   }
