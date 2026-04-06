@@ -600,18 +600,14 @@
     posY += velY;
 
     const target = Math.round(posY);
-    if (Math.abs(velY) < 0.02) {
-      const spring = (target - posY) * CFG.SPRING;
-      posY += spring;
-      if (Math.abs(velY) < 0.003 && Math.abs(posY - target) < 0.002) {
-        posY = ((target % N) + N) % N;
-        velY = 0;
-        applyTransforms(posY);
-        const newIdx = (((Math.round(posY) % N) + N) % N);
-        if (newIdx !== activeIdx) onActiveChange(newIdx);
-        rafId = null;
-        return;
-      }
+    if (Math.abs(velY) < 0.003) {
+      posY = ((target % N) + N) % N;
+      velY = 0;
+      applyTransforms(posY);
+      const newIdx = (((target % N) + N) % N);
+      if (newIdx !== activeIdx) onActiveChange(newIdx);
+      rafId = null;
+      return;
     }
     applyTransforms(posY);
     rafId = requestAnimationFrame(loop);
@@ -809,7 +805,7 @@
     const now = Date.now();
     const gap = now - lastWheelMs;
     if (mag >= 15) lastWheelMs = now;        // track active-swipe events only
-    const nearSnap = Math.abs(posY - Math.round(posY)) < 0.15;
+    const nearSnap = Math.abs(posY - Math.round(posY)) < 0.30;
     if ((!rafId || nearSnap) && gap >= 150 && mag >= 15) {
       posY = ((Math.round(posY) % N) + N) % N;  // snap clean before new kick
       velY  = Math.sign(d) * INPUT.mouseKick;    // replace, don't add
