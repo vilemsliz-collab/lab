@@ -108,18 +108,6 @@
     /* ── Word reveal ── */
     .word {
       display: inline-block;
-      opacity: 0;
-      filter: blur(var(--blur, 8px));
-      transform: translateY(var(--y, 8px));
-      transition:
-        opacity   var(--dur, 400ms) ease,
-        filter    var(--dur, 400ms) ease,
-        transform var(--dur, 400ms) ease;
-    }
-    .word.visible {
-      opacity: 1;
-      filter: blur(0);
-      transform: translateY(0);
     }
 
     /* ── Card button ── */
@@ -299,26 +287,26 @@
   const PRESETS = {
     mobile: {
       R_MULT: 1.5, R_MAX: 1010, PERSPECTIVE: 200,
-      LAT: [-62, 66, -19, 42, -31], LON_SPREAD: 1.0,
+      LAT: [-30, 18, -42, 35, -12], LON_SPREAD: 1.0,
       ROT_MULT: 0, ROLL_MAX: 0,
       SCALE_ACTIVE: 0.79, SCALE_SPHERE: 0.83,
       OPACITY_MULT: 0.46, OPACITY_BASE: 1, BLUR_MAX: 0,
-      FRICTION: 0.75, SPRING: 0.04,
+      FRICTION: 0.82, SPRING: 0.07,
     },
     desktop: {
       R_MULT: 1.5, R_MAX: 1010, PERSPECTIVE: 590,
-      LAT: [-8, 32, -29, 42, 24], LON_SPREAD: 1.0,
+      LAT: [-25, 15, -38, 30, -10], LON_SPREAD: 1.0,
       ROT_MULT: 0, ROLL_MAX: 0,
       SCALE_ACTIVE: 1.29, SCALE_SPHERE: 0.83,
       OPACITY_MULT: 0.46, OPACITY_BASE: 1, BLUR_MAX: 0,
-      FRICTION: 0.75, SPRING: 0.04,
+      FRICTION: 0.82, SPRING: 0.07,
     },
   };
   const CFG = Object.assign({}, PRESETS.mobile);
 
   /* ══ CARD EFFECT CONFIG ══ */
   const REVEAL = { stagger: 58, dur: 682, blur: 8, y: 8 };
-  const INPUT  = { mouseKick: 0.30, mouseCooldown: 100, tpKick: 0.05, tpSens: 0.0010, touchSens: 0.02 };
+  const INPUT  = { mouseKick: 0.20, mouseCooldown: 100, tpKick: 0.12, tpSens: 0.0010, touchSens: 0.02 };
   /* const SCRUB = { spacing: 4, minH: 9, maxH: 78, curve: 3.5, hoverAmt: 30, hoverSpread: 60, boxH: 80, hoverBoxH: 80 }; */
   const SHAPE  = { px: +DS.getPropertyValue('--shape-card') || 2 };
   const TILT   = { max: 16, stiffness: 0.1, damping: 0.75 };
@@ -521,14 +509,7 @@
     document.documentElement.style.setProperty('--dur',  REVEAL.dur  + 'ms');
   }
 
-  function revealActiveCard() {
-    if (!activeCardEl) return;
-    activeCardEl.querySelectorAll('.card-line').forEach(l => wrapWords(l));
-    const words = [...activeCardEl.querySelectorAll('.word')];
-    words.forEach(w => w.classList.remove('visible'));
-    applyCSS();
-    words.forEach((w, i) => setTimeout(() => w.classList.add('visible'), i * REVEAL.stagger));
-  }
+  function revealActiveCard() {}
 
   /* ══ TILT RESET ══ */
   function resetTilt() {
@@ -587,6 +568,7 @@
       wrap.style.zIndex  = abs < 0.5 ? '20' : String(Math.max(1, Math.round(facing * 10 + 5)));
       wrap.classList.toggle('is-active', abs < 0.5);
       if (abs < 0.5 && cardEls[i] !== activeCardEl) {
+        if (activeCardEl) activeCardEl.style.transform = '';
         activeCardEl = cardEls[i];
         tiltRx = tiltRy = tiltVx = tiltVy = 0;
         buildActiveClones();
@@ -605,7 +587,7 @@
     if (Math.abs(velY) < 0.02) {
       const spring = (target - posY) * CFG.SPRING;
       posY += spring;
-      if (Math.abs(velY) < 0.0003 && Math.abs(posY - target) < 0.001) {
+      if (Math.abs(velY) < 0.003 && Math.abs(posY - target) < 0.002) {
         posY = ((target % N) + N) % N;
         velY = 0;
         applyTransforms(posY);
@@ -803,8 +785,8 @@
   /* ══ WHEEL INPUT (mouse vs trackpad) ══ */
   const MOUSE_MIN = 50;
   let wheelLock   = false;
+  let tpLock      = false;
   let trackpadAcc = 0;
-  let recentMags  = [];
 
   window.addEventListener('wheel', e => {
     e.preventDefault();
@@ -818,21 +800,19 @@
       kick();
       wheelLock = true;
       setTimeout(() => { wheelLock = false; }, INPUT.mouseCooldown);
-      trackpadAcc = 0; recentMags = [];
+      trackpadAcc = 0;
 
     } else {
-      // Trackpad: accumulate toward threshold, ignore momentum tail
-      recentMags.push(mag);
-      if (recentMags.length > 4) recentMags.shift();
-      if (recentMags.length >= 3) {
-        const [a, b, c] = recentMags.slice(-3);
-        if (a > b && b > c && c < 2) { trackpadAcc = 0; return; }
-      }
+      // Trackpad: accumulate toward threshold
       trackpadAcc += d;
       const tpThreshold = 1 / INPUT.tpSens * 0.12;
       if (Math.abs(trackpadAcc) >= tpThreshold) {
-        velY += Math.sign(trackpadAcc) * INPUT.tpKick;
-        kick();
+        if (!tpLock) {
+          velY += Math.sign(trackpadAcc) * INPUT.tpKick;
+          kick();
+          tpLock = true;
+          setTimeout(() => { tpLock = false; }, INPUT.mouseCooldown);
+        }
         trackpadAcc = 0;
       }
     }
