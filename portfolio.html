@@ -765,7 +765,7 @@
     }
     stageTouch = null; swipeStartX = null;
   }, { passive: true });
-  stage.addEventListener('mousedown', e => { stageMouse = e.clientX; velY = 0; });
+  stage.addEventListener('mousedown', e => { stageMouse = e.clientX; });
 
   /* scrubEl drag handlers (hidden, kept for reuse)
   scrubEl.addEventListener('touchstart', e => { e.stopPropagation(); scrubTouch = e.touches[0].clientX; velY = 0; }, { passive: true });
@@ -781,7 +781,7 @@
   */
 
   window.addEventListener('mousemove', e => {
-    if (stageMouse !== null) {
+    if (stageMouse !== null && !rafId) {
       const dPos = -(e.clientX - stageMouse) * dragK();
       velY = velY * 0.5 + dPos * 0.5; posY += dPos;
       stageMouse = e.clientX;
