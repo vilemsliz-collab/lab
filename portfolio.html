@@ -50,7 +50,8 @@
       top: 0; bottom: 0;
       left: 100%;
       right: 0;
-      background: var(--color-background);
+      background: var(--color-surface);
+      border-left: 1px solid var(--color-outline-variant);
       z-index: 50;
       transition: left 0.55s cubic-bezier(0.4, 0, 0.2, 1);
       overflow: hidden;
@@ -60,19 +61,6 @@
       border: none;
       display: block;
     }
-
-    /* ── Card ring (stroke overlay, visible when case is open + active) ── */
-    .card-ring {
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-      z-index: 25;
-      border: 2px solid var(--color-outline);
-      opacity: 0;
-      transition: opacity 0.3s;
-    }
-    body.case-open .card-wrap.is-active .card-ring { opacity: 1; }
-    body.case-open .card-wrap.is-active            { background: var(--color-surface); }
 
     /* ── Toggle button (bottom-right of carousel, opens/closes case) ── */
     #case-toggle-btn {
@@ -101,16 +89,8 @@
     }
 
     /* ── Split state ── */
-    body.case-open #stage {
-      right: 67vw;
-      cursor: pointer;
-    }
-    body.case-open #case-panel {
-      left: 33vw;
-    }
-    body.case-open .card-wrap {
-      width: clamp(120px, 24vw, var(--card-width));
-    }
+    body.case-open #stage      { right: 67vw; }
+    body.case-open #case-panel { left: 33vw; }
 
     /* ── Card wrap: receives carousel 3D transform ── */
     .card-wrap {
@@ -371,10 +351,7 @@
       </div>
     `;
 
-    const ring = document.createElement('div');
-    ring.className = 'card-ring';
     wrap.appendChild(el);
-    wrap.appendChild(ring);
     stage.appendChild(wrap);
     wrapEls.push(wrap);
     cardEls.push(el);
@@ -406,11 +383,6 @@
   caseToggleBtn.addEventListener('click', e => {
     e.stopPropagation();
     if (caseOpen) closeCasePanel(); else openCasePanel();
-  });
-
-  // Close case when clicking the stage background (not a card)
-  stage.addEventListener('click', e => {
-    if (caseOpen && e.target === stage) closeCasePanel();
   });
 
   /* ══ CLICK TO NAVIGATE ══ */
@@ -481,16 +453,13 @@
     }
   }
 
-  /* ══ CLIP PATH — all cards + rings + active ghosts + active button ══ */
+  /* ══ CLIP PATH — all cards + active ghosts + active button ══ */
   function updateClipPath() {
     cardEls.forEach(el => {
       const w = el.offsetWidth, h = el.offsetHeight;
       if (!w || !h) return;
-      const p = `path('${shapePath(w, h, SHAPE.px)}')`;
-      el.style.clipPath     = p;
+      el.style.clipPath     = `path('${shapePath(w, h, SHAPE.px)}')`;
       el.style.borderRadius = '0';
-      const ring = el.parentElement.querySelector('.card-ring');
-      if (ring) ring.style.clipPath = p;
     });
     if (activeCardEl) {
       const w = activeCardEl.offsetWidth, h = activeCardEl.offsetHeight;
