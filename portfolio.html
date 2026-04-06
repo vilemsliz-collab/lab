@@ -488,13 +488,28 @@
   }
 
   function samplePalette(src) {
-    // Downsample to 32×32, sample 4 edge midpoints: [top, right, bottom, left]
+    // Downsample to 32×32, scan 8 pts per edge, pick most saturated: [top, right, bottom, left]
     const S = 32;
     const c = document.createElement('canvas'); c.width = c.height = S;
     const x = c.getContext('2d');
     try { x.drawImage(src, 0, 0, S, S); } catch(e) { return null; }
-    const pts = [[S>>1, 1], [S-2, S>>1], [S>>1, S-2], [1, S>>1]];
-    return pts.map(([px,py]) => { const d=x.getImageData(px,py,1,1).data; return [d[0],d[1],d[2]]; });
+    const n = 8;
+    function mostSaturated(pts) {
+      let best = null, bestSat = -1;
+      for (const [px, py] of pts) {
+        const d = x.getImageData(px, py, 1, 1).data;
+        const sat = Math.max(d[0],d[1],d[2]) - Math.min(d[0],d[1],d[2]);
+        if (sat > bestSat) { bestSat = sat; best = [d[0],d[1],d[2]]; }
+      }
+      return best || [128,128,128];
+    }
+    const range = Array.from({length: n}, (_, i) => Math.round(1 + (S-3)*i/(n-1)));
+    return [
+      mostSaturated(range.map(v => [v, 1])),        // top
+      mostSaturated(range.map(v => [S-2, v])),       // right
+      mostSaturated(range.map(v => [v, S-2])),       // bottom
+      mostSaturated(range.map(v => [1, v])),         // left
+    ];
   }
 
   function fallbackPalette(card) {
@@ -511,32 +526,32 @@
 
   function drawEdgeGradients(palette) {
     const w = bgCanvas.width, h = bgCanvas.height;
-    const sw = w * 0.26;
-    const sh = h * 0.26;
+    const sw = w * 0.087;
+    const sh = h * 0.087;
     const [[tr,tg,tb],[rr,rg,rb],[br,bg_,bb],[lr,lg,lb]] = palette;
     bgCtx.clearRect(0, 0, w, h);
 
     // top
     const gt = bgCtx.createLinearGradient(0, 0, 0, sh);
-    gt.addColorStop(0, `rgba(${tr},${tg},${tb},0.5)`);
+    gt.addColorStop(0, `rgba(${tr},${tg},${tb},0.9)`);
     gt.addColorStop(1, 'rgba(0,0,0,0)');
     bgCtx.fillStyle = gt; bgCtx.fillRect(0, 0, w, sh);
 
     // bottom
     const gb = bgCtx.createLinearGradient(0, h, 0, h - sh);
-    gb.addColorStop(0, `rgba(${br},${bg_},${bb},0.5)`);
+    gb.addColorStop(0, `rgba(${br},${bg_},${bb},0.9)`);
     gb.addColorStop(1, 'rgba(0,0,0,0)');
     bgCtx.fillStyle = gb; bgCtx.fillRect(0, h - sh, w, sh);
 
     // left
     const gl = bgCtx.createLinearGradient(0, 0, sw, 0);
-    gl.addColorStop(0, `rgba(${lr},${lg},${lb},0.5)`);
+    gl.addColorStop(0, `rgba(${lr},${lg},${lb},0.9)`);
     gl.addColorStop(1, 'rgba(0,0,0,0)');
     bgCtx.fillStyle = gl; bgCtx.fillRect(0, 0, sw, h);
 
     // right
     const gr = bgCtx.createLinearGradient(w, 0, w - sw, 0);
-    gr.addColorStop(0, `rgba(${rr},${rg},${rb},0.5)`);
+    gr.addColorStop(0, `rgba(${rr},${rg},${rb},0.9)`);
     gr.addColorStop(1, 'rgba(0,0,0,0)');
     bgCtx.fillStyle = gr; bgCtx.fillRect(w - sw, 0, sw, h);
   }
