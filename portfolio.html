@@ -306,7 +306,7 @@
 
   /* ══ CARD EFFECT CONFIG ══ */
   const REVEAL = { stagger: 58, dur: 682, blur: 8, y: 8 };
-  const INPUT  = { mouseKick: 0.20, mouseCooldown: 200, tpCooldown: 600, touchSens: 0.02 };
+  const INPUT  = { mouseKick: 0.20, touchSens: 0.02 };
   /* const SCRUB = { spacing: 4, minH: 9, maxH: 78, curve: 3.5, hoverAmt: 30, hoverSpread: 60, boxH: 80, hoverBoxH: 80 }; */
   const SHAPE  = { px: +DS.getPropertyValue('--shape-card') || 2 };
   const TILT   = { max: 16, stiffness: 0.1, damping: 0.75 };
@@ -609,6 +609,7 @@
         applyTransforms(posY);
         const newIdx = (((Math.round(posY) % N) + N) % N);
         if (newIdx !== activeIdx) onActiveChange(newIdx);
+        wheelLock = false;
         rafId = null;
         return;
       }
@@ -757,6 +758,7 @@
       if (Math.abs(delta) > 20) {
         velY = Math.sign(-delta) * INPUT.mouseKick;
         kick();
+        wheelLock = true;
       } else {
         kick(); // tap: spring back to current card
       }
@@ -799,23 +801,19 @@
   });
 
   /* ══ WHEEL INPUT ══ */
-  const MOUSE_MIN = 50;
   let wheelLock = false;
 
   window.addEventListener('wheel', e => {
     e.preventDefault();
     const d = e.deltaX + e.deltaY;
-    if (Math.abs(d) < 1) return;
-    if (wheelLock) return;
+    if (Math.abs(d) < 1 || wheelLock) return;
     velY += Math.sign(d) * INPUT.mouseKick;
     kick();
     wheelLock = true;
-    setTimeout(() => { wheelLock = false; },
-      Math.abs(d) >= MOUSE_MIN ? INPUT.mouseCooldown : INPUT.tpCooldown);
   }, { passive: false });
   window.addEventListener('keydown', e => {
-    if (e.key === 'ArrowRight') { velY += 0.12; kick(); }
-    if (e.key === 'ArrowLeft')  { velY -= 0.12; kick(); }
+    if (e.key === 'ArrowRight' && !wheelLock) { velY += INPUT.mouseKick; kick(); wheelLock = true; }
+    if (e.key === 'ArrowLeft'  && !wheelLock) { velY -= INPUT.mouseKick; kick(); wheelLock = true; }
   });
 
   /* ══ BREAKPOINT ══ */
@@ -970,7 +968,7 @@
     r.value = INPUT[inputKey];
     r.closest('.dev-row').querySelector('.dev-val-input').value = INPUT[inputKey];
   });
-  addCopyBtn(sec, () => `FRICTION: ${CFG.FRICTION.toFixed(2)}, SPRING: ${CFG.SPRING.toFixed(2)}, mouseCooldown: ${INPUT.mouseCooldown}, mouseKick: ${INPUT.mouseKick.toFixed(2)}, touchSens: ${INPUT.touchSens.toFixed(2)}`);
+  addCopyBtn(sec, () => `FRICTION: ${CFG.FRICTION.toFixed(2)}, SPRING: ${CFG.SPRING.toFixed(2)}, mouseKick: ${INPUT.mouseKick.toFixed(2)}, touchSens: ${INPUT.touchSens.toFixed(2)}`);
 
   /* ── Card section ── */
   sec = addSection('Shape');
