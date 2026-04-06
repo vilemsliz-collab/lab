@@ -540,6 +540,7 @@
     const fracT   = posW - Math.floor(posW);
     const isVStep = (i0t % 2 === 1);
     const arc     = isVStep ? Math.sin(Math.PI * fracT) : 0;
+    const vDir    = (Math.floor(i0t / 2) % 2 === 0) ? 1 : -1; // alternates above/below per V step
 
     CARDS.forEach((_, i) => {
       let off = i - pos;
@@ -555,8 +556,8 @@
       const sinPhi  = Math.sin(phi);
 
       let tyBonus = 0;
-      if (i === i0t) tyBonus =  arc * V_ARC;  // outgoing: dips down
-      if (i === i1t) tyBonus = -arc * V_ARC;  // incoming: enters from above
+      if (i === i0t) tyBonus =  arc * V_ARC * vDir;
+      if (i === i1t) tyBonus = -arc * V_ARC * vDir;
 
       const tx      = cosPhi * Math.sin(theta) * R * st;
       const ty      = sinPhi * R * st + tyBonus;
