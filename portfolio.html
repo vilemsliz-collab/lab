@@ -291,7 +291,7 @@
       ROT_MULT: 0, ROLL_MAX: 0,
       SCALE_ACTIVE: 0.79, SCALE_SPHERE: 0.83,
       OPACITY_MULT: 0.46, OPACITY_BASE: 1, BLUR_MAX: 0,
-      FRICTION: 0.76, SPRING: 0.18,
+      FRICTION: 0.76, SPRING: 0,
     },
     desktop: {
       R_MULT: 1.5, R_MAX: 1010, PERSPECTIVE: 590,
@@ -299,7 +299,7 @@
       ROT_MULT: 0, ROLL_MAX: 0,
       SCALE_ACTIVE: 1.29, SCALE_SPHERE: 0.83,
       OPACITY_MULT: 0.46, OPACITY_BASE: 1, BLUR_MAX: 0,
-      FRICTION: 0.76, SPRING: 0.18,
+      FRICTION: 0.76, SPRING: 0,
     },
   };
   const CFG = Object.assign({}, PRESETS.mobile);
@@ -600,14 +600,18 @@
     posY += velY;
 
     const target = Math.round(posY);
-    if (Math.abs(velY) < 0.003) {
-      posY = ((target % N) + N) % N;
-      velY = 0;
-      applyTransforms(posY);
-      const newIdx = (((target % N) + N) % N);
-      if (newIdx !== activeIdx) onActiveChange(newIdx);
-      rafId = null;
-      return;
+    if (Math.abs(velY) < 0.02) {
+      const spring = (target - posY) * CFG.SPRING;
+      posY += spring;
+      if (Math.abs(velY) < 0.003) {
+        posY = ((target % N) + N) % N;
+        velY = 0;
+        applyTransforms(posY);
+        const newIdx = (((Math.round(posY) % N) + N) % N);
+        if (newIdx !== activeIdx) onActiveChange(newIdx);
+        rafId = null;
+        return;
+      }
     }
     applyTransforms(posY);
     rafId = requestAnimationFrame(loop);
