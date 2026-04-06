@@ -809,9 +809,12 @@
     const now = Date.now();
     const gap = now - lastWheelMs;
     if (mag >= 15) lastWheelMs = now;        // track active-swipe events only
-    if (rafId || gap < 150 || mag < 15) return;  // settled + gap + strong event
-    velY += Math.sign(d) * INPUT.mouseKick;
-    kick();
+    const nearSnap = Math.abs(posY - Math.round(posY)) < 0.15;
+    if ((!rafId || nearSnap) && gap >= 150 && mag >= 15) {
+      posY = ((Math.round(posY) % N) + N) % N;  // snap clean before new kick
+      velY  = Math.sign(d) * INPUT.mouseKick;    // replace, don't add
+      kick();
+    }
   }, { passive: false });
   window.addEventListener('keydown', e => {
     if (e.key === 'ArrowRight' && !rafId) { velY += INPUT.mouseKick; kick(); }
