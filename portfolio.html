@@ -385,16 +385,18 @@
     if (caseOpen) closeCasePanel(); else openCasePanel();
   });
 
-  /* ══ CLICK TO NAVIGATE ══ */
+  /* ══ CLICK TO NAVIGATE + OPEN CASE ══ */
   wrapEls.forEach((wrap, i) => {
     wrap.addEventListener('click', () => {
-      if (i === activeIdx) return; // already active — no-op
-      const currentMod = (((Math.round(posY) % N) + N) % N);
-      let delta = i - currentMod;
-      if (delta >  N / 2) delta -= N;
-      if (delta < -N / 2) delta += N;
-      velY = delta * 0.4;
-      kick();
+      if (i !== activeIdx) {
+        const currentMod = (((Math.round(posY) % N) + N) % N);
+        let delta = i - currentMod;
+        if (delta >  N / 2) delta -= N;
+        if (delta < -N / 2) delta += N;
+        velY = delta * 0.4;
+        kick();
+      }
+      if (!caseOpen) openCasePanel();
     });
   });
 
