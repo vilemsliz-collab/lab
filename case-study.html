@@ -26,12 +26,12 @@
       font-size: 11px;
       letter-spacing: 0.1em;
       text-transform: uppercase;
-      color: var(--color-outline);
+      color: rgba(255,255,255,0.7);
       text-decoration: none;
       z-index: 100;
       transition: color 0.15s;
     }
-    .back:hover { color: var(--color-on-background); }
+    .back:hover { color: #fff; }
 
     /* ── Shared container ── */
     .container {
@@ -49,17 +49,11 @@
       margin-bottom: var(--stack-md);
     }
 
-    /* ── Divider ── */
-    .divider {
-      border: none;
-      border-top: 1px solid var(--color-outline-variant);
-      margin: var(--stack-md) 0;
-    }
-
     /* ════════════════════════════════
-       HERO
+       HERO — full-width, text overlay
     ════════════════════════════════ */
     .hero {
+      position: relative;
       width: 100%;
       height: 60vh;
       overflow: hidden;
@@ -70,36 +64,48 @@
       object-fit: cover;
       display: block;
     }
-
-    /* ════════════════════════════════
-       INTRO
-    ════════════════════════════════ */
-    .intro {
-      padding: var(--space-20) var(--space-10);
+    .hero::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to bottom, transparent 35%, rgba(0,0,0,0.58));
+      pointer-events: none;
     }
-    .intro .headline {
-      margin-top: var(--stack-sm);
-      margin-bottom: var(--stack-lg);
+    .hero-text {
+      position: absolute;
+      bottom: var(--space-12);
+      left: var(--space-12);
+      z-index: 1;
+      color: #fff;
     }
-    .intro .subtext {
-      max-width: 640px;
-      color: var(--color-on-surface-variant);
+    .hero-text .hero-label {
+      display: block;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: rgba(255,255,255,0.65);
+      margin-bottom: var(--stack-sm);
     }
 
     /* ════════════════════════════════
        CHALLENGE × SOLUTION
     ════════════════════════════════ */
     .cs-section {
-      padding: var(--space-20) var(--space-10);
-      border-top: 1px solid var(--color-outline-variant);
+      padding: var(--space-16) var(--space-10);
     }
     .cs-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: var(--space-10);
-      margin-top: var(--space-12);
+      margin-top: var(--space-8);
     }
-    .cs-block .block-body {
+    .cs-block-label {
+      display: block;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--color-on-surface-variant);
+      margin-bottom: var(--stack-md);
+    }
+    .cs-block-body {
       color: var(--color-on-surface-variant);
     }
 
@@ -108,19 +114,16 @@
     ════════════════════════════════ */
     .impact {
       background: var(--color-surface);
-      padding: var(--space-20) var(--space-10);
+      padding: var(--space-16) var(--space-10);
     }
     .impact-grid {
       display: flex;
       justify-content: space-around;
       align-items: flex-start;
       gap: var(--space-10);
-      margin-top: var(--space-12);
+      margin-top: var(--space-8);
     }
-    .impact-item {
-      text-align: center;
-      flex: 1;
-    }
+    .impact-item { text-align: center; flex: 1; }
     .impact-value {
       display: block;
       color: var(--color-on-background);
@@ -134,29 +137,44 @@
     }
 
     /* ════════════════════════════════
-       FEATURE IMAGE
+       IMAGE GALLERY — portorocha pattern
     ════════════════════════════════ */
-    .feature-image {
-      width: 100%;
-      height: 40vh;
-      overflow: hidden;
+    .gallery-section {
+      padding: var(--space-16) var(--space-10);
     }
-    .feature-image img {
+    .gallery {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .gallery-item { overflow: hidden; }
+    .gallery-item img {
       width: 100%;
       height: 100%;
       object-fit: cover;
       display: block;
+      border-radius: 8px;  /* DS --shape-sm */
+    }
+    .gallery-item.full {
+      grid-column: 1 / -1;
+    }
+    .gallery-item.full img {
+      aspect-ratio: 3 / 2;
+      height: auto;
+    }
+    .gallery-item.portrait img {
+      aspect-ratio: 3 / 4;
+      height: auto;
     }
 
     /* ════════════════════════════════
        TIMELINE
     ════════════════════════════════ */
     .timeline {
-      padding: var(--space-20) var(--space-10);
-      border-top: 1px solid var(--color-outline-variant);
+      padding: var(--space-16) var(--space-10);
     }
     .timeline-header {
-      margin-bottom: var(--space-12);
+      margin-bottom: var(--space-8);
     }
     .timeline-header .headline {
       margin-top: var(--stack-sm);
@@ -164,11 +182,12 @@
     .timeline-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      gap: var(--space-6);
+      gap: var(--space-4);
     }
     .step {
-      border-top: 2px solid var(--color-outline-variant);
-      padding-top: var(--inset-lg);
+      background: var(--color-surface);
+      border-radius: 16px;   /* DS --shape-md */
+      padding: var(--inset-xl);
     }
     .step-num {
       display: block;
@@ -177,78 +196,41 @@
       letter-spacing: 0.1em;
       margin-bottom: var(--stack-md);
     }
-    .step-title {
-      margin-bottom: var(--stack-sm);
-    }
-    .step-body {
-      color: var(--color-on-surface-variant);
-    }
+    .step-title { margin-bottom: var(--stack-sm); }
+    .step-body  { color: var(--color-on-surface-variant); }
     .step-img {
       width: 100%;
       aspect-ratio: 4 / 3;
       object-fit: cover;
       display: block;
+      border-radius: 8px;    /* DS --shape-sm */
       margin-top: var(--stack-lg);
-    }
-
-    /* ════════════════════════════════
-       TWO IMAGES
-    ════════════════════════════════ */
-    .two-images {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-    }
-    .two-images .img-cell {
-      height: 40vh;
-      overflow: hidden;
-    }
-    .two-images img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
     }
 
     /* ════════════════════════════════
        RESPONSIVE
     ════════════════════════════════ */
     @media (max-width: 768px) {
-      .intro,
+      .hero-text {
+        bottom: var(--space-6);
+        left: var(--space-6);
+      }
       .cs-section,
       .impact,
+      .gallery-section,
       .timeline {
-        padding: var(--space-12) var(--space-6);
+        padding: var(--space-10) var(--space-6);
       }
-
-      .cs-grid {
-        grid-template-columns: 1fr;
-        gap: var(--space-8);
-      }
-
-      .impact-grid {
-        flex-direction: column;
-        align-items: center;
-        gap: var(--space-8);
-      }
-
-      .timeline-grid {
-        grid-template-columns: 1fr;
-        gap: var(--space-8);
-      }
-
-      .two-images {
-        grid-template-columns: 1fr;
-      }
-      .two-images .img-cell {
-        height: 40vh;
-      }
+      .cs-grid        { grid-template-columns: 1fr; gap: var(--space-8); }
+      .impact-grid    { flex-direction: column; align-items: center; gap: var(--space-8); }
+      .gallery        { grid-template-columns: 1fr; }
+      .gallery-item.full img,
+      .gallery-item.portrait img { aspect-ratio: 3/2; }
+      .timeline-grid  { grid-template-columns: 1fr; gap: var(--space-4); }
     }
 
     @media (min-width: 769px) and (max-width: 1024px) {
-      .timeline-grid {
-        grid-template-columns: 1fr 1fr;
-        gap: var(--space-6);
-      }
+      .timeline-grid { grid-template-columns: 1fr 1fr; }
     }
   </style>
 </head>
@@ -262,18 +244,9 @@
       src="./Cases%20Files/showmore%20case%20study/Rectangle%208.png"
       alt="Showmore — hero"
     >
-  </section>
-
-  <!-- ── INTRO ── -->
-  <section class="intro">
-    <div class="container">
-      <span class="section-label type-label-medium">Case Study</span>
-      <h1 class="headline type-display-medium">Showmore</h1>
-      <p class="subtext type-body-large">
-        A unified design system built to bring consistency and velocity
-        across three product surfaces — from initial audit to full rollout
-        in twelve weeks.
-      </p>
+    <div class="hero-text">
+      <span class="hero-label type-label-medium">Case Study</span>
+      <h1 class="type-display-medium">Showmore</h1>
     </div>
   </section>
 
@@ -283,9 +256,8 @@
       <span class="section-label type-label-medium">Overview</span>
       <div class="cs-grid">
         <div class="cs-block">
-          <p class="type-label-medium" style="color:var(--color-on-surface-variant);text-transform:uppercase;letter-spacing:.1em;">Challenge</p>
-          <hr class="divider">
-          <p class="block-body type-body-large">
+          <span class="cs-block-label type-label-medium">Challenge</span>
+          <p class="cs-block-body type-body-large">
             Three separate product teams were shipping UI at different speeds
             with no shared vocabulary. Each surface had its own component
             library, leading to inconsistent patterns, duplicated effort,
@@ -294,9 +266,8 @@
           </p>
         </div>
         <div class="cs-block">
-          <p class="type-label-medium" style="color:var(--color-on-surface-variant);text-transform:uppercase;letter-spacing:.1em;">Solution</p>
-          <hr class="divider">
-          <p class="block-body type-body-large">
+          <span class="cs-block-label type-label-medium">Solution</span>
+          <p class="cs-block-body type-body-large">
             We audited every existing pattern, distilled a minimal token
             architecture, and rebuilt the component library from the ground
             up — optimised for composability. One source of truth, adopted
@@ -328,12 +299,35 @@
     </div>
   </section>
 
-  <!-- ── FEATURE IMAGE ── -->
-  <section class="feature-image">
-    <img
-      src="./Cases%20Files/showmore%20case%20study/Frame%201000004956.png"
-      alt="Showmore — feature"
-    >
+  <!-- ── IMAGE GALLERY ── -->
+  <section class="gallery-section">
+    <div class="container">
+      <div class="gallery">
+
+        <!-- Row A: full-width landscape -->
+        <div class="gallery-item full">
+          <img
+            src="./Cases%20Files/showmore%20case%20study/Frame%201000004956.png"
+            alt="Showmore — overview"
+          >
+        </div>
+
+        <!-- Row B: 2-col portrait split -->
+        <div class="gallery-item portrait">
+          <img
+            src="./Cases%20Files/showmore%20case%20study/Rectangle%2010.png"
+            alt="Showmore — detail left"
+          >
+        </div>
+        <div class="gallery-item portrait">
+          <img
+            src="./Cases%20Files/showmore%20case%20study/Frame%201000005654.png"
+            alt="Showmore — detail right"
+          >
+        </div>
+
+      </div>
+    </div>
   </section>
 
   <!-- ── TIMELINE ── -->
@@ -397,22 +391,6 @@
         </div>
 
       </div>
-    </div>
-  </section>
-
-  <!-- ── TWO IMAGES ── -->
-  <section class="two-images">
-    <div class="img-cell">
-      <img
-        src="./Cases%20Files/showmore%20case%20study/Rectangle%2010.png"
-        alt="Showmore — detail left"
-      >
-    </div>
-    <div class="img-cell">
-      <img
-        src="./Cases%20Files/showmore%20case%20study/Frame%201000005654.png"
-        alt="Showmore — detail right"
-      >
     </div>
   </section>
 
