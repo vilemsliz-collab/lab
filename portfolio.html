@@ -74,16 +74,10 @@
 
     .card-wrap            { cursor: pointer; }
     .card-wrap.is-active  { cursor: default; }
-    .card-wrap.is-active .card-btn { cursor: pointer; }
 
     .card-bg {
       position: absolute; inset: 0; z-index: 0;
       width: 100%; height: 100%; object-fit: cover; display: block;
-      transition: transform 1.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    }
-    .card-wrap.is-active .card:hover .card-bg {
-      transform: scale(1.2);
-      transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     }
     .card-overlay {
       position: absolute; inset: 0; z-index: 2;
@@ -110,49 +104,7 @@
       display: inline-block;
     }
 
-    /* ── Card button ── */
-    .card-btn {
-      align-self: flex-end;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: var(--card-btn-size);
-      height: var(--card-btn-size);
-      padding: 0;
-      border: none;
-      background: none;
-      color: rgba(255,255,255,0.9);
-      font-size: 28px;
-      line-height: 1;
-      position: relative;
-      transition:
-        opacity   var(--dur, 400ms) ease,
-        filter    var(--dur, 400ms) ease,
-        transform var(--dur, 400ms) ease;
-      pointer-events: auto;
-    }
-    .card-btn::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(135deg, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.06) 100%);
-      opacity: 0;
-      transition: opacity 0.3s ease;
-    }
-    .card-wrap.is-active .card:hover .card-btn::before { opacity: 1; }
 
-    /* ── Scrubber ── (hidden, kept for reuse)
-    #scrubber {
-      position: fixed;
-      bottom: 0; left: 0; right: 0;
-      z-index: 40;
-      cursor: grab;
-      touch-action: none;
-      transition: right 0.28s ease;
-    }
-    #scrubber:active { cursor: grabbing; }
-    #scrubber canvas { display: block; }
-    */
 
     /* ── Ctrl toggle ── */
     #ctrl-toggle {
@@ -191,7 +143,6 @@
     }
     .ctrl-open #ctrl-panel  { transform: translateX(0); }
     .ctrl-open #stage       { right: 260px; }
-    /* .ctrl-open #scrubber    { right: 260px; } */
 
     #ctrl-panel-inner {
       flex: 1; overflow-y: auto;
@@ -270,7 +221,6 @@
   <a class="back" href="./index.html">← lab</a>
 
   <div id="stage"></div>
-  <!-- <div id="scrubber"></div> -->
 
   <button id="ctrl-toggle">ctrl</button>
   <div id="ctrl-panel">
@@ -307,19 +257,18 @@
   /* ══ CARD EFFECT CONFIG ══ */
   const REVEAL = { stagger: 58, dur: 682, blur: 8, y: 8 };
   const INPUT  = { mouseKick: 0.20, touchSens: 0.02 };
-  /* const SCRUB = { spacing: 4, minH: 9, maxH: 78, curve: 3.5, hoverAmt: 30, hoverSpread: 60, boxH: 80, hoverBoxH: 80 }; */
   const SHAPE  = { px: +DS.getPropertyValue('--shape-card') || 2 };
   const TILT   = { max: 16, stiffness: 0.1, damping: 0.75 };
-  const GHOST  = { layers: 6, opacity: 0.16, blur: 0, blend: 'normal', variant: 'behind' };
+  const GHOST  = { layers: 4, opacity: 0.16, blur: 0, blend: 'normal', variant: 'front' };
   const BTN_SHAPE = +DS.getPropertyValue('--shape-pill') || 182;
 
   /* ══ CARDS DATA ══ */
   const CARDS = [
-    { id:'001', title:'Ink Text',  sub:'typographic', tag:'2025-03', href:'./ink-text/',    bg:'#12131a', ac:'#c8ff00', video:'./assets/portfolio-reel.mp4', img:'./Cases%20Files/Frame%201000005628.png' },
-    { id:'002', title:'Orbs v5',   sub:'generative',  tag:'2025-03', href:'./orbs-v5.html', bg:'#080e1c', ac:'#4dd0e1', img:'./Cases%20Files/Free_Dropper_Bottle_Mockup.png' },
-    { id:'003', title:'Signal',    sub:'audio viz',   tag:'wip',     href:null,             bg:'#1e0a0a', ac:'#ff5252', img:'./Cases%20Files/Frame%201000005182.png' },
-    { id:'004', title:'Terrain',   sub:'procedural',  tag:'wip',     href:null,             bg:'#071207', ac:'#66ff99', img:'./Cases%20Files/image-60.png' },
-    { id:'005', title:'Fluid',     sub:'simulation',  tag:'planned', href:null,             bg:'#141414', ac:'#e0e0e0', img:'./Cases%20Files/Firefly%252020250309110302-enhanced%201%201.png' },
+    { id:'001', lines:['Typographic motion,',   'ink meets screen.'],   role:'Motion Designer',        href:'./ink-text/',    bg:'#12131a', ac:'#c8ff00', video:'./assets/portfolio-reel.mp4', img:'./Cases%20Files/Frame%201000005628.png' },
+    { id:'002', lines:['Generative systems,',  'designed in code.'],   role:'Creative Technologist',  href:'./orbs-v5.html', bg:'#080e1c', ac:'#4dd0e1', img:'./Cases%20Files/Free_Dropper_Bottle_Mockup.png' },
+    { id:'003', lines:['Audio reactive,',      'visual frequency.'],   role:'Interaction Designer',   href:null,             bg:'#1e0a0a', ac:'#ff5252', img:'./Cases%20Files/Frame%201000005182.png' },
+    { id:'004', lines:['Procedural terrain,',  'rendered at runtime.'],role:'Generative Artist',      href:null,             bg:'#071207', ac:'#66ff99', img:'./Cases%20Files/image-60.png' },
+    { id:'005', lines:['Fluid simulation,',    'physics made visual.'],role:'Visual Engineer',        href:null,             bg:'#141414', ac:'#e0e0e0', img:'./Cases%20Files/Firefly%252020250309110302-enhanced%201%201.png' },
   ];
   const N = CARDS.length;
 
@@ -341,9 +290,9 @@
       ${card.video ? `<video class="card-bg" src="${card.video}" autoplay loop muted playsinline></video>` : card.img ? `<img class="card-bg" src="${card.img}" alt="">` : ''}
       <div class="card-overlay"></div>
       <div class="card-content">
-        <p class="type-label-medium card-line">${card.id}</p>
-        <p class="type-headline-medium card-line">${card.title}</p>
-        <button class="card-btn word" aria-label="View project">›</button>
+        <p class="type-label-small card-line">${card.role}</p>
+        <p class="type-body-large card-line">${card.lines[0]}</p>
+        <p class="type-body-large card-line">${card.lines[1]}</p>
       </div>
     `;
 
@@ -963,9 +912,8 @@
   addRow(sec, 'decel',  'FRICTION', 0.70, 0.99, 0.01, v => v.toFixed(2));
   addRow(sec, 'spring', 'SPRING',   0.01, 0.40, 0.01, v => v.toFixed(2));
   const scrollInputRows = [
-    ['card pause ms', 'mouseCooldown', 0,  2000,  50,     v => Math.round(v)+'',  v => { INPUT.mouseCooldown = v; }],
-    ['mouse kick',    'mouseKick',     0,  2.0,   0.05,   v => v.toFixed(2),      v => { INPUT.mouseKick     = v; }],
-    ['touch sens',    'touchSens',     0,  3.0,   0.02,   v => v.toFixed(2),      v => { INPUT.touchSens     = v; }],
+    ['mouse kick', 'mouseKick', 0, 2.0, 0.05, v => v.toFixed(2), v => { INPUT.mouseKick = v; }],
+    ['touch sens', 'touchSens', 0, 3.0, 0.02, v => v.toFixed(2), v => { INPUT.touchSens = v; }],
   ];
   scrollInputRows.forEach(([label, inputKey, min, max, step, fmt, onChange]) => {
     const r = addRow(sec, label, null, min, max, step, fmt, onChange, true);
@@ -998,8 +946,8 @@
   sec = addSection('Ghost');
   {
     const brow = document.createElement('div'); brow.className = 'dev-btn-row';
-    const btnF = document.createElement('button'); btnF.className = 'dev-btn';        btnF.textContent = 'on top';
-    const btnB = document.createElement('button'); btnB.className = 'dev-btn active'; btnB.textContent = 'behind';
+    const btnF = document.createElement('button'); btnF.className = 'dev-btn active'; btnF.textContent = 'on top';
+    const btnB = document.createElement('button'); btnB.className = 'dev-btn';        btnB.textContent = 'behind';
     btnF.addEventListener('click', () => {
       GHOST.variant = 'front';
       btnF.classList.add('active'); btnB.classList.remove('active');
@@ -1032,6 +980,19 @@
   }
   addCopyBtn(sec, () => `layers: ${GHOST.layers}, opacity: ${GHOST.opacity.toFixed(2)}, blur: ${GHOST.blur.toFixed(1)}, variant: '${GHOST.variant}'`);
 
+  sec = addSection('Tilt');
+  [
+    ['max',       0,    40,   1,    v => Math.round(v) + '°', v => { TILT.max       = v; }],
+    ['stiffness', 0.01, 0.5,  0.01, v => v.toFixed(2),        v => { TILT.stiffness = v; }],
+    ['damping',   0.5,  0.99, 0.01, v => v.toFixed(2),        v => { TILT.damping   = v; }],
+  ].forEach(([label, min, max, step, fmt, onChange]) => {
+    const key = label === 'max' ? 'max' : label;
+    const r = addRow(sec, label, null, min, max, step, fmt, onChange);
+    r.value = TILT[key];
+    r.closest('.dev-row').querySelector('.dev-val').textContent = fmt(TILT[key]);
+  });
+  addCopyBtn(sec, () => `max: ${TILT.max}, stiffness: ${TILT.stiffness.toFixed(2)}, damping: ${TILT.damping.toFixed(2)}`);
+
   /* ── Reveal section ── */
   sec = addSection('Reveal');
   [
@@ -1054,25 +1015,6 @@
   }
   addCopyBtn(sec, () => `stagger: ${Math.round(REVEAL.stagger)}, dur: ${Math.round(REVEAL.dur)}, blur: ${REVEAL.blur.toFixed(1)}, y: ${Math.round(REVEAL.y)}`);
 
-  /* ── Scrubber section (hidden, kept for reuse) ──
-  sec = addSection('Scrubber');
-  [
-    ['spacing',  2,  20,  1,   v => Math.round(v) + 'px', v => { SCRUB.spacing     = v; drawScrubber(posY); }],
-    ['min h',    1,  40,  0.5, v => v.toFixed(1) + 'px',  v => { SCRUB.minH        = v; drawScrubber(posY); }],
-    ['max h',    4, 120,  0.5, v => v.toFixed(1) + 'px',  v => { SCRUB.maxH        = v; drawScrubber(posY); }],
-    ['curve',   0.5, 10,  0.1, v => v.toFixed(1),          v => { SCRUB.curve       = v; drawScrubber(posY); }],
-    ['hover +h', 0,  60,  0.5, v => v.toFixed(1) + 'px',  v => { SCRUB.hoverAmt    = v; }],
-    ['hover r',   10,  200, 5,   v => Math.round(v) + 'px', v => { SCRUB.hoverSpread = v; }],
-    ['box h',     20,  200, 1,   v => Math.round(v) + 'px', v => { SCRUB.boxH        = v; resizeScrubber(); drawScrubber(posY); }],
-    ['hover box',  0,  300, 1,   v => Math.round(v) + 'px', v => { SCRUB.hoverBoxH   = v; resizeScrubber(); drawScrubber(posY); }],
-  ].forEach(([label, min, max, step, fmt, onChange]) => {
-    const keyMap = { 'spacing': 'spacing', 'min h': 'minH', 'max h': 'maxH', 'curve': 'curve', 'hover +h': 'hoverAmt', 'hover r': 'hoverSpread', 'box h': 'boxH', 'hover box': 'hoverBoxH' };
-    const r = addRow(sec, label, null, min, max, step, fmt, onChange);
-    r.value = SCRUB[keyMap[label]];
-    r.closest('.dev-row').querySelector('.dev-val').textContent = fmt(SCRUB[keyMap[label]]);
-  });
-  addCopyBtn(sec, () => `spacing: ${SCRUB.spacing}, minH: ${SCRUB.minH}, maxH: ${SCRUB.maxH}, curve: ${SCRUB.curve.toFixed(1)}, hoverAmt: ${SCRUB.hoverAmt}, hoverSpread: ${SCRUB.hoverSpread}, boxH: ${SCRUB.boxH}, hoverBoxH: ${SCRUB.hoverBoxH}`);
-  */
 
   /* ══ INIT ══ */
   checkBreakpoint();
