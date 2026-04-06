@@ -26,12 +26,12 @@
       font-size: 11px;
       letter-spacing: 0.1em;
       text-transform: uppercase;
-      color: rgba(255,255,255,0.7);
+      color: var(--color-on-surface-variant);
       text-decoration: none;
       z-index: 100;
       transition: color 0.15s;
     }
-    .back:hover { color: #fff; }
+    .back:hover { color: var(--color-on-background); }
 
     /* ── Shared container ── */
     .container {
@@ -40,46 +40,17 @@
       padding: 0 var(--space-10);
     }
 
-    /* ── Section label (no caps) ── */
-    .section-label {
-      display: block;
-      color: var(--color-on-surface-variant);
-      margin-bottom: var(--stack-md);
-    }
-
     /* ════════════════════════════════
-       HERO — full-width, text overlay
+       HERO — padded image, no overlay
     ════════════════════════════════ */
     .hero {
-      position: relative;
-      width: 100%;
-      height: 60vh;
-      overflow: hidden;
+      padding: var(--space-16) var(--space-10) 0;
     }
     .hero img {
       width: 100%;
-      height: 100%;
+      display: block;
+      aspect-ratio: 3 / 2;
       object-fit: cover;
-      display: block;
-    }
-    .hero::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(to bottom, transparent 35%, rgba(0,0,0,0.58));
-      pointer-events: none;
-    }
-    .hero-text {
-      position: absolute;
-      bottom: var(--space-12);
-      left: var(--space-12);
-      z-index: 1;
-      color: #fff;
-    }
-    .hero-text .hero-label {
-      display: block;
-      color: rgba(255,255,255,0.65);
-      margin-bottom: var(--stack-sm);
     }
 
     /* ════════════════════════════════
@@ -88,11 +59,13 @@
     .cs-section {
       padding: var(--space-16) var(--space-10);
     }
+    .cs-title {
+      margin-bottom: var(--stack-xl);
+    }
     .cs-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: var(--space-10);
-      margin-top: var(--space-8);
+      gap: var(--space-6);
     }
     .cs-block-label {
       display: block;
@@ -112,7 +85,7 @@
     .impact-grid {
       display: flex;
       gap: var(--space-4);
-      margin-top: var(--space-8);
+      align-items: stretch;
     }
     .impact-item {
       flex: 1;
@@ -144,7 +117,7 @@
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 8px;
-      padding: 0 8px;   /* breathing room for corner radius */
+      padding: 0 8px;
     }
     .gallery-item { overflow: hidden; }
     .gallery-item img {
@@ -174,13 +147,11 @@
     .timeline-header {
       margin-bottom: var(--space-8);
     }
-    .timeline-header .headline {
-      margin-top: var(--stack-sm);
-    }
     .timeline-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
       gap: var(--space-4);
+      align-items: stretch;
     }
     .step {
       background: var(--color-surface);
@@ -205,9 +176,8 @@
        RESPONSIVE
     ════════════════════════════════ */
     @media (max-width: 768px) {
-      .hero-text {
-        bottom: var(--space-6);
-        left: var(--space-6);
+      .hero {
+        padding: var(--space-10) var(--space-6) 0;
       }
       .cs-section,
       .impact,
@@ -233,22 +203,18 @@
 
   <a class="back" href="./index.html">← lab</a>
 
-  <!-- ── HERO ── -->
+  <!-- ── HERO — padded image ── -->
   <section class="hero">
     <img
       src="./Cases%20Files/showmore%20case%20study/Rectangle%208.png"
       alt="Showmore — hero"
     >
-    <div class="hero-text">
-      <span class="hero-label type-label-medium">Case study</span>
-      <h1 class="type-display-medium">Showmore</h1>
-    </div>
   </section>
 
   <!-- ── CHALLENGE × SOLUTION ── -->
   <section class="cs-section">
     <div class="container">
-      <span class="section-label type-label-medium">Overview</span>
+      <h1 class="type-display-medium cs-title">Showmore</h1>
       <div class="cs-grid">
         <div class="cs-block">
           <span class="cs-block-label type-headline-small">Challenge</span>
@@ -276,7 +242,6 @@
   <!-- ── IMPACT ── -->
   <section class="impact">
     <div class="container">
-      <span class="section-label type-label-medium">Impact</span>
       <div class="impact-grid">
         <div class="impact-item">
           <span class="impact-value type-display-small">12 Weeks</span>
@@ -327,8 +292,7 @@
   <section class="timeline">
     <div class="container">
       <div class="timeline-header">
-        <span class="section-label type-label-medium">Process</span>
-        <h2 class="headline type-headline-large">How we got there</h2>
+        <h2 class="type-headline-large">How we got there</h2>
       </div>
       <div class="timeline-grid">
 
@@ -390,11 +354,11 @@
 
 <script>
 (() => {
-  const DS     = getComputedStyle(document.documentElement);
-  const SHP_SM = +DS.getPropertyValue('--shape-sm') || 8;   // images
-  const SHP_MD = +DS.getPropertyValue('--shape-md') || 16;  // cards
+  const DS      = getComputedStyle(document.documentElement);
+  const SHP_SM  = +DS.getPropertyValue('--shape-sm') || 8;
+  const REF_MAXR = 182; // portfolio card min(364/2, 555/2) — reference size for consistent t
+  const CORNER_T = SHP_SM / REF_MAXR; // ≈ 0.044 — fixed t applied to all elements
 
-  // Identical to portfolio.html shapePath — superellipse clip-path generator
   function shapePath(w, h, px) {
     const cx = w / 2, cy = h / 2;
     const maxR = Math.min(cx, cy);
@@ -413,15 +377,19 @@
   }
 
   function applyShapes() {
-    // Cards — shape-md (16)
+    // Cards — consistent proportional superellipse
     document.querySelectorAll('.impact-item, .step').forEach(el => {
       const w = el.offsetWidth, h = el.offsetHeight;
-      if (w && h) el.style.clipPath = `path('${shapePath(w, h, SHP_MD)}')`;
+      if (!w || !h) return;
+      const maxR = Math.min(w, h) / 2;
+      el.style.clipPath = `path('${shapePath(w, h, CORNER_T * maxR)}')`;
     });
-    // Images — shape-sm (8)
-    document.querySelectorAll('.gallery-item img, .step-img').forEach(el => {
+    // Images — same t, same proportional shape
+    document.querySelectorAll('.gallery-item img, .step-img, .hero img').forEach(el => {
       const w = el.offsetWidth, h = el.offsetHeight;
-      if (w && h) el.style.clipPath = `path('${shapePath(w, h, SHP_SM)}')`;
+      if (!w || !h) return;
+      const maxR = Math.min(w, h) / 2;
+      el.style.clipPath = `path('${shapePath(w, h, CORNER_T * maxR)}')`;
     });
   }
 
