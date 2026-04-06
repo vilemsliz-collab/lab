@@ -799,20 +799,19 @@
   });
 
   /* ══ WHEEL INPUT ══ */
-  let lastWheelMs = 0;
+  let lastKickMs = 0;
 
   window.addEventListener('wheel', e => {
     e.preventDefault();
     const d   = e.deltaX + e.deltaY;
     const mag = Math.abs(d);
-    if (mag < 1) return;
+    if (mag < 15) return;
     const now = Date.now();
-    const gap = now - lastWheelMs;
-    if (mag >= 15) lastWheelMs = now;        // track active-swipe events only
     const nearSnap = Math.abs(posY - Math.round(posY)) < 0.15;
-    if ((!rafId || nearSnap) && gap >= 150 && mag >= 15) {
-      posY = ((Math.round(posY) % N) + N) % N;  // snap clean before new kick
-      velY  = Math.sign(d) * INPUT.mouseKick;    // replace, don't add
+    if ((!rafId || nearSnap) && now - lastKickMs >= 150) {
+      posY = ((Math.round(posY) % N) + N) % N;
+      velY  = Math.sign(d) * INPUT.mouseKick;
+      lastKickMs = now;
       kick();
     }
   }, { passive: false });
