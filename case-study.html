@@ -117,7 +117,6 @@
     .impact-item {
       flex: 1;
       background: var(--color-surface);
-      border-radius: 16px;   /* DS --shape-md */
       padding: var(--inset-xl);
       display: flex;
       flex-direction: column;
@@ -153,7 +152,6 @@
       height: 100%;
       object-fit: cover;
       display: block;
-      border-radius: 8px;   /* DS --shape-sm */
     }
     .gallery-item.full {
       grid-column: 1 / -1;
@@ -186,7 +184,6 @@
     }
     .step {
       background: var(--color-surface);
-      border-radius: 16px;   /* DS --shape-md */
       padding: var(--inset-xl);
     }
     .step-num {
@@ -201,7 +198,6 @@
       aspect-ratio: 4 / 3;
       object-fit: cover;
       display: block;
-      border-radius: 8px;    /* DS --shape-sm */
       margin-top: var(--stack-lg);
     }
 
@@ -391,5 +387,47 @@
     </div>
   </section>
 
+
+<script>
+(() => {
+  const DS     = getComputedStyle(document.documentElement);
+  const SHP_SM = +DS.getPropertyValue('--shape-sm') || 8;   // images
+  const SHP_MD = +DS.getPropertyValue('--shape-md') || 16;  // cards
+
+  // Identical to portfolio.html shapePath — superellipse clip-path generator
+  function shapePath(w, h, px) {
+    const cx = w / 2, cy = h / 2;
+    const maxR = Math.min(cx, cy);
+    px = Math.max(-maxR, Math.min(maxR, px));
+    const t = px / maxR;
+    const n = Math.pow(2, 4 - 3 * t);
+    let d = '';
+    for (let i = 0; i <= 200; i++) {
+      const a  = (i / 200) * 2 * Math.PI;
+      const ct = Math.cos(a), st = Math.sin(a);
+      const x  = cx + cx * Math.sign(ct) * Math.pow(Math.abs(ct), 2 / n);
+      const y  = cy + cy * Math.sign(st) * Math.pow(Math.abs(st), 2 / n);
+      d += (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1) + ' ';
+    }
+    return d + 'Z';
+  }
+
+  function applyShapes() {
+    // Cards — shape-md (16)
+    document.querySelectorAll('.impact-item, .step').forEach(el => {
+      const w = el.offsetWidth, h = el.offsetHeight;
+      if (w && h) el.style.clipPath = `path('${shapePath(w, h, SHP_MD)}')`;
+    });
+    // Images — shape-sm (8)
+    document.querySelectorAll('.gallery-item img, .step-img').forEach(el => {
+      const w = el.offsetWidth, h = el.offsetHeight;
+      if (w && h) el.style.clipPath = `path('${shapePath(w, h, SHP_SM)}')`;
+    });
+  }
+
+  window.addEventListener('load',   applyShapes);
+  window.addEventListener('resize', applyShapes);
+})();
+</script>
 </body>
 </html>
