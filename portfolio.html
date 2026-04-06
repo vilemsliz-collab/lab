@@ -36,12 +36,68 @@
     #stage {
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
-      transition: right 0.28s ease;
+      transition: right 0.55s cubic-bezier(0.4, 0, 0.2, 1);
       display: flex;
       align-items: center;
       justify-content: center;
       perspective-origin: 50% 50%;
       overflow: hidden;
+    }
+
+    /* ── Case study panel ── */
+    #case-panel {
+      position: fixed;
+      top: 0; bottom: 0;
+      left: 100%;
+      right: 0;
+      background: var(--color-background);
+      z-index: 50;
+      transition: left 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+      overflow: hidden;
+    }
+    #case-panel iframe {
+      width: 100%; height: 100%;
+      border: none;
+      display: block;
+    }
+
+    /* ── Card open (fullscreen) button ── */
+    .card-open-btn {
+      position: absolute;
+      bottom: 16px; right: 16px;
+      z-index: 10;
+      background: rgba(255,255,255,0.15);
+      border: none;
+      color: #fff;
+      font-size: 18px;
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.2s, background 0.15s;
+      pointer-events: none;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .card-open-btn:hover { background: rgba(255,255,255,0.28); }
+    .card-wrap.is-active .card-open-btn {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    body.case-open .card-open-btn {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* ── Split state ── */
+    body.case-open #stage {
+      right: 80vw;
+      cursor: pointer;
+    }
+    body.case-open #case-panel {
+      left: 20vw;
+    }
+    body.case-open .card-wrap {
+      width: clamp(100px, 14vw, var(--card-width));
     }
 
     /* ── Card wrap: receives carousel 3D transform ── */
@@ -228,6 +284,10 @@
     <div id="ctrl-panel-inner"></div>
   </div>
 
+  <div id="case-panel">
+    <iframe id="case-frame" src="" title="Case study"></iframe>
+  </div>
+
 <script>
 (() => {
   'use strict';
@@ -297,15 +357,67 @@
       </div>
     `;
 
+    const openBtn = document.createElement('button');
+    openBtn.className   = 'card-open-btn';
+    openBtn.innerHTML   = '&#x2922;';
+    openBtn.setAttribute('aria-label', 'Open case study');
     wrap.appendChild(el);
+    wrap.appendChild(openBtn);
     stage.appendChild(wrap);
     wrapEls.push(wrap);
     cardEls.push(el);
   });
 
+  /* ══ CASE STUDY PANEL ══ */
+  let caseOpen = false;
+  const caseFrame = document.getElementById('case-frame');
+
+  function openCasePanel() {
+    caseFrame.src = './case-study.html';
+    document.body.classList.add('case-open');
+    caseOpen = true;
+    setTimeout(() => applyTransforms(posY), 570);
+  }
+
+  function closeCasePanel() {
+    document.body.classList.remove('case-open');
+    caseOpen = false;
+    setTimeout(() => {
+      caseFrame.src = '';
+      applyTransforms(posY);
+    }, 570);
+  }
+
+  // Close case when clicking the stage background
+  stage.addEventListener('click', e => {
+    if (caseOpen && e.target === stage) closeCasePanel();
+  });
+
   /* ══ CLICK TO NAVIGATE ══ */
   wrapEls.forEach((wrap, i) => {
+    // Fullscreen button — open case
+    wrap.querySelector('.card-open-btn').addEventListener('click', e => {
+      e.stopPropagation();
+      openCasePanel();
+    });
+
     wrap.addEventListener('click', () => {
+      if (caseOpen) {
+        if (i !== activeIdx) {
+          // Navigate carousel to this card; case updates on snap in onActiveChange
+          const currentMod = (((Math.round(posY) % N) + N) % N);
+          let delta = i - currentMod;
+          if (delta >  N / 2) delta -= N;
+          if (delta < -N / 2) delta += N;
+          velY = delta * 0.4;
+          kick();
+        } else {
+          // Active card clicked while open → close
+          closeCasePanel();
+        }
+        return;
+      }
+      // Normal (case closed): navigate to card
       if (i === activeIdx) return;
       const currentMod = (((Math.round(posY) % N) + N) % N);
       let delta = i - currentMod;
@@ -471,6 +583,7 @@
   /* ══ ACTIVE CARD LIFECYCLE ══ */
   function onActiveChange(newIdx) {
     activeIdx = newIdx;
+    if (caseOpen) caseFrame.src = './case-study.html';
     revealActiveCard();
     updateClipPath();
   }
@@ -479,7 +592,7 @@
   const V_ARC = 200; // px — peak vertical displacement on V-type transitions
 
   function applyTransforms(pos) {
-    const vw  = innerWidth;
+    const vw  = stage.offsetWidth || innerWidth;
     const R   = Math.min(vw * CFG.R_MULT, CFG.R_MAX);
     const LAT = CFG.LAT.map(d => d * Math.PI / 180);
 

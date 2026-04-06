@@ -354,6 +354,11 @@
 
 <script>
 (() => {
+  if (window.self !== window.top) {
+    const back = document.querySelector('.back');
+    if (back) back.style.display = 'none';
+  }
+
   const DS        = getComputedStyle(document.documentElement);
   const SHP_CARD  = +DS.getPropertyValue('--shape-card') || 2;  // gallery/hero images — nearly sharp
   const SHP_SM    = +DS.getPropertyValue('--shape-sm')   || 8;  // step images — matches prev card feel
