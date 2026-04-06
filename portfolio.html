@@ -799,17 +799,22 @@
   });
 
   /* ══ WHEEL INPUT ══ */
-  let wheelLock = false;
+  let wheelLock  = false;
+  let wheelTimer = null;
 
   window.addEventListener('wheel', e => {
     e.preventDefault();
     const d = e.deltaX + e.deltaY;
     if (Math.abs(d) < 1) return;
-    if (wheelLock) return;
-    velY += Math.sign(d) * INPUT.mouseKick;
-    kick();
-    wheelLock = true;
-    setTimeout(() => { wheelLock = false; }, INPUT.mouseCooldown);
+    if (!wheelLock) {                                  // first event of gesture: kick
+      velY += Math.sign(d) * INPUT.mouseKick;
+      kick();
+      wheelLock = true;
+    }
+    if (Math.abs(d) >= 3) {                           // ignore inertia tail (tiny deltas)
+      clearTimeout(wheelTimer);
+      wheelTimer = setTimeout(() => { wheelLock = false; }, INPUT.mouseCooldown);
+    }
   }, { passive: false });
   window.addEventListener('keydown', e => {
     if (e.key === 'ArrowRight') { velY += 0.12; kick(); }
