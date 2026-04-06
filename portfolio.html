@@ -362,12 +362,23 @@
   const caseFrame      = document.getElementById('case-frame');
   const caseToggleBtn  = document.getElementById('case-toggle-btn');
 
-  function runSplitTransition(onEnd) {
-    const dur = 570;
-    const t0  = performance.now();
+  function runSplitTransition(targetPresetName, onEnd) {
+    const dur       = 570;
+    const t0        = performance.now();
+    const fromScale = CFG.SCALE_ACTIVE;
+    const fromPersp = CFG.PERSPECTIVE;
+    const toPreset  = PRESETS[targetPresetName];
+    const toScale   = toPreset.SCALE_ACTIVE;
+    const toPersp   = toPreset.PERSPECTIVE;
+    function ease(t) { return t * t * (3 - 2 * t); } // smoothstep
     function frame(now) {
+      const p = Math.min((now - t0) / dur, 1);
+      const e = ease(p);
+      CFG.SCALE_ACTIVE = fromScale + (toScale - fromScale) * e;
+      CFG.PERSPECTIVE  = fromPersp + (toPersp  - fromPersp) * e;
+      syncPerspective();
       applyTransforms(posY);
-      if (now - t0 < dur) { requestAnimationFrame(frame); }
+      if (p < 1) { requestAnimationFrame(frame); }
       else { onEnd(); }
     }
     requestAnimationFrame(frame);
@@ -378,14 +389,16 @@
     document.body.classList.add('case-open');
     caseOpen = true;
     caseToggleBtn.innerHTML = '&#x2715;';
-    runSplitTransition(() => { checkBreakpoint(); applyTransforms(posY); updateClipPath(); });
+    const targetPreset = (innerWidth * 0.33) >= 768 ? 'desktop' : 'mobile';
+    runSplitTransition(targetPreset, () => { loadPreset(targetPreset); applyTransforms(posY); updateClipPath(); });
   }
 
   function closeCasePanel() {
     document.body.classList.remove('case-open');
     caseOpen = false;
     caseToggleBtn.innerHTML = '&#x2922;';
-    runSplitTransition(() => { caseFrame.src = ''; checkBreakpoint(); applyTransforms(posY); updateClipPath(); });
+    const targetPreset = innerWidth >= 768 ? 'desktop' : 'mobile';
+    runSplitTransition(targetPreset, () => { caseFrame.src = ''; loadPreset(targetPreset); applyTransforms(posY); updateClipPath(); });
   }
 
   caseToggleBtn.addEventListener('click', e => {
