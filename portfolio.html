@@ -735,17 +735,38 @@
   /* const scrubK = () => 1 / (innerWidth * 0.45); */
 
   let stageTouch = null, stageMouse = null;
+  let swipeStartX = null;
   /* let scrubTouch = null, scrubMouse = null; */
 
-  stage.addEventListener('touchstart', e => { stageTouch = e.touches[0].clientX; velY = 0; }, { passive: true });
-  stage.addEventListener('touchmove',  e => {
-    if (stageTouch === null) return;
-    const dPos = -(e.touches[0].clientX - stageTouch) * dragK();
-    velY = velY * 0.5 + dPos * 0.5; posY += dPos;
-    stageTouch = e.touches[0].clientX;
-    applyTransforms(posY);
+  stage.addEventListener('touchstart', e => {
+    swipeStartX = e.touches[0].clientX;
+    stageTouch  = e.touches[0].clientX;
+    velY = 0;
   }, { passive: true });
-  stage.addEventListener('touchend', () => { stageTouch = null; kick(); }, { passive: true });
+  stage.addEventListener('touchmove', e => {
+    if (stageTouch === null) return;
+    if (innerWidth >= 768) {
+      const dPos = -(e.touches[0].clientX - stageTouch) * dragK();
+      velY = velY * 0.5 + dPos * 0.5; posY += dPos;
+      stageTouch = e.touches[0].clientX;
+      applyTransforms(posY);
+    }
+    // mobile: no live drag — wait for touchend swipe
+  }, { passive: true });
+  stage.addEventListener('touchend', e => {
+    if (innerWidth < 768 && swipeStartX !== null) {
+      const delta = (e.changedTouches[0]?.clientX ?? swipeStartX) - swipeStartX;
+      if (Math.abs(delta) > 20) {
+        velY = Math.sign(-delta) * 0.7;
+        kick();
+      } else {
+        kick(); // tap: spring back to current card
+      }
+    } else {
+      kick();
+    }
+    stageTouch = null; swipeStartX = null;
+  }, { passive: true });
   stage.addEventListener('mousedown', e => { stageMouse = e.clientX; velY = 0; });
 
   /* scrubEl drag handlers (hidden, kept for reuse)
