@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Showmore — Case Study</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:wght@100..900&family=IBM+Plex+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./design-system.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      background: var(--color-background);
+      color: var(--color-on-background);
+      font-family: var(--font-brand);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Back link ── */
+    .back {
+      position: fixed;
+      top: 20px; left: 24px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--color-outline);
+      text-decoration: none;
+      z-index: 100;
+      transition: color 0.15s;
+    }
+    .back:hover { color: var(--color-on-background); }
+
+    /* ── Shared container ── */
+    .container {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 0 var(--space-10);
+    }
+
+    /* ── Section label ── */
+    .section-label {
+      display: block;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--color-on-surface-variant);
+      margin-bottom: var(--stack-md);
+    }
+
+    /* ── Divider ── */
+    .divider {
+      border: none;
+      border-top: 1px solid var(--color-outline-variant);
+      margin: var(--stack-md) 0;
+    }
+
+    /* ════════════════════════════════
+       HERO
+    ════════════════════════════════ */
+    .hero {
+      width: 100%;
+      height: 60vh;
+      overflow: hidden;
+    }
+    .hero img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* ════════════════════════════════
+       INTRO
+    ════════════════════════════════ */
+    .intro {
+      padding: var(--space-20) var(--space-10);
+    }
+    .intro .headline {
+      margin-top: var(--stack-sm);
+      margin-bottom: var(--stack-lg);
+    }
+    .intro .subtext {
+      max-width: 640px;
+      color: var(--color-on-surface-variant);
+    }
+
+    /* ════════════════════════════════
+       CHALLENGE × SOLUTION
+    ════════════════════════════════ */
+    .cs-section {
+      padding: var(--space-20) var(--space-10);
+      border-top: 1px solid var(--color-outline-variant);
+    }
+    .cs-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-10);
+      margin-top: var(--space-12);
+    }
+    .cs-block .block-body {
+      color: var(--color-on-surface-variant);
+    }
+
+    /* ════════════════════════════════
+       IMPACT
+    ════════════════════════════════ */
+    .impact {
+      background: var(--color-surface);
+      padding: var(--space-20) var(--space-10);
+    }
+    .impact-grid {
+      display: flex;
+      justify-content: space-around;
+      align-items: flex-start;
+      gap: var(--space-10);
+      margin-top: var(--space-12);
+    }
+    .impact-item {
+      text-align: center;
+      flex: 1;
+    }
+    .impact-value {
+      display: block;
+      color: var(--color-on-background);
+    }
+    .impact-label {
+      display: block;
+      margin-top: var(--stack-sm);
+      color: var(--color-on-surface-variant);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    /* ════════════════════════════════
+       FEATURE IMAGE
+    ════════════════════════════════ */
+    .feature-image {
+      width: 100%;
+      height: 40vh;
+      overflow: hidden;
+    }
+    .feature-image img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* ════════════════════════════════
+       TIMELINE
+    ════════════════════════════════ */
+    .timeline {
+      padding: var(--space-20) var(--space-10);
+      border-top: 1px solid var(--color-outline-variant);
+    }
+    .timeline-header {
+      margin-bottom: var(--space-12);
+    }
+    .timeline-header .headline {
+      margin-top: var(--stack-sm);
+    }
+    .timeline-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--space-6);
+    }
+    .step {
+      border-top: 2px solid var(--color-outline-variant);
+      padding-top: var(--inset-lg);
+    }
+    .step-num {
+      display: block;
+      color: var(--color-on-surface-variant);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: var(--stack-md);
+    }
+    .step-title {
+      margin-bottom: var(--stack-sm);
+    }
+    .step-body {
+      color: var(--color-on-surface-variant);
+    }
+    .step-img {
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      object-fit: cover;
+      display: block;
+      margin-top: var(--stack-lg);
+    }
+
+    /* ════════════════════════════════
+       TWO IMAGES
+    ════════════════════════════════ */
+    .two-images {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+    .two-images .img-cell {
+      height: 40vh;
+      overflow: hidden;
+    }
+    .two-images img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* ════════════════════════════════
+       RESPONSIVE
+    ════════════════════════════════ */
+    @media (max-width: 768px) {
+      .intro,
+      .cs-section,
+      .impact,
+      .timeline {
+        padding: var(--space-12) var(--space-6);
+      }
+
+      .cs-grid {
+        grid-template-columns: 1fr;
+        gap: var(--space-8);
+      }
+
+      .impact-grid {
+        flex-direction: column;
+        align-items: center;
+        gap: var(--space-8);
+      }
+
+      .timeline-grid {
+        grid-template-columns: 1fr;
+        gap: var(--space-8);
+      }
+
+      .two-images {
+        grid-template-columns: 1fr;
+      }
+      .two-images .img-cell {
+        height: 40vh;
+      }
+    }
+
+    @media (min-width: 769px) and (max-width: 1024px) {
+      .timeline-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: var(--space-6);
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <a class="back" href="./index.html">← lab</a>
+
+  <!-- ── HERO ── -->
+  <section class="hero">
+    <img
+      src="./Cases%20Files/showmore%20case%20study/Rectangle%208.png"
+      alt="Showmore — hero"
+    >
+  </section>
+
+  <!-- ── INTRO ── -->
+  <section class="intro">
+    <div class="container">
+      <span class="section-label type-label-medium">Case Study</span>
+      <h1 class="headline type-display-medium">Showmore</h1>
+      <p class="subtext type-body-large">
+        A unified design system built to bring consistency and velocity
+        across three product surfaces — from initial audit to full rollout
+        in twelve weeks.
+      </p>
+    </div>
+  </section>
+
+  <!-- ── CHALLENGE × SOLUTION ── -->
+  <section class="cs-section">
+    <div class="container">
+      <span class="section-label type-label-medium">Overview</span>
+      <div class="cs-grid">
+        <div class="cs-block">
+          <p class="type-label-medium" style="color:var(--color-on-surface-variant);text-transform:uppercase;letter-spacing:.1em;">Challenge</p>
+          <hr class="divider">
+          <p class="block-body type-body-large">
+            Three separate product teams were shipping UI at different speeds
+            with no shared vocabulary. Each surface had its own component
+            library, leading to inconsistent patterns, duplicated effort,
+            and a fragmented user experience that was hard to maintain
+            at scale.
+          </p>
+        </div>
+        <div class="cs-block">
+          <p class="type-label-medium" style="color:var(--color-on-surface-variant);text-transform:uppercase;letter-spacing:.1em;">Solution</p>
+          <hr class="divider">
+          <p class="block-body type-body-large">
+            We audited every existing pattern, distilled a minimal token
+            architecture, and rebuilt the component library from the ground
+            up — optimised for composability. One source of truth, adopted
+            across all three surfaces within the same quarter.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── IMPACT ── -->
+  <section class="impact">
+    <div class="container">
+      <span class="section-label type-label-medium">Impact</span>
+      <div class="impact-grid">
+        <div class="impact-item">
+          <span class="impact-value type-display-medium">12 Weeks</span>
+          <span class="impact-label type-label-medium">End-to-end delivery</span>
+        </div>
+        <div class="impact-item">
+          <span class="impact-value type-display-medium">3 Platforms</span>
+          <span class="impact-label type-label-medium">Consistent experience</span>
+        </div>
+        <div class="impact-item">
+          <span class="impact-value type-display-medium">48 Components</span>
+          <span class="impact-label type-label-medium">Shipped in v1.0</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── FEATURE IMAGE ── -->
+  <section class="feature-image">
+    <img
+      src="./Cases%20Files/showmore%20case%20study/Frame%201000004956.png"
+      alt="Showmore — feature"
+    >
+  </section>
+
+  <!-- ── TIMELINE ── -->
+  <section class="timeline">
+    <div class="container">
+      <div class="timeline-header">
+        <span class="section-label type-label-medium">Process</span>
+        <h2 class="headline type-headline-large">How we got there</h2>
+      </div>
+      <div class="timeline-grid">
+
+        <div class="step">
+          <span class="step-num type-label-small">01</span>
+          <h3 class="step-title type-title-large">Discovery</h3>
+          <p class="step-body type-body-medium">
+            Audited all three product surfaces, cataloguing every UI pattern,
+            token, and inconsistency to build a shared baseline.
+          </p>
+          <img
+            class="step-img"
+            src="./Cases%20Files/showmore%20case%20study/Frame%201000005186.png"
+            alt="Discovery"
+          >
+        </div>
+
+        <div class="step">
+          <span class="step-num type-label-small">02</span>
+          <h3 class="step-title type-title-large">Design</h3>
+          <p class="step-body type-body-medium">
+            Defined a token architecture, built the core component set,
+            and documented usage guidelines for each pattern.
+          </p>
+          <img
+            class="step-img"
+            src="./Cases%20Files/showmore%20case%20study/Frame%201000005655.png"
+            alt="Design"
+          >
+        </div>
+
+        <div class="step">
+          <span class="step-num type-label-small">03</span>
+          <h3 class="step-title type-title-large">Testing</h3>
+          <p class="step-body type-body-medium">
+            Ran prototype reviews with all three teams, iterated on edge
+            cases, and validated accessibility across light and dark modes.
+          </p>
+          <img
+            class="step-img"
+            src="./Cases%20Files/showmore%20case%20study/Frame%201000005185.png"
+            alt="Testing"
+          >
+        </div>
+
+        <div class="step">
+          <span class="step-num type-label-small">04</span>
+          <h3 class="step-title type-title-large">Launch</h3>
+          <p class="step-body type-body-medium">
+            Rolled out the system across all surfaces in a single coordinated
+            release, deprecating legacy components simultaneously.
+          </p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ── TWO IMAGES ── -->
+  <section class="two-images">
+    <div class="img-cell">
+      <img
+        src="./Cases%20Files/showmore%20case%20study/Rectangle%2010.png"
+        alt="Showmore — detail left"
+      >
+    </div>
+    <div class="img-cell">
+      <img
+        src="./Cases%20Files/showmore%20case%20study/Frame%201000005654.png"
+        alt="Showmore — detail right"
+      >
+    </div>
+  </section>
+
+</body>
+</html>
