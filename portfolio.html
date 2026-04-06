@@ -291,7 +291,7 @@
       ROT_MULT: 0, ROLL_MAX: 0,
       SCALE_ACTIVE: 0.79, SCALE_SPHERE: 0.83,
       OPACITY_MULT: 0.46, OPACITY_BASE: 1, BLUR_MAX: 0,
-      FRICTION: 0.82, SPRING: 0.07,
+      FRICTION: 0.76, SPRING: 0.18,
     },
     desktop: {
       R_MULT: 1.5, R_MAX: 1010, PERSPECTIVE: 590,
@@ -299,7 +299,7 @@
       ROT_MULT: 0, ROLL_MAX: 0,
       SCALE_ACTIVE: 1.29, SCALE_SPHERE: 0.83,
       OPACITY_MULT: 0.46, OPACITY_BASE: 1, BLUR_MAX: 0,
-      FRICTION: 0.82, SPRING: 0.07,
+      FRICTION: 0.76, SPRING: 0.18,
     },
   };
   const CFG = Object.assign({}, PRESETS.mobile);
@@ -609,7 +609,6 @@
         applyTransforms(posY);
         const newIdx = (((Math.round(posY) % N) + N) % N);
         if (newIdx !== activeIdx) onActiveChange(newIdx);
-        wheelLock = false;
         rafId = null;
         return;
       }
@@ -755,11 +754,10 @@
   stage.addEventListener('touchend', e => {
     if (innerWidth < 768 && swipeStartX !== null) {
       const delta = (e.changedTouches[0]?.clientX ?? swipeStartX) - swipeStartX;
-      if (Math.abs(delta) > 20) {
+      if (Math.abs(delta) > 20 && !rafId) {
         velY = Math.sign(-delta) * INPUT.mouseKick;
         kick();
-        wheelLock = true;
-      } else {
+      } else if (Math.abs(delta) <= 20) {
         kick(); // tap: spring back to current card
       }
     } else {
@@ -801,19 +799,23 @@
   });
 
   /* ══ WHEEL INPUT ══ */
-  let wheelLock = false;
+  let lastWheelMs = 0;
 
   window.addEventListener('wheel', e => {
     e.preventDefault();
-    const d = e.deltaX + e.deltaY;
-    if (Math.abs(d) < 1 || wheelLock) return;
+    const d   = e.deltaX + e.deltaY;
+    const mag = Math.abs(d);
+    if (mag < 1) return;
+    const now = Date.now();
+    const gap = now - lastWheelMs;
+    if (mag >= 10) lastWheelMs = now;        // track active-swipe events only
+    if (rafId || gap < 150) return;          // physics running OR same gesture
     velY += Math.sign(d) * INPUT.mouseKick;
     kick();
-    wheelLock = true;
   }, { passive: false });
   window.addEventListener('keydown', e => {
-    if (e.key === 'ArrowRight' && !wheelLock) { velY += INPUT.mouseKick; kick(); wheelLock = true; }
-    if (e.key === 'ArrowLeft'  && !wheelLock) { velY -= INPUT.mouseKick; kick(); wheelLock = true; }
+    if (e.key === 'ArrowRight' && !rafId) { velY += INPUT.mouseKick; kick(); }
+    if (e.key === 'ArrowLeft'  && !rafId) { velY -= INPUT.mouseKick; kick(); }
   });
 
   /* ══ BREAKPOINT ══ */
