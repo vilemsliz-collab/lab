@@ -807,9 +807,8 @@
     const mag = Math.abs(d);
     if (mag < 1) return;
     const now = Date.now();
-    const gap = now - lastWheelMs;
-    if (mag >= 10) lastWheelMs = now;        // track active-swipe events only
-    if (rafId || gap < 150) return;          // physics running OR same gesture
+    if (mag >= 15) lastWheelMs = now;        // track active-swipe events only
+    if (rafId || (now - lastWheelMs) < 150 || mag < 15) return;  // settled + gap + strong event
     velY += Math.sign(d) * INPUT.mouseKick;
     kick();
   }, { passive: false });
