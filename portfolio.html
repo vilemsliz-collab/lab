@@ -218,11 +218,11 @@
     /* ── Mesh gradient canvas ── */
     #bg-canvas {
       position: fixed;
-      inset: 0;
-      width: 100%; height: 100%;
+      inset: -24px;
+      width: calc(100% + 48px); height: calc(100% + 48px);
       z-index: 0;
       pointer-events: none;
-      filter: blur(28px) saturate(1.1);
+      filter: blur(16px) saturate(1.2);
     }
   </style>
 </head>
@@ -488,46 +488,38 @@
   }
 
   function samplePalette(src) {
-    // Downsample to 32×32, scan 8 pts per edge, pick most saturated: [top, right, bottom, left]
+    // Downsample to 32×32, find single most-saturated pixel across whole image
+    // Use same color for all 4 edges → seamless unified frame
     const S = 32;
     const c = document.createElement('canvas'); c.width = c.height = S;
     const x = c.getContext('2d');
     try { x.drawImage(src, 0, 0, S, S); } catch(e) { return null; }
-    const n = 8;
-    function mostSaturated(pts) {
-      let best = null, bestSat = -1;
-      for (const [px, py] of pts) {
-        const d = x.getImageData(px, py, 1, 1).data;
-        const sat = Math.max(d[0],d[1],d[2]) - Math.min(d[0],d[1],d[2]);
-        if (sat > bestSat) { bestSat = sat; best = [d[0],d[1],d[2]]; }
-      }
-      return best || [128,128,128];
+    const data = x.getImageData(0, 0, S, S).data;
+    let best = [128,128,128], bestSat = -1;
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i], g = data[i+1], b = data[i+2];
+      const sat = Math.max(r,g,b) - Math.min(r,g,b);
+      if (sat > bestSat) { bestSat = sat; best = [r,g,b]; }
     }
-    const range = Array.from({length: n}, (_, i) => Math.round(1 + (S-3)*i/(n-1)));
-    return [
-      mostSaturated(range.map(v => [v, 1])),        // top
-      mostSaturated(range.map(v => [S-2, v])),       // right
-      mostSaturated(range.map(v => [v, S-2])),       // bottom
-      mostSaturated(range.map(v => [1, v])),         // left
-    ];
+    return [best, best, best, best]; // same color all edges → unified frame
   }
 
   function fallbackPalette(card) {
-    const bg = hexToRgb(card.bg), ac = hexToRgb(card.ac);
-    return [ac, bg, ac, bg]; // [top, right, bottom, left]
+    const ac = hexToRgb(card.ac);
+    return [ac, ac, ac, ac]; // single accent color all edges → unified frame
   }
 
   function resizeBgCanvas() {
-    bgCanvas.width  = innerWidth;
-    bgCanvas.height = innerHeight;
+    bgCanvas.width  = innerWidth  + 48;
+    bgCanvas.height = innerHeight + 48;
   }
   window.addEventListener('resize', resizeBgCanvas);
   resizeBgCanvas();
 
   function drawEdgeGradients(palette) {
     const w = bgCanvas.width, h = bgCanvas.height;
-    const sw = w * 0.087;
-    const sh = h * 0.087;
+    const sw = w * 0.044;
+    const sh = h * 0.044;
     const [[tr,tg,tb],[rr,rg,rb],[br,bg_,bb],[lr,lg,lb]] = palette;
     bgCtx.clearRect(0, 0, w, h);
 
