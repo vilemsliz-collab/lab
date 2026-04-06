@@ -233,44 +233,44 @@ section { margin-bottom:56px; }
 </section>
 
 <section>
-  <h2>Shape — superellipse clip-path / JS</h2>
-  <div class="sp-group-label">scale (unitless px — used by shapePath() in JS)</div>
+  <h2>Shape — border-radius</h2>
+  <div class="sp-group-label">border-radius scale</div>
 
   <div class="sh-row">
     <span class="sh-label">--shape-sharp</span>
-    <span class="sh-val">0</span>
+    <span class="sh-val">0px</span>
     <div class="sh-box" id="sh-sharp"></div>
     <span class="sh-note">perfect rectangle</span>
   </div>
   <div class="sh-row">
     <span class="sh-label">--shape-card</span>
-    <span class="sh-val">2</span>
+    <span class="sh-val">4px</span>
     <div class="sh-box" id="sh-card"></div>
     <span class="sh-note">card default</span>
   </div>
   <div class="sh-row">
     <span class="sh-label">--shape-sm</span>
-    <span class="sh-val">8</span>
+    <span class="sh-val">8px</span>
     <div class="sh-box" id="sh-sm"></div>
-    <span class="sh-note"></span>
+    <span class="sh-note">small elements, step images</span>
   </div>
   <div class="sh-row">
     <span class="sh-label">--shape-md</span>
-    <span class="sh-val">16</span>
+    <span class="sh-val">12px</span>
     <div class="sh-box" id="sh-md"></div>
-    <span class="sh-note"></span>
+    <span class="sh-note">impact cards, gallery images</span>
   </div>
   <div class="sh-row">
     <span class="sh-label">--shape-lg</span>
-    <span class="sh-val">48</span>
+    <span class="sh-val">48px</span>
     <div class="sh-box" id="sh-lg"></div>
-    <span class="sh-note"></span>
+    <span class="sh-note">large</span>
   </div>
   <div class="sh-row">
     <span class="sh-label">--shape-pill</span>
-    <span class="sh-val">182</span>
+    <span class="sh-val">9999px</span>
     <div class="sh-box" id="sh-pill"></div>
-    <span class="sh-note">full circle / pill</span>
+    <span class="sh-note">pill / circle</span>
   </div>
 </section>
 
@@ -321,56 +321,24 @@ section { margin-bottom:56px; }
 </section>
 
 <script>
-function shapePath(w, h, px) {
-  const cx = w/2, cy = h/2;
-  const maxR = Math.min(cx, cy);
-  px = Math.max(-maxR, Math.min(maxR, px));
-  if (px >= 0) {
-    const t = px / maxR;
-    const n = Math.pow(2, 4 - 3*t);
-    let d = '';
-    for (let i = 0; i <= 200; i++) {
-      const a = (i/200)*2*Math.PI;
-      const ct = Math.cos(a), st = Math.sin(a);
-      const x = cx + cx * Math.sign(ct) * Math.pow(Math.abs(ct), 2/n);
-      const y = cy + cy * Math.sign(st) * Math.pow(Math.abs(st), 2/n);
-      d += (i===0?'M':'L') + x.toFixed(1) + ',' + y.toFixed(1) + ' ';
-    }
-    return d + 'Z';
-  } else {
-    const t = -px / maxR;
-    const rc = [[0,0],[w,0],[w,h],[0,h]];
-    const dc = [[cx,0],[w,cy],[cx,h],[0,cy]];
-    const pts = rc.map((p,i) => [
-      (p[0]*(1-t)+dc[i][0]*t).toFixed(1),
-      (p[1]*(1-t)+dc[i][1]*t).toFixed(1)
-    ]);
-    return `M${pts[0].join(',')} L${pts[1].join(',')} L${pts[2].join(',')} L${pts[3].join(',')} Z`;
-  }
-}
-
 [
-  ['sh-sharp', 0],
-  ['sh-card',  2],
-  ['sh-sm',    8],
-  ['sh-md',   16],
-  ['sh-lg',   48],
-  ['sh-pill', 182],
-].forEach(([id, px]) => {
-  const el = document.getElementById(id);
-  el.style.clipPath = `path('${shapePath(60, 60, px)}')`;
-});
+  ['sh-sharp', '0px'],
+  ['sh-card',  '4px'],
+  ['sh-sm',    '8px'],
+  ['sh-md',   '12px'],
+  ['sh-lg',   '48px'],
+  ['sh-pill', '9999px'],
+].forEach(([id, r]) => { document.getElementById(id).style.borderRadius = r; });
 
 // Card preview — scaled down to 91px × 138px (364×555 at 25%)
 const cardPrev = document.getElementById('card-prev');
-const cw = 91, ch = 138;
-cardPrev.style.width  = cw + 'px';
-cardPrev.style.height = ch + 'px';
-cardPrev.style.clipPath = `path('${shapePath(cw, ch, 2)}')`;
+cardPrev.style.width        = '91px';
+cardPrev.style.height       = '138px';
+cardPrev.style.borderRadius = '4px';
 
-// Button preview — 64×64 circle
+// Button preview — 64×64 pill
 const btnPrev = document.getElementById('btn-prev');
-btnPrev.style.clipPath = `path('${shapePath(64, 64, 182)}')`;
+btnPrev.style.borderRadius = '9999px';
 </script>
 </body>
 </html>

@@ -33,6 +33,7 @@ body {
   position: relative;
   z-index: 2;
   background: var(--card-bg);
+  border-radius: var(--shape-card);
   transition: none;
   will-change: transform;
 }
@@ -151,6 +152,7 @@ body {
   font-size: 28px;
   line-height: 1;
   cursor: pointer;
+  border-radius: var(--shape-pill);
   position: relative;
   transition:
     opacity  var(--dur, 400ms) ease,
@@ -198,13 +200,6 @@ a.back:hover, a.ds-link:hover { color:#333; }
 </div>
 
 <div class="controls">
-  <p class="ctrl-section">shape</p>
-  <div class="ctrl-row">
-    <span class="ctrl-label">roundness</span>
-    <input type="range" id="s-shape-n" min="-182" max="182" step="1" value="2">
-    <span class="ctrl-val" id="v-shape-n">+2px</span>
-  </div>
-
   <p class="ctrl-section">tilt</p>
   <div class="ctrl-row">
     <span class="ctrl-label">max tilt</span>
@@ -326,8 +321,7 @@ a.back:hover, a.ds-link:hover { color:#333; }
 
 <script>
 const CFG      = { stagger: 58, dur: 682, blur: 8, y: 8 };
-const SHAPE    = { px: +getComputedStyle(document.documentElement).getPropertyValue('--shape-card') || 2 };
-const VIGNETTE = { blur: 14, start: 72 }; // pixels: +182=circle, 0=rectangle, -182=diamond
+const VIGNETTE = { blur: 14, start: 72 };
 
 function wrapWords(el) {
   el.innerHTML = el.textContent.trim().split(/\s+/).map(w =>
@@ -446,59 +440,6 @@ if (isMobile()) {
   }
 }
 
-/* ── Shape clip-path (superellipse for +px, polygon for -px) ── */
-function shapePath(w, h, px) {
-  const cx   = w / 2, cy = h / 2;
-  const maxR = Math.min(cx, cy);
-  px = Math.max(-maxR, Math.min(maxR, px));
-
-  if (px >= 0) {
-    // Positive: superellipse — 0px = rectangle (n=16), +maxR = circle (n=2)
-    const t = px / maxR;
-    const n = Math.pow(2, 4 - 3 * t); // 16 → 2 exponentially
-    let d = '';
-    for (let i = 0; i <= 200; i++) {
-      const a  = (i / 200) * 2 * Math.PI;
-      const ct = Math.cos(a), st = Math.sin(a);
-      const x  = cx + cx * Math.sign(ct) * Math.pow(Math.abs(ct), 2 / n);
-      const y  = cy + cy * Math.sign(st) * Math.pow(Math.abs(st), 2 / n);
-      d += (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1) + ' ';
-    }
-    return d + 'Z';
-  } else {
-    // Negative: straight-polygon — lerp rectangle corners → diamond corners
-    const t  = -px / maxR;
-    const rc = [[0,0],[w,0],[w,h],[0,h]];
-    const dc = [[cx,0],[w,cy],[cx,h],[0,cy]];
-    const pts = rc.map((p, i) => [
-      (p[0] * (1 - t) + dc[i][0] * t).toFixed(1),
-      (p[1] * (1 - t) + dc[i][1] * t).toFixed(1),
-    ]);
-    return `M${pts[0].join(',')} L${pts[1].join(',')} L${pts[2].join(',')} L${pts[3].join(',')} Z`;
-  }
-}
-
-const btnEl    = document.getElementById('card-btn');
-const BTN_SHAPE = +getComputedStyle(document.documentElement).getPropertyValue('--shape-pill') || 182;
-
-function updateClipPath() {
-  const w = cardEl.offsetWidth;
-  const h = cardEl.offsetHeight;
-  if (!w || !h) return;
-  const p = `path('${shapePath(w, h, SHAPE.px)}')`;
-  cardEl.style.clipPath     = p;
-  cardEl.style.borderRadius = '0';
-  ghostClones.forEach(c => { c.style.clipPath = p; c.style.borderRadius = '0'; });
-
-  // Button uses --shape-lg independently from the card shape
-  const bw = btnEl.offsetWidth;
-  const bh = btnEl.offsetHeight;
-  if (bw && bh) {
-    btnEl.style.clipPath     = `path('${shapePath(bw, bh, BTN_SHAPE)}')`;
-    btnEl.style.borderRadius = '0';
-  }
-}
-
 /* ── Ghost clones ── */
 const GHOST = { layers: 6, opacity: 0.16, blur: 0, blend: 'normal' };
 const cardWrap = cardEl.parentElement;
@@ -558,7 +499,6 @@ function drawGhosts() {
 
 buildClones();
 setVariant('behind');
-updateClipPath();
 
 function setVariant(v) {
   const z = v === 'front' ? 3 : 1;
@@ -639,17 +579,7 @@ document.getElementById('s-glayers').addEventListener('input', e => {
   buildClones();
   const active = document.querySelector('.variant-btn.active')?.id === 'btn-behind' ? 'behind' : 'front';
   setVariant(active);
-  updateClipPath();
 });
-
-document.getElementById('s-shape-n').addEventListener('input', e => {
-  SHAPE.px = +e.target.value;
-  const v = SHAPE.px;
-  document.getElementById('v-shape-n').textContent = (v > 0 ? '+' : '') + v + 'px';
-  updateClipPath();
-});
-
-window.addEventListener('resize', updateClipPath);
 
 /* ── Vignette zoom blur (canvas) ── */
 const zoomCanvas = document.getElementById('card-zoom-blur');

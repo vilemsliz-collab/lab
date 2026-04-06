@@ -50,16 +50,23 @@
       top: 0; bottom: 0;
       left: 100%;
       right: 0;
-      background: var(--color-surface);
+      background: rgba(243, 244, 249, 0.82);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
       border-left: 1px solid var(--color-outline-variant);
+      border-radius: 16px 0 0 16px;
       z-index: 50;
       transition: left 0.55s cubic-bezier(0.4, 0, 0.2, 1);
       overflow: hidden;
     }
-    #case-panel iframe {
+    .case-frame {
+      position: absolute;
+      top: 0; left: 0;
       width: 100%; height: 100%;
       border: none;
       display: block;
+      transition: transform 0.55s cubic-bezier(0.4, 0, 0.2, 1),
+                  opacity 0.15s ease;
     }
 
     /* ── Toggle button (bottom-right of carousel, opens/closes case) ── */
@@ -72,7 +79,7 @@
       border: 1px solid var(--color-outline-variant);
       color: var(--color-on-surface-variant);
       font-size: 18px;
-      border-radius: 8px;
+      border-radius: var(--shape-sm);
       cursor: pointer;
       display: flex; align-items: center; justify-content: center;
       transition: background 0.15s, color 0.15s, opacity 0.2s;
@@ -89,8 +96,8 @@
     }
 
     /* ── Split state ── */
-    body.case-open #stage      { right: 67vw; }
-    body.case-open #case-panel { left: 33vw; }
+    body.case-open #stage      { right: 75vw; }
+    body.case-open #case-panel { left: 25vw; }
 
     /* ── Card wrap: receives carousel 3D transform ── */
     .card-wrap {
@@ -115,6 +122,7 @@
       position: relative;
       z-index: 2;
       background: var(--card-bg);
+      border-radius: 32px;
       will-change: transform;
       backface-visibility: hidden;
       -webkit-backface-visibility: hidden;
@@ -279,7 +287,8 @@
   </div>
 
   <div id="case-panel">
-    <iframe id="case-frame" src="" title="Case study"></iframe>
+    <iframe id="case-frame-a" class="case-frame" src="" title="Case study"></iframe>
+    <iframe id="case-frame-b" class="case-frame" src="" title="Case study next"></iframe>
   </div>
 
 <script>
@@ -290,12 +299,19 @@
 
   /* ══ CAROUSEL CONFIG ══ */
   const PRESETS = {
+    split: {
+      R_MULT: 1.5, R_MAX: 1010, PERSPECTIVE: 200,
+      ROT_MULT: 0, ROLL_MAX: 0,
+      SCALE_ACTIVE: 0.89, SCALE_SPHERE: 0.86,
+      OPACITY_MULT: 0.46, OPACITY_BASE: 1.00, BLUR_MAX: 8,
+      FRICTION: 0.76, SPRING: 0.03,
+    },
     mobile: {
       R_MULT: 1.5, R_MAX: 1010, PERSPECTIVE: 200,
       LAT: [-30, 18, -42, 35, -12], LON_SPREAD: 1.0,
       ROT_MULT: 0, ROLL_MAX: 0,
       SCALE_ACTIVE: 0.79, SCALE_SPHERE: 0.83,
-      OPACITY_MULT: 0.46, OPACITY_BASE: 1, BLUR_MAX: 0,
+      OPACITY_MULT: 0.46, OPACITY_BASE: 1, BLUR_MAX: 8,
       FRICTION: 0.76, SPRING: 0.03,
     },
     desktop: {
@@ -303,7 +319,7 @@
       LAT: [-25, 15, -38, 30, -10], LON_SPREAD: 1.0,
       ROT_MULT: 0, ROLL_MAX: 0,
       SCALE_ACTIVE: 1.29, SCALE_SPHERE: 0.83,
-      OPACITY_MULT: 0.46, OPACITY_BASE: 1, BLUR_MAX: 0,
+      OPACITY_MULT: 0.46, OPACITY_BASE: 1, BLUR_MAX: 8,
       FRICTION: 0.76, SPRING: 0.03,
     },
   };
@@ -312,10 +328,8 @@
   /* ══ CARD EFFECT CONFIG ══ */
   const REVEAL = { stagger: 58, dur: 682, blur: 8, y: 8 };
   const INPUT  = { mouseKick: 0.20, touchSens: 0.02 };
-  const SHAPE  = { px: +DS.getPropertyValue('--shape-card') || 2 };
   const TILT   = { max: 16, stiffness: 0.1, damping: 0.75 };
-  const GHOST  = { layers: 4, opacity: 0.16, blur: 0, blend: 'normal', variant: 'front' };
-  const BTN_SHAPE = +DS.getPropertyValue('--shape-pill') || 182;
+  const GHOST  = { layers: 4, opacity: 0.16, blur: 0, blend: 'normal', variant: 'behind' };
 
   /* ══ CARDS DATA ══ */
   const CARDS = [
@@ -359,7 +373,11 @@
 
   /* ══ CASE STUDY PANEL ══ */
   let caseOpen = false;
-  const caseFrame      = document.getElementById('case-frame');
+  const frameA         = document.getElementById('case-frame-a');
+  const frameB         = document.getElementById('case-frame-b');
+  let frontFrame       = frameA;
+  let backFrame        = frameB;
+  frameB.style.transform = 'translateX(100%)';
   const caseToggleBtn  = document.getElementById('case-toggle-btn');
 
   function runSplitTransition(targetPresetName, onEnd) {
@@ -384,21 +402,52 @@
     requestAnimationFrame(frame);
   }
 
+  function switchCaseContent(url) {
+    backFrame.style.opacity = '0';
+    backFrame.addEventListener('load', () => {
+      backFrame.style.opacity = '1';
+      backFrame.style.transform = 'translateX(0)';
+      setTimeout(() => {
+        frontFrame.src = '';
+        frontFrame.style.transition = 'none';
+        frontFrame.style.transform = 'translateX(100%)';
+        requestAnimationFrame(() => { frontFrame.style.transition = ''; });
+        [frontFrame, backFrame] = [backFrame, frontFrame];
+      }, 560);
+    }, { once: true });
+    backFrame.src = url;
+  }
+
   function openCasePanel() {
-    caseFrame.src = './case-study.html';
+    frontFrame.style.opacity = '0';
+    frontFrame.style.transition = 'none';
+    frontFrame.style.transform = 'translateX(0)';
+    requestAnimationFrame(() => { frontFrame.style.transition = ''; });
+    frontFrame.addEventListener('load', () => {
+      frontFrame.style.opacity = '1';
+    }, { once: true });
+    frontFrame.src = CARDS[activeIdx]?.href || './case-study.html';
     document.body.classList.add('case-open');
     caseOpen = true;
+    baseTiltY = TILT.max * 0.5; tiltTy = baseTiltY;
     caseToggleBtn.innerHTML = '&#x2715;';
-    const targetPreset = (innerWidth * 0.33) >= 768 ? 'desktop' : 'mobile';
-    runSplitTransition(targetPreset, () => { loadPreset(targetPreset); applyTransforms(posY); updateClipPath(); });
+    runSplitTransition('split', () => { loadPreset('split'); applyTransforms(posY); });
   }
 
   function closeCasePanel() {
     document.body.classList.remove('case-open');
     caseOpen = false;
+    baseTiltY = 0; tiltTy = 0;
     caseToggleBtn.innerHTML = '&#x2922;';
     const targetPreset = innerWidth >= 768 ? 'desktop' : 'mobile';
-    runSplitTransition(targetPreset, () => { caseFrame.src = ''; loadPreset(targetPreset); applyTransforms(posY); updateClipPath(); });
+    runSplitTransition(targetPreset, () => {
+      frontFrame.src = '';
+      backFrame.src = '';
+      backFrame.style.transition = 'none';
+      backFrame.style.transform = 'translateX(100%)';
+      requestAnimationFrame(() => { backFrame.style.transition = ''; });
+      loadPreset(targetPreset); applyTransforms(posY);
+    });
   }
 
   caseToggleBtn.addEventListener('click', e => {
@@ -426,6 +475,7 @@
   let activeIdx = -1;
 
   let tiltRx = 0, tiltRy = 0, tiltVx = 0, tiltVy = 0, tiltTx = 0, tiltTy = 0;
+  let baseTiltY = 0;
   let activeCardEl = null;
   const ghostClones = [];
 
@@ -446,60 +496,6 @@
     const r = seededRng(i * 6271 + 3491);
     return (r() - 0.5) * 2;
   });
-
-  /* ══ SUPERELLIPSE SHAPE PATH ══ */
-  function shapePath(w, h, px) {
-    const cx = w / 2, cy = h / 2;
-    const maxR = Math.min(cx, cy);
-    px = Math.max(-maxR, Math.min(maxR, px));
-    if (px >= 0) {
-      const t = px / maxR;
-      const n = Math.pow(2, 4 - 3 * t);
-      let d = '';
-      for (let i = 0; i <= 200; i++) {
-        const a  = (i / 200) * 2 * Math.PI;
-        const ct = Math.cos(a), st = Math.sin(a);
-        const x  = cx + cx * Math.sign(ct) * Math.pow(Math.abs(ct), 2 / n);
-        const y  = cy + cy * Math.sign(st) * Math.pow(Math.abs(st), 2 / n);
-        d += (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1) + ' ';
-      }
-      return d + 'Z';
-    } else {
-      const t  = -px / maxR;
-      const rc = [[0,0],[w,0],[w,h],[0,h]];
-      const dc = [[cx,0],[w,cy],[cx,h],[0,cy]];
-      const pts = rc.map((p, j) => [
-        (p[0] * (1 - t) + dc[j][0] * t).toFixed(1),
-        (p[1] * (1 - t) + dc[j][1] * t).toFixed(1),
-      ]);
-      return `M${pts[0].join(',')} L${pts[1].join(',')} L${pts[2].join(',')} L${pts[3].join(',')} Z`;
-    }
-  }
-
-  /* ══ CLIP PATH — all cards + active ghosts + active button ══ */
-  function updateClipPath() {
-    cardEls.forEach(el => {
-      const w = el.offsetWidth, h = el.offsetHeight;
-      if (!w || !h) return;
-      el.style.clipPath     = `path('${shapePath(w, h, SHAPE.px)}')`;
-      el.style.borderRadius = '0';
-    });
-    if (activeCardEl) {
-      const w = activeCardEl.offsetWidth, h = activeCardEl.offsetHeight;
-      if (w && h) {
-        const p = `path('${shapePath(w, h, SHAPE.px)}')`;
-        ghostClones.forEach(c => { c.style.clipPath = p; c.style.borderRadius = '0'; });
-      }
-      const btn = activeCardEl.querySelector('.card-btn');
-      if (btn) {
-        const bw = btn.offsetWidth, bh = btn.offsetHeight;
-        if (bw && bh) {
-          btn.style.clipPath     = `path('${shapePath(bw, bh, BTN_SHAPE)}')`;
-          btn.style.borderRadius = '0';
-        }
-      }
-    }
-  }
 
   /* ══ GHOST CLONES ══ */
   function buildActiveClones() {
@@ -576,9 +572,8 @@
   /* ══ ACTIVE CARD LIFECYCLE ══ */
   function onActiveChange(newIdx) {
     activeIdx = newIdx;
-    if (caseOpen) caseFrame.src = './case-study.html';
+    if (caseOpen) switchCaseContent(CARDS[newIdx].href || './case-study.html');
     revealActiveCard();
-    updateClipPath();
   }
 
   /* ══ CAROUSEL TRANSFORMS ══ */
@@ -700,8 +695,16 @@
 
   document.addEventListener('mousemove', e => {
     if (isMobile()) return;
-    tiltTy =  (e.clientX / window.innerWidth  - 0.5) * 2 * TILT.max;
+    if (caseOpen) {
+      const rel = (e.clientX / stage.offsetWidth - 0.5) * 2;
+      tiltTy = clamp(baseTiltY + rel * TILT.max * 0.6, -TILT.max, TILT.max);
+    } else {
+      tiltTy = (e.clientX / window.innerWidth - 0.5) * 2 * TILT.max;
+    }
     tiltTx = -(e.clientY / window.innerHeight - 0.5) * 2 * TILT.max;
+  });
+  stage.addEventListener('mouseleave', () => {
+    if (!isMobile()) tiltTy = baseTiltY;
   });
 
   function attachGyro() {
@@ -890,7 +893,6 @@
     checkBreakpoint();
     /* resizeScrubber(); */
     applyTransforms(posY);
-    updateClipPath();
   });
 
   /* ══ CTRL PANEL SYSTEM ══ */
@@ -1029,26 +1031,6 @@
   addCopyBtn(sec, () => `FRICTION: ${CFG.FRICTION.toFixed(2)}, SPRING: ${CFG.SPRING.toFixed(2)}, mouseKick: ${INPUT.mouseKick.toFixed(2)}, touchSens: ${INPUT.touchSens.toFixed(2)}`);
 
   /* ── Card section ── */
-  sec = addSection('Shape');
-  {
-    const row = document.createElement('div'); row.className = 'dev-row';
-    const lbl = document.createElement('span'); lbl.className = 'dev-label'; lbl.textContent = 'roundness';
-    const range = document.createElement('input');
-    range.type = 'range'; range.min = '-182'; range.max = '182'; range.step = '1'; range.value = SHAPE.px;
-    const val = document.createElement('span'); val.className = 'dev-val';
-    val.textContent = (SHAPE.px > 0 ? '+' : '') + SHAPE.px + 'px';
-    range.addEventListener('input', () => {
-      SHAPE.px = +range.value;
-      val.textContent = (SHAPE.px > 0 ? '+' : '') + SHAPE.px + 'px';
-      updateClipPath();
-    });
-    range.addEventListener('mousedown',  e => e.stopPropagation());
-    range.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
-    row.appendChild(lbl); row.appendChild(range); row.appendChild(val);
-    sec.appendChild(row);
-  }
-  addCopyBtn(sec, () => `SHAPE.px: ${SHAPE.px}`);
-
   sec = addSection('Ghost');
   {
     const brow = document.createElement('div'); brow.className = 'dev-btn-row';
@@ -1069,7 +1051,7 @@
   }
   {
     const layersRange = addRow(sec, 'layers', null, 1, 16, 1, v => Math.round(v), v => {
-      GHOST.layers = Math.round(v); buildActiveClones(); updateClipPath();
+      GHOST.layers = Math.round(v); buildActiveClones();
     });
     layersRange.value = GHOST.layers;
     layersRange.closest('.dev-row').querySelector('.dev-val').textContent = GHOST.layers;

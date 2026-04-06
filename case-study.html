@@ -35,22 +35,21 @@
 
     /* ── Shared container ── */
     .container {
-      max-width: 1120px;
-      margin: 0 auto;
-      padding: 0 var(--space-10);
+      max-width: none;
+      padding: 0;
     }
 
     /* ════════════════════════════════
-       HERO — padded image, no overlay
+       REVEAL
     ════════════════════════════════ */
-    .hero {
-      padding: var(--space-16) var(--space-10) 0;
+    .reveal {
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.45s ease, transform 0.45s ease;
     }
-    .hero img {
-      width: 100%;
-      display: block;
-      aspect-ratio: 3 / 2;
-      object-fit: cover;
+    .reveal.in-view {
+      opacity: 1;
+      transform: translateY(0);
     }
 
     /* ════════════════════════════════
@@ -95,6 +94,7 @@
       flex-direction: column;
       justify-content: space-between;
       min-height: 200px;
+      border-radius: var(--shape-md);
     }
     .impact-value {
       display: block;
@@ -108,18 +108,17 @@
     }
 
     /* ════════════════════════════════
-       IMAGE GALLERY — full viewport width
+       IMAGE GALLERY
     ════════════════════════════════ */
     .gallery-section {
-      padding: var(--space-16) 0;
+      padding: var(--space-16) var(--space-10);
     }
     .gallery {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 8px;
-      padding: 0 8px;
     }
-    .gallery-item { overflow: hidden; }
+    .gallery-item { overflow: hidden; border-radius: var(--shape-md); }
     .gallery-item img {
       width: 100%;
       height: 100%;
@@ -156,6 +155,7 @@
     .step {
       background: var(--color-surface);
       padding: var(--inset-xl);
+      border-radius: var(--shape-md);
     }
     .step-num {
       display: block;
@@ -170,6 +170,7 @@
       object-fit: cover;
       display: block;
       margin-top: var(--stack-lg);
+      border-radius: var(--shape-sm);
     }
 
     /* ════════════════════════════════
@@ -203,18 +204,9 @@
 
   <a class="back" href="./index.html">← lab</a>
 
-  <!-- ── HERO — padded image ── -->
-  <section class="hero">
-    <img
-      src="./Cases%20Files/showmore%20case%20study/Rectangle%208.png"
-      alt="Showmore — hero"
-    >
-  </section>
-
   <!-- ── CHALLENGE × SOLUTION ── -->
   <section class="cs-section">
-    <div class="container">
-      <h1 class="type-display-medium cs-title">Showmore</h1>
+      <h1 class="type-display-large cs-title">Branding for new 360 agency on the market</h1>
       <div class="cs-grid">
         <div class="cs-block">
           <span class="cs-block-label type-headline-small">Challenge</span>
@@ -236,12 +228,10 @@
           </p>
         </div>
       </div>
-    </div>
   </section>
 
   <!-- ── IMPACT ── -->
   <section class="impact">
-    <div class="container">
       <div class="impact-grid">
         <div class="impact-item">
           <span class="impact-value type-display-small">12 Weeks</span>
@@ -256,7 +246,6 @@
           <span class="impact-label type-body-medium">Shipped in v1.0</span>
         </div>
       </div>
-    </div>
   </section>
 
   <!-- ── IMAGE GALLERY ── -->
@@ -290,7 +279,6 @@
 
   <!-- ── TIMELINE ── -->
   <section class="timeline">
-    <div class="container">
       <div class="timeline-header">
         <h2 class="type-headline-large">How we got there</h2>
       </div>
@@ -348,7 +336,6 @@
         </div>
 
       </div>
-    </div>
   </section>
 
 
@@ -359,47 +346,16 @@
     if (back) back.style.display = 'none';
   }
 
-  const DS        = getComputedStyle(document.documentElement);
-  const SHP_CARD  = +DS.getPropertyValue('--shape-card') || 2;  // gallery/hero images — nearly sharp
-  const SHP_SM    = +DS.getPropertyValue('--shape-sm')   || 8;  // step images — matches prev card feel
-  const REF_MAXR  = 182; // portfolio card min(364/2, 555/2) — reference for proportional t
-
-  const T_IMG      = SHP_CARD / REF_MAXR;  // ≈ 0.011 — very subtle, gallery & hero images
-  const T_CARD     = 4      / REF_MAXR;    // ≈ 0.022 — cards, half of prev
-  const T_STEP_IMG = SHP_SM  / REF_MAXR;   // ≈ 0.044 — step card images, same as prev card corners
-
-  function shapePath(w, h, px) {
-    const cx = w / 2, cy = h / 2;
-    const maxR = Math.min(cx, cy);
-    px = Math.max(-maxR, Math.min(maxR, px));
-    const t = px / maxR;
-    const n = Math.pow(2, 4 - 3 * t);
-    let d = '';
-    for (let i = 0; i <= 200; i++) {
-      const a  = (i / 200) * 2 * Math.PI;
-      const ct = Math.cos(a), st = Math.sin(a);
-      const x  = cx + cx * Math.sign(ct) * Math.pow(Math.abs(ct), 2 / n);
-      const y  = cy + cy * Math.sign(st) * Math.pow(Math.abs(st), 2 / n);
-      d += (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1) + ' ';
-    }
-    return d + 'Z';
-  }
-
-  function applyShape(el, t) {
-    const w = el.offsetWidth, h = el.offsetHeight;
-    if (!w || !h) return;
-    const maxR = Math.min(w, h) / 2;
-    el.style.clipPath = `path('${shapePath(w, h, t * maxR)}')`;
-  }
-
-  function applyShapes() {
-    document.querySelectorAll('.impact-item, .step').forEach(el => applyShape(el, T_CARD));
-    document.querySelectorAll('.step-img').forEach(el => applyShape(el, T_STEP_IMG));
-    document.querySelectorAll('.gallery-item img, .hero img').forEach(el => applyShape(el, T_IMG));
-  }
-
-  window.addEventListener('load',   applyShapes);
-  window.addEventListener('resize', applyShapes);
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) { e.target.classList.add('in-view'); io.unobserve(e.target); }
+    });
+  }, { threshold: 0.12 });
+  document.querySelectorAll('.cs-block, .impact-item, .gallery-item, .step').forEach((el, i) => {
+    el.classList.add('reveal');
+    el.style.transitionDelay = (i % 4) * 60 + 'ms';
+    io.observe(el);
+  });
 })();
 </script>
 </body>

@@ -146,14 +146,13 @@
 
   --card-btn-size:    64px;
 
-  /* ── Shape — superellipse roundness (unitless px for JS clip-path) ── */
-  /* Positive = superellipse toward circle, 0 = rectangle, negative = toward diamond */
-  --shape-sharp:  0;    /* perfect rectangle */
-  --shape-card:   2;    /* card default — barely-off rectangle */
-  --shape-sm:     8;
-  --shape-md:    16;
-  --shape-lg:    48;
-  --shape-pill: 182;    /* full circle / pill */
+  /* ── Shape — border-radius scale ── */
+  --shape-sharp:   0px;
+  --shape-card:    4px;
+  --shape-sm:      8px;
+  --shape-md:     12px;
+  --shape-lg:     48px;
+  --shape-pill: 9999px;
 
 }
 
