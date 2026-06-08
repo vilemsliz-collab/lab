@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>InkText</title>
+  <title>Case 005 — In Progress</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:wght@100..900&family=IBM+Plex+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../design-system.css">
-  <link rel="stylesheet" href="./ink-text.css">
+  <link rel="stylesheet" href="./design-system.css">
+  <link rel="stylesheet" href="./ink-text/ink-text.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { height: 100%; overflow: hidden; background: var(--color-background); }
@@ -16,13 +16,17 @@
 </head>
 <body>
   <div id="root"></div>
-  <script src="./ink-text.js"></script>
+  <script src="./ink-text/ink-text.js"></script>
   <script>
+    const inFrame = window.self !== window.top;
     window.initInkText({
       mount: document.getElementById('root'),
-      defaultLines: ["Feeling isn't accidental.", "It's designed."],
-      showBackLink: true,
-      backHref: '../',
+      defaultLines: [
+        "If you've already clicked through to here,",
+        "feel free to play with this artifact.",
+      ],
+      showBackLink: !inFrame,
+      backHref: './index.html',
     });
   </script>
 </body>
