@@ -145,21 +145,6 @@
       color: #fff;
     }
 
-    .card-badge {
-      position: absolute;
-      top: var(--space-4); left: var(--space-4);
-      z-index: 4;
-      padding: var(--space-1) var(--space-3);
-      background: rgba(255, 255, 255, 0.92);
-      color: var(--color-on-background);
-      border-radius: var(--shape-pill);
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      pointer-events: none;
-    }
-
     /* ── Ghost clone ── */
     .ghost-clone {
       position: absolute;
@@ -352,7 +337,7 @@
     { id:'002', lines:['Generative systems,',  'designed in code.'],   role:'Creative Technologist',  href:'./orbs-v5.html', bg:'#080e1c', ac:'#4dd0e1', img:'./Cases%20Files/Free_Dropper_Bottle_Mockup.png' },
     { id:'003', lines:['Audio reactive,',      'visual frequency.'],   role:'Interaction Designer',   href:null,             bg:'#1e0a0a', ac:'#ff5252', img:'./Cases%20Files/Frame%201000005182.png' },
     { id:'004', lines:['Procedural terrain,',  'rendered at runtime.'],role:'Generative Artist',      href:null,             bg:'#071207', ac:'#66ff99', img:'./Cases%20Files/image-60.png' },
-    { id:'005', lines:['Fluid simulation,',    'physics made visual.'],role:'Visual Engineer',        href:null,             bg:'#141414', ac:'#e0e0e0', img:'./Cases%20Files/Firefly%252020250309110302-enhanced%201%201.png', caseUrl:'./case-005.html', status:'in-progress' },
+    { id:'005', lines:['Fluid simulation,',    'physics made visual.'],role:'Visual Engineer',        href:null,             bg:'#141414', ac:'#e0e0e0', img:'./Cases%20Files/Firefly%252020250309110302-enhanced%201%201.png' },
   ];
   const N = CARDS.length;
 
@@ -373,7 +358,6 @@
     el.innerHTML = `
       ${card.video ? `<video class="card-bg" src="${card.video}" autoplay loop muted playsinline></video>` : card.img ? `<img class="card-bg" src="${card.img}" alt="">` : ''}
       <div class="card-overlay"></div>
-      ${card.status === 'in-progress' ? `<div class="card-badge type-label-small">In Progress</div>` : ''}
       <div class="card-content">
         <p class="type-label-small card-line">${card.role}</p>
         <p class="type-headline-small card-line">${card.lines[0]}</p>
@@ -442,7 +426,7 @@
     frontFrame.addEventListener('load', () => {
       frontFrame.style.opacity = '1';
     }, { once: true });
-    frontFrame.src = (CARDS[activeIdx] && CARDS[activeIdx].caseUrl) || './case-study.html';
+    frontFrame.src = './case-study.html';
     document.body.classList.add('case-open');
     caseOpen = true;
     baseTiltY = TILT.max * 0.5; tiltTy = baseTiltY;
@@ -588,7 +572,7 @@
   /* ══ ACTIVE CARD LIFECYCLE ══ */
   function onActiveChange(newIdx) {
     activeIdx = newIdx;
-    if (caseOpen) switchCaseContent((CARDS[newIdx] && CARDS[newIdx].caseUrl) || './case-study.html');
+    if (caseOpen) switchCaseContent('./case-study.html');
     revealActiveCard();
   }
 
