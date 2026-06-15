@@ -347,7 +347,7 @@ function buildGlyphMask() {
   gCols = cols; gRows = rows; gCellPx = cellPx;
   const M = cols * rows;
   cellW = new Float32Array(M); cellRate = new Float32Array(M); cellPhase = new Float32Array(M); motAcc = new Float32Array(M); prevLum = null;
-  for (let i = 0; i < M; i++) { cellRate[i] = 4 + hash01(i, 7) * 12; cellPhase[i] = hash01(i, 3); }
+  for (let i = 0; i < M; i++) { cellRate[i] = 9 + hash01(i, 7) * 26; cellPhase[i] = hash01(i, 3); }   // fast, varied rates
   sampleMask();
 }
 
@@ -378,7 +378,7 @@ function sampleMask() {
 
 function updateGlyphFlicker(time) {
   if (!cellW || !state.gOn) { glyphCount = 0; glyphGeo.setDrawRange(0, 0); return; }
-  const cols = gCols, rows = gRows, M = cols * rows, dens = state.gDensity, sp = 2.4;   // natively fast flicker
+  const cols = gCols, rows = gRows, M = cols * rows, dens = state.gDensity, sp = 4.2;   // natively very fast flicker
   let n = 0;
   for (let i = 0; i < M && n < MAX_LETTERS; i++) {
     if (cellW[i] <= 0.001) continue;             // off-target stays empty
@@ -541,7 +541,7 @@ dom.sampleBtn.onclick = () => {
   loadImage('https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=1600&q=80&auto=format', false)
     .catch(() => showError('Could not load the sample (network/CORS). Try adding your own photo.'));
 };
-function resetMedia() { stopRecording(true); if (media.type === 'video') { dom.video.pause(); dom.video.removeAttribute('src'); dom.video.load(); } bypass = false; }
+function resetMedia() { stopRecording(true); pendingBlob = null; if (media.type === 'video') { dom.video.pause(); dom.video.removeAttribute('src'); dom.video.load(); } bypass = false; }
 ['dragover', 'drop'].forEach(ev => dom.stage.addEventListener(ev, e => e.preventDefault()));
 dom.stage.addEventListener('drop', e => {
   const f = e.dataTransfer.files[0]; if (!f) return; const url = URL.createObjectURL(f); resetMedia();
@@ -549,30 +549,51 @@ dom.stage.addEventListener('drop', e => {
 });
 
 /* ─────────────────────────── Export (share to Photos) ─────────────────────────── */
-let recorder = null, recChunks = [], recMime = '';
+let recorder = null, recChunks = [], recMime = '', pendingBlob = null, pendingName = '';
 function pickMime() { return ['video/mp4;codecs=h264', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm'].find(t => window.MediaRecorder && MediaRecorder.isTypeSupported(t)) || ''; }
-async function shareOrDownload(blob, filename) {
+// Returns true if it handled the save; false if it needs a user gesture (iOS share).
+async function trySave(blob, filename) {
   const file = new File([blob], filename, { type: blob.type });
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    try { await navigator.share({ files: [file] }); return; } catch (e) { if (e && e.name === 'AbortError') return; }
+    try { await navigator.share({ files: [file] }); return true; }
+    catch (e) { if (e && e.name === 'AbortError') return true; return false; }   // NotAllowed → needs a gesture
   }
   const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename;
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000);
+  return true;
 }
-dom.exportBtn.onclick = () => { if (media.type === 'image') exportImage(); else if (media.type === 'video') toggleRecording(); };
+function setPending(blob, name) {   // couldn't save without a gesture — let the next tap do it
+  pendingBlob = blob; pendingName = name;
+  dom.exportBtn.textContent = 'Save video'; dom.exportBtn.classList.add('btn--accent');
+}
+dom.exportBtn.onclick = async () => {
+  if (pendingBlob) { const b = pendingBlob, n = pendingName; pendingBlob = null; dom.exportBtn.textContent = 'Record'; if (!await trySave(b, n)) setPending(b, n); return; }
+  if (media.type === 'image') exportImage();
+  else if (media.type === 'video') toggleRecording();
+};
 function exportImage() {
   bypass = false; renderFrame();
   const out = document.createElement('canvas'); out.width = dom.canvas.width; out.height = dom.canvas.height;
   out.getContext('2d').drawImage(dom.canvas, 0, 0);
-  out.toBlob(b => { if (b) shareOrDownload(b, `halation-${Date.now()}.png`); }, 'image/png');
+  out.toBlob(b => { if (b) trySave(b, `halation-${Date.now()}.png`); }, 'image/png');
 }
 function toggleRecording() {
   if (recorder) { stopRecording(); return; }
   recMime = pickMime(); if (!recMime) { showError('Recording is not supported in this browser.'); return; }
-  const stream = dom.canvas.captureStream(30);
-  recorder = new MediaRecorder(stream, { mimeType: recMime, videoBitsPerSecond: 16_000_000 });
-  recChunks = []; recorder.ondataavailable = e => { if (e.data.size) recChunks.push(e.data); };
-  recorder.onstop = () => { const ext = recMime.includes('mp4') ? 'mp4' : 'webm'; shareOrDownload(new Blob(recChunks, { type: recMime }), `halation-${Date.now()}.${ext}`); };
+  let stream; try { stream = dom.canvas.captureStream(30); } catch (e) { showError('Recording is not supported on this canvas.'); return; }
+  try { recorder = new MediaRecorder(stream, { mimeType: recMime, videoBitsPerSecond: 12_000_000 }); }
+  catch (e) { try { recorder = new MediaRecorder(stream); } catch (e2) { showError('Recording is not supported in this browser.'); return; } }
+  recChunks = []; recorder.ondataavailable = e => { if (e.data && e.data.size) recChunks.push(e.data); };
+  recorder.onstop = async () => {
+    const type = (recorder && recorder.mimeType) || recMime;
+    const ext = type.includes('mp4') ? 'mp4' : 'webm';
+    const blob = new Blob(recChunks, { type });
+    if (!blob.size) { showError('Recording came back empty — try again.'); return; }
+    const name = `halation-${Date.now()}.${ext}`;
+    // Manual stop is still inside the tap's activation window, so try to save now;
+    // if the clip auto-ended (no gesture) the share is blocked → stash for one tap.
+    if (!await trySave(blob, name)) setPending(blob, name);
+  };
   dom.video.currentTime = 0; dom.video.loop = false; dom.video.play(); recorder.start();
   dom.rec.classList.remove('hidden'); dom.exportBtn.textContent = 'Stop'; dom.video.onended = () => stopRecording();
 }
@@ -580,7 +601,8 @@ function stopRecording(silent) {
   if (!recorder) return; try { recorder.stop(); } catch (e) {}
   recorder = null; dom.video.loop = true; dom.video.onended = null;
   if (!silent && media.type === 'video') dom.video.play().catch(() => {});
-  dom.rec.classList.add('hidden'); if (dom.exportBtn) dom.exportBtn.textContent = media.type === 'video' ? 'Record' : 'Export';
+  dom.rec.classList.add('hidden');
+  if (dom.exportBtn && !pendingBlob) dom.exportBtn.textContent = media.type === 'video' ? 'Record' : 'Export';
 }
 
 /* ── Errors ── */
