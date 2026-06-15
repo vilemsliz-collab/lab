@@ -64,7 +64,7 @@ const CONTROLS = {
   ],
   blur: [
     { t: 'select', key: 'blurMode', label: 'Type', options: [ { label: 'Directional', val: 0 }, { label: 'Zoom', val: 1 } ] },
-    { t: 'note', text: 'Zoom: tap the image to set the centre. Directional: set the Angle.' },
+    { t: 'note', text: 'Drag on the image: Zoom sets the centre, Directional sets the angle (or use the slider).' },
     { t: 'slider', key: 'blur',       label: 'Amount',    min: 0, max: 1, step: 0.01 },
     { t: 'slider', key: 'blurAngle',  label: 'Angle',     min: 0, max: 6.2832, step: 0.01 },
     { t: 'slider', key: 'blurSmooth', label: 'Smoothing', min: 0, max: 1, step: 0.01 },
@@ -257,8 +257,9 @@ const glyphMat = new THREE.ShaderMaterial({
 glyphScene.add(new THREE.Points(glyphGeo, glyphMat));
 let glyphCount = 0;
 const gridCanvas = document.createElement('canvas');
-// Persistent letter-cell mask (rebuilt occasionally); flicker re-rolls every frame.
-let gCells = [], gCols = 0, gRows = 0, gCellPx = 0;
+// Per-cell tracking weight (continuous), resampled in real time; flicker re-rolls every frame.
+let gCols = 0, gRows = 0, gCellPx = 0;
+let cellW = null, cellRate = null, cellPhase = null, prevLum = null;
 
 /* ── Composer ── */
 let composer, adjustPass, blurPass, bloomPass;
@@ -328,70 +329,67 @@ function setupMedia(type, el, w, h, tex) {
   requestRender();
 }
 
-/* ── Greek-letter field: blob tracking + Ikeda-style temporal flicker ──
-   buildGlyphMask() finds the cells worth lighting (connected blobs of dark /
-   light content, on a monospace grid). updateGlyphFlicker() runs every frame
-   and re-rolls which of those cells are lit and which glyph they show, each at
-   its own fast random rate — a flickering data field that clusters on blobs. */
+/* ── Greek-letter field: real-time light/motion tracking + Ikeda flicker ──
+   buildGlyphMask() sizes the monospace grid and seeds each cell's flicker.
+   sampleMask() runs in real time (every frame on video): it reads the current
+   frame downsampled to the grid, and gives each cell a weight that is the
+   contrast-normalised brightness (so light areas are genuinely denser) plus a
+   frame-difference motion term (so the field reacts to what moves over time).
+   updateGlyphFlicker() re-rolls which cells are lit and which glyph each shows,
+   every frame, at each cell's own fast random rate — density follows weight. */
 function hash01(a, b) { let h = (Math.imul(a, 374761393) + Math.imul(b, 668265263)) >>> 0; h = (h ^ (h >>> 13)) >>> 0; h = Math.imul(h, 1274126177) >>> 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
 
 function buildGlyphMask() {
-  gCells = [];
-  if (!media.type || !state.gOn) { glyphCount = 0; glyphGeo.setDrawRange(0, 0); requestRender(); return; }
+  if (!media.type || !state.gOn) { gCols = 0; cellW = null; glyphCount = 0; glyphGeo.setDrawRange(0, 0); requestRender(); return; }
   const rows = Math.max(4, Math.round(60 - state.gSize * 48));   // small → many tiny cells, large → few big cells
   const cellPx = media.h / rows;
   const cols = Math.max(2, Math.round(media.w / cellPx));
   gCols = cols; gRows = rows; gCellPx = cellPx;
+  const M = cols * rows;
+  cellW = new Float32Array(M); cellRate = new Float32Array(M); cellPhase = new Float32Array(M); prevLum = null;
+  for (let i = 0; i < M; i++) { cellRate[i] = 4 + hash01(i, 7) * 12; cellPhase[i] = hash01(i, 3); }
+  sampleMask();
+}
+
+function sampleMask() {
+  if (!cellW || !media.type) return;
+  const cols = gCols, rows = gRows, M = cols * rows;
   gridCanvas.width = cols; gridCanvas.height = rows;
   const gx = gridCanvas.getContext('2d', { willReadFrequently: true });
   let d; try { gx.drawImage(media.el, 0, 0, cols, rows); d = gx.getImageData(0, 0, cols, rows).data; } catch (e) { return; }
-  const M = cols * rows, sal = new Float32Array(M);
+  const lum = new Float32Array(M);
+  let mn = 1e9, mx = -1e9;
   for (let i = 0; i < M; i++) {
-    const v = Math.max(d[i * 4], d[i * 4 + 1], d[i * 4 + 2]) / 255;
-    sal[i] = state.gMode === 0 ? 1 - v : state.gMode === 1 ? v : 1;
+    const L = (0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2]) / 255;
+    lum[i] = L;
+    const base = state.gMode === 0 ? 1 - L : state.gMode === 1 ? L : 1;   // track dark / light / everything
+    if (base < mn) mn = base; if (base > mx) mx = base;
   }
-  // Connected-component blob labelling over a saliency threshold.
-  const thr = state.gMode === 2 ? -1 : 0.5;
-  const lab = new Int32Array(M).fill(-1), stack = new Int32Array(M), area = [];
-  let nb = 0;
-  for (let s = 0; s < M; s++) {
-    if (lab[s] !== -1 || sal[s] <= thr) continue;
-    let sp = 0; stack[sp++] = s; lab[s] = nb; let a = 0;
-    while (sp) {
-      const p = stack[--sp], px = p % cols, py = (p / cols) | 0; a++;
-      if (px > 0 && lab[p - 1] === -1 && sal[p - 1] > thr) { lab[p - 1] = nb; stack[sp++] = p - 1; }
-      if (px < cols - 1 && lab[p + 1] === -1 && sal[p + 1] > thr) { lab[p + 1] = nb; stack[sp++] = p + 1; }
-      if (py > 0 && lab[p - cols] === -1 && sal[p - cols] > thr) { lab[p - cols] = nb; stack[sp++] = p - cols; }
-      if (py < rows - 1 && lab[p + cols] === -1 && sal[p + cols] > thr) { lab[p + cols] = nb; stack[sp++] = p + cols; }
-    }
-    area[nb++] = a;
+  const range = Math.max(1e-3, mx - mn);
+  for (let i = 0; i < M; i++) {
+    const L = lum[i], base = state.gMode === 0 ? 1 - L : state.gMode === 1 ? L : 1;
+    let norm = (base - mn) / range;          // 0 → 1, peak where it is most light/dark
+    norm = norm * norm;                       // gamma — concentrate density on the peak
+    const mo = prevLum ? Math.min(1, Math.abs(L - prevLum[i]) * 6) : 0;   // motion (frame difference)
+    cellW[i] = Math.min(1, norm * 0.9 + mo * 0.7 + 0.04);
   }
-  const minArea = 3;
-  let idx = 0;
-  for (let cy = 0; cy < rows; cy++) {
-    for (let cx = 0; cx < cols; cx++) {
-      const i = cy * cols + cx, inBlob = lab[i] >= 0 && area[lab[i]] >= minArea;
-      const w = inBlob ? Math.max(0.55, sal[i]) : 0.07;   // dense on blobs, sparse noise elsewhere
-      gCells.push({ cx, cy, w, idx: idx, rate: 4 + hash01(idx, 7) * 12, phase: hash01(idx, 3) });
-      idx++;
-    }
-  }
+  prevLum = lum;
 }
 
 function updateGlyphFlicker(time) {
-  if (!gCells.length || !state.gOn) { glyphCount = 0; glyphGeo.setDrawRange(0, 0); return; }
-  const dens = state.gDensity, sp = 0.15 + state.gSpeed * 1.85;   // flicker speed multiplier
+  if (!cellW || !state.gOn) { glyphCount = 0; glyphGeo.setDrawRange(0, 0); return; }
+  const cols = gCols, rows = gRows, M = cols * rows, dens = state.gDensity, sp = 0.15 + state.gSpeed * 1.85;
   let n = 0;
-  for (let c = 0; c < gCells.length && n < MAX_LETTERS; c++) {
-    const cell = gCells[c];
-    const tick = Math.floor(time * cell.rate * sp + cell.phase * 101);
-    const duty = Math.min(0.96, dens * cell.w * 1.4);
-    if (hash01(cell.idx, tick) > duty) continue;
-    posArr[n * 3] = (cell.cx + 0.5) / gCols * 2 - 1;
-    posArr[n * 3 + 1] = (1 - (cell.cy + 0.5) / gRows) * 2 - 1;
+  for (let i = 0; i < M && n < MAX_LETTERS; i++) {
+    const duty = Math.min(0.96, dens * (0.05 + 1.5 * cellW[i]));
+    const tick = Math.floor(time * cellRate[i] * sp + cellPhase[i] * 101);
+    if (hash01(i, tick) > duty) continue;
+    const cx = i % cols, cy = (i / cols) | 0;
+    posArr[n * 3] = (cx + 0.5) / cols * 2 - 1;
+    posArr[n * 3 + 1] = (1 - (cy + 0.5) / rows) * 2 - 1;
     posArr[n * 3 + 2] = 0;
     sizeArr[n] = gCellPx;
-    glyphArr[n] = Math.floor(hash01(cell.idx * 7 + 1, tick) * 24);
+    glyphArr[n] = Math.floor(hash01(i * 7 + 1, tick) * 24);
     alphaArr[n] = 1;
     n++;
   }
@@ -402,14 +400,16 @@ function updateGlyphFlicker(time) {
 
 /* ─────────────────────────── Render loop ─────────────────────────── */
 const clock = new THREE.Clock();
-let bypass = false, dirty = true, vframe = 0;
+let bypass = false, dirty = true;
 function requestRender() { dirty = true; }
 function animating() { return media.type === 'video' || (media.type && state.gOn); }
 function renderFrame() {
   if (!composer) return;
   if (bypass) { renderer.render(scene, camera); return; }
-  if (media.type === 'video' && state.gOn && (++vframe % 10 === 0)) buildGlyphMask();   // track moving content
-  if (state.gOn) updateGlyphFlicker(clock.elapsedTime);
+  if (state.gOn) {
+    if (media.type === 'video') sampleMask();   // re-track the live frame every frame
+    updateGlyphFlicker(clock.elapsedTime);
+  }
   composer.render();
   if (glyphCount > 0) { renderer.autoClear = false; renderer.render(glyphScene, camera); renderer.autoClear = true; }
 }
@@ -426,8 +426,9 @@ function applyState() {
   updateFocusMarker(); requestRender();
 }
 
-/* ── Zoom-centre marker ── */
-function zoomActive() { return state.blur > 0.001 && state.blurMode === 1; }
+/* ── Blur interaction marker (zoom centre) ── */
+function blurActive() { return state.blur > 0.001; }
+function zoomActive() { return blurActive() && state.blurMode === 1; }
 function updateFocusMarker() {
   if (!media.type || bypass || !zoomActive()) { dom.focusRing.classList.add('hidden'); return; }
   const gr = dom.canvas.getBoundingClientRect(), sr = dom.stage.getBoundingClientRect();
@@ -436,19 +437,31 @@ function updateFocusMarker() {
   dom.focusRing.classList.remove('hidden');
 }
 
-/* ── Tap / drag to set the zoom centre (works for image and video) ── */
-let pressing = false;
+/* ── Touch on the image drives the blur (image AND video): Zoom = set centre,
+      Directional = drag to set the angle. Pointer-capture makes it reliable. ── */
+let pressing = false, dragOrigin = null;
 function uvFromXY(cx, cy) { const r = dom.canvas.getBoundingClientRect(); return [(cx - r.left) / r.width, (cy - r.top) / r.height]; }
-function setCenterXY(cx, cy) { const [u, vt] = uvFromXY(cx, cy); if (u < -0.05 || u > 1.05 || vt < -0.05 || vt > 1.05) return; state.zoomCx = Math.min(1, Math.max(0, u)); state.zoomCy = 1 - Math.min(1, Math.max(0, vt)); applyState(); }
+function setCenterXY(cx, cy) { const [u, vt] = uvFromXY(cx, cy); state.zoomCx = Math.min(1, Math.max(0, u)); state.zoomCy = 1 - Math.min(1, Math.max(0, vt)); applyState(); }
+function setAngleFromDrag(cx, cy) {
+  const dx = cx - dragOrigin.x, dy = cy - dragOrigin.y;
+  if (Math.hypot(dx, dy) < 6) return;
+  state.blurAngle = (Math.atan2(-dy, dx) + Math.PI * 2) % (Math.PI * 2);
+  if (sliderEls.blurAngle) { sliderEls.blurAngle.input.value = state.blurAngle; sliderEls.blurAngle.paint(); }
+  applyState();
+}
+function blurPointer(cx, cy) { if (state.blurMode === 1) setCenterXY(cx, cy); else setAngleFromDrag(cx, cy); }
 dom.canvas.addEventListener('pointerdown', e => {
-  if (!media.type || !zoomActive()) return;
-  pressing = true; try { dom.canvas.setPointerCapture(e.pointerId); } catch (_) {}
-  setCenterXY(e.clientX, e.clientY);
+  if (!media.type || !blurActive()) return;
+  pressing = true; dragOrigin = { x: e.clientX, y: e.clientY };
+  try { dom.canvas.setPointerCapture(e.pointerId); } catch (_) {}
+  if (state.blurMode === 1) setCenterXY(e.clientX, e.clientY);   // zoom centres on first touch
+  e.preventDefault();
 });
-dom.canvas.addEventListener('pointermove', e => { if (pressing && zoomActive()) setCenterXY(e.clientX, e.clientY); });
+dom.canvas.addEventListener('pointermove', e => { if (pressing && blurActive()) blurPointer(e.clientX, e.clientY); });
 function endPtr() { pressing = false; }
 dom.canvas.addEventListener('pointerup', endPtr);
 dom.canvas.addEventListener('pointercancel', endPtr);
+dom.canvas.addEventListener('lostpointercapture', endPtr);
 
 /* ─────────────────────────── Panel UI ─────────────────────────── */
 const sliderEls = {};
