@@ -37,22 +37,23 @@ const dom = {
 
 const state = {
   // letters (signature effect)
-  gOn: true, gMode: 0, gDensity: 0.5, gSize: 0.55, gOpacity: 0.95,
+  gOn: true, gMode: 0, gDensity: 0.5, gSize: 0.55, gOpacity: 0.95, gSpeed: 0.6,
   // bloom
   bloomStrength: 0.8, bloomRadius: 0.6, bloomThreshold: 0.75,
-  // blur + tap-to-focus depth of field
-  blur: 0, focusSize: 0.32, focusPtX: 0.5, focusPtY: 0.5,
+  // blur — directional or zoom, with smoothing
+  blurMode: 0, blur: 0, blurAngle: 0, blurSmooth: 0.5, zoomCx: 0.5, zoomCy: 0.5,
   // image tone
   exposure: 0, contrast: 0, saturation: 0,
 };
-const GLYPH_KEYS = ['gOn', 'gMode', 'gDensity', 'gSize'];
+const MASK_KEYS = ['gOn', 'gMode', 'gSize'];   // changing these rebuilds the letter mask
 
 const CONTROLS = {
   letters: [
     { t: 'toggle', key: 'gOn', label: 'Greek-letter field' },
-    { t: 'select', key: 'gMode', label: 'Cluster in', options: [
-      { label: 'Dark areas', val: 0 }, { label: 'Light areas', val: 1 }, { label: 'Everywhere', val: 2 } ] },
+    { t: 'select', key: 'gMode', label: 'Track', options: [
+      { label: 'Dark blobs', val: 0 }, { label: 'Light blobs', val: 1 }, { label: 'Everywhere', val: 2 } ] },
     { t: 'slider', key: 'gDensity', label: 'Density', min: 0, max: 1, step: 0.01 },
+    { t: 'slider', key: 'gSpeed',   label: 'Flicker', min: 0, max: 1, step: 0.01 },
     { t: 'slider', key: 'gSize',    label: 'Size',    min: 0, max: 1, step: 0.01 },
     { t: 'slider', key: 'gOpacity', label: 'Opacity', min: 0, max: 1, step: 0.01 },
   ],
@@ -62,9 +63,11 @@ const CONTROLS = {
     { t: 'slider', key: 'bloomThreshold', label: 'Threshold', min: 0, max: 1, step: 0.01 },
   ],
   blur: [
-    { t: 'note', text: 'Tap the image to set the focus point · pinch with two fingers to resize the in-focus area. Everything outside stays sharp until you raise Blur.' },
-    { t: 'slider', key: 'blur',      label: 'Blur',         min: 0, max: 1, step: 0.01 },
-    { t: 'slider', key: 'focusSize', label: 'Focus area',   min: 0.05, max: 0.9, step: 0.01 },
+    { t: 'select', key: 'blurMode', label: 'Type', options: [ { label: 'Directional', val: 0 }, { label: 'Zoom', val: 1 } ] },
+    { t: 'note', text: 'Zoom: tap the image to set the centre. Directional: set the Angle.' },
+    { t: 'slider', key: 'blur',       label: 'Amount',    min: 0, max: 1, step: 0.01 },
+    { t: 'slider', key: 'blurAngle',  label: 'Angle',     min: 0, max: 6.2832, step: 0.01 },
+    { t: 'slider', key: 'blurSmooth', label: 'Smoothing', min: 0, max: 1, step: 0.01 },
   ],
   image: [
     { t: 'slider', key: 'exposure',   label: 'Exposure',   min: -1, max: 1, step: 0.01 },
@@ -94,32 +97,33 @@ const AdjustShader = {
     }`,
 };
 
-/* Tap-to-focus depth of field — golden-angle bokeh disc whose radius
-   grows with distance from the focus point. Sharp (early-out) when Blur = 0. */
-const DofShader = {
+/* Directional (motion) or zoom blur, with a Smoothing control that
+   jitters the taps to remove banding. Sharp (early-out) when Amount = 0. */
+const BlurDirShader = {
   uniforms: {
     tDiffuse: { value: null }, uTexel: { value: new THREE.Vector2() },
-    uBlur: { value: 0 }, uFocusPt: { value: new THREE.Vector2(0.5, 0.5) }, uFocusR: { value: 0.32 }, uAspect: { value: 1 },
+    uMode: { value: 0 }, uAmount: { value: 0 }, uAngle: { value: 0 }, uSmooth: { value: 0.5 },
+    uCenter: { value: new THREE.Vector2(0.5, 0.5) },
   },
   vertexShader: PASS_VERT,
   fragmentShader: `
-    uniform sampler2D tDiffuse; uniform vec2 uTexel, uFocusPt; uniform float uBlur, uFocusR, uAspect;
+    uniform sampler2D tDiffuse; uniform vec2 uTexel, uCenter; uniform float uMode, uAmount, uAngle, uSmooth;
     varying vec2 vUv;
+    float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
     void main(){
-      vec2 fd = (vUv - uFocusPt) * vec2(uAspect, 1.0);
-      float coc = smoothstep(uFocusR, uFocusR + 0.38, length(fd));
-      float radius = uBlur * coc;
-      if (radius < 0.0015){ gl_FragColor = vec4(texture2D(tDiffuse, vUv).rgb, 1.0); return; }
-      vec3 col = vec3(0.0); float wsum = 0.0;
-      const float GA = 2.39996323;
-      for (int i = 0; i < 28; i++){
-        float fi = float(i);
-        float r = sqrt((fi + 0.5) / 28.0);
-        float a = fi * GA;
-        vec2 o = vec2(cos(a), sin(a)) * r * radius * uTexel * 95.0;
-        col += texture2D(tDiffuse, vUv + o).rgb; wsum += 1.0;
+      if (uAmount < 0.002){ gl_FragColor = vec4(texture2D(tDiffuse, vUv).rgb, 1.0); return; }
+      const int N = 28;
+      float jit = hash(vUv / max(uTexel, vec2(1e-4))) * uSmooth;
+      vec2 dirv = vec2(cos(uAngle), sin(uAngle));
+      vec3 col = vec3(0.0);
+      for (int i = 0; i < N; i++){
+        float tt = (float(i) + jit) / float(N);          // 0 → 1
+        vec2 off;
+        if (uMode < 0.5) off = (tt - 0.5) * uAmount * 220.0 * uTexel * dirv;   // directional, centred
+        else             off = (vUv - uCenter) * tt * uAmount * 1.1;           // zoom, from centre
+        col += texture2D(tDiffuse, vUv + off).rgb;
       }
-      gl_FragColor = vec4(col / wsum, 1.0);
+      gl_FragColor = vec4(col / float(N), 1.0);
     }`,
 };
 
@@ -253,9 +257,11 @@ const glyphMat = new THREE.ShaderMaterial({
 glyphScene.add(new THREE.Points(glyphGeo, glyphMat));
 let glyphCount = 0;
 const gridCanvas = document.createElement('canvas');
+// Persistent letter-cell mask (rebuilt occasionally); flicker re-rolls every frame.
+let gCells = [], gCols = 0, gRows = 0, gCellPx = 0;
 
 /* ── Composer ── */
-let composer, adjustPass, dofPass, bloomPass;
+let composer, adjustPass, blurPass, bloomPass;
 function buildComposer(w, h) {
   if (composer) composer.dispose();
   const rt = new THREE.WebGLRenderTarget(w, h, { type: THREE.UnsignedByteType, format: THREE.RGBAFormat, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });
@@ -263,7 +269,7 @@ function buildComposer(w, h) {
   composer.setPixelRatio(1); composer.setSize(w, h);
   composer.addPass(new RenderPass(scene, camera));
   adjustPass = new ShaderPass(AdjustShader); composer.addPass(adjustPass);
-  dofPass = new ShaderPass(DofShader); dofPass.uniforms.uTexel.value.set(1 / w, 1 / h); dofPass.uniforms.uAspect.value = w / h; composer.addPass(dofPass);
+  blurPass = new ShaderPass(BlurDirShader); blurPass.uniforms.uTexel.value.set(1 / w, 1 / h); composer.addPass(blurPass);
   bloomPass = new HalationBloomPass(w, h); composer.addPass(bloomPass);
   composer.addPass(new OutputPass());
   applyState();
@@ -309,7 +315,7 @@ async function loadVideo(src) {
   const tex = new THREE.VideoTexture(v); tex.colorSpace = THREE.SRGBColorSpace; tex.minFilter = THREE.LinearFilter; tex.generateMipmaps = false;
   setupMedia('video', v, w, h, tex);
   v.play().catch(() => {});
-  v.addEventListener('playing', () => computeGlyphField(), { once: true });
+  v.addEventListener('playing', () => buildGlyphMask(), { once: true });
 }
 function setupMedia(type, el, w, h, tex) {
   media = { type, el, w, h };
@@ -318,66 +324,94 @@ function setupMedia(type, el, w, h, tex) {
   dom.empty.classList.add('hidden');
   dom.compare.classList.remove('hidden'); dom.compare.disabled = false;
   dom.exportBtn.disabled = false; dom.exportBtn.textContent = type === 'video' ? 'Record' : 'Export';
-  computeGlyphField();
+  buildGlyphMask(); updateGlyphFlicker(clock.elapsedTime);
   requestRender();
 }
 
-/* ── Greek-letter procedural placement (content-weighted scatter) ── */
-function rgbToHsv(r, g, b) {
-  r /= 255; g /= 255; b /= 255;
-  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
-  let h = 0; if (d) { if (mx === r) h = ((g - b) / d) % 6; else if (mx === g) h = (b - r) / d + 2; else h = (r - g) / d + 4; h /= 6; if (h < 0) h += 1; }
-  return [h, mx ? d / mx : 0, mx];
-}
-function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
-function computeGlyphField() {
-  // A fixed monospace grid — every letter is the same size and sits on its own
-  // cell, so letters never overlap. Which cells get filled (and which glyph)
-  // is random, weighted by image content (dark / light / everywhere). Seeded,
-  // so a still image is stable while video tracks its content.
+/* ── Greek-letter field: blob tracking + Ikeda-style temporal flicker ──
+   buildGlyphMask() finds the cells worth lighting (connected blobs of dark /
+   light content, on a monospace grid). updateGlyphFlicker() runs every frame
+   and re-rolls which of those cells are lit and which glyph they show, each at
+   its own fast random rate — a flickering data field that clusters on blobs. */
+function hash01(a, b) { let h = (Math.imul(a, 374761393) + Math.imul(b, 668265263)) >>> 0; h = (h ^ (h >>> 13)) >>> 0; h = Math.imul(h, 1274126177) >>> 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
+
+function buildGlyphMask() {
+  gCells = [];
   if (!media.type || !state.gOn) { glyphCount = 0; glyphGeo.setDrawRange(0, 0); requestRender(); return; }
   const rows = Math.max(4, Math.round(60 - state.gSize * 48));   // small → many tiny cells, large → few big cells
   const cellPx = media.h / rows;
   const cols = Math.max(2, Math.round(media.w / cellPx));
+  gCols = cols; gRows = rows; gCellPx = cellPx;
   gridCanvas.width = cols; gridCanvas.height = rows;
   const gx = gridCanvas.getContext('2d', { willReadFrequently: true });
-  let d; try { gx.drawImage(media.el, 0, 0, cols, rows); d = gx.getImageData(0, 0, cols, rows).data; } catch (e) { glyphCount = 0; glyphGeo.setDrawRange(0, 0); return; }
-  const rng = mulberry32(0x9E37 ^ state.gMode ^ (rows << 8));
-  let n = 0;
-  for (let cy = 0; cy < rows && n < MAX_LETTERS; cy++) {
-    for (let cx = 0; cx < cols && n < MAX_LETTERS; cx++) {
-      const i = (cy * cols + cx) * 4, v = Math.max(d[i], d[i + 1], d[i + 2]) / 255;
-      let w;
-      if (state.gMode === 0) w = (1 - v) * (1 - v);   // dark areas
-      else if (state.gMode === 1) w = v * v;          // light areas
-      else w = 1;                                     // everywhere
-      if (rng() >= state.gDensity * (0.15 + 0.85 * w)) continue;   // cell stays empty
-      posArr[n * 3] = (cx + 0.5) / cols * 2 - 1;
-      posArr[n * 3 + 1] = (1 - (cy + 0.5) / rows) * 2 - 1;
-      posArr[n * 3 + 2] = 0;
-      sizeArr[n] = cellPx;
-      glyphArr[n] = (rng() * 24) | 0;
-      alphaArr[n] = 1;
-      n++;
+  let d; try { gx.drawImage(media.el, 0, 0, cols, rows); d = gx.getImageData(0, 0, cols, rows).data; } catch (e) { return; }
+  const M = cols * rows, sal = new Float32Array(M);
+  for (let i = 0; i < M; i++) {
+    const v = Math.max(d[i * 4], d[i * 4 + 1], d[i * 4 + 2]) / 255;
+    sal[i] = state.gMode === 0 ? 1 - v : state.gMode === 1 ? v : 1;
+  }
+  // Connected-component blob labelling over a saliency threshold.
+  const thr = state.gMode === 2 ? -1 : 0.5;
+  const lab = new Int32Array(M).fill(-1), stack = new Int32Array(M), area = [];
+  let nb = 0;
+  for (let s = 0; s < M; s++) {
+    if (lab[s] !== -1 || sal[s] <= thr) continue;
+    let sp = 0; stack[sp++] = s; lab[s] = nb; let a = 0;
+    while (sp) {
+      const p = stack[--sp], px = p % cols, py = (p / cols) | 0; a++;
+      if (px > 0 && lab[p - 1] === -1 && sal[p - 1] > thr) { lab[p - 1] = nb; stack[sp++] = p - 1; }
+      if (px < cols - 1 && lab[p + 1] === -1 && sal[p + 1] > thr) { lab[p + 1] = nb; stack[sp++] = p + 1; }
+      if (py > 0 && lab[p - cols] === -1 && sal[p - cols] > thr) { lab[p - cols] = nb; stack[sp++] = p - cols; }
+      if (py < rows - 1 && lab[p + cols] === -1 && sal[p + cols] > thr) { lab[p + cols] = nb; stack[sp++] = p + cols; }
     }
+    area[nb++] = a;
+  }
+  const minArea = 3;
+  let idx = 0;
+  for (let cy = 0; cy < rows; cy++) {
+    for (let cx = 0; cx < cols; cx++) {
+      const i = cy * cols + cx, inBlob = lab[i] >= 0 && area[lab[i]] >= minArea;
+      const w = inBlob ? Math.max(0.55, sal[i]) : 0.07;   // dense on blobs, sparse noise elsewhere
+      gCells.push({ cx, cy, w, idx: idx, rate: 4 + hash01(idx, 7) * 12, phase: hash01(idx, 3) });
+      idx++;
+    }
+  }
+}
+
+function updateGlyphFlicker(time) {
+  if (!gCells.length || !state.gOn) { glyphCount = 0; glyphGeo.setDrawRange(0, 0); return; }
+  const dens = state.gDensity, sp = 0.15 + state.gSpeed * 1.85;   // flicker speed multiplier
+  let n = 0;
+  for (let c = 0; c < gCells.length && n < MAX_LETTERS; c++) {
+    const cell = gCells[c];
+    const tick = Math.floor(time * cell.rate * sp + cell.phase * 101);
+    const duty = Math.min(0.96, dens * cell.w * 1.4);
+    if (hash01(cell.idx, tick) > duty) continue;
+    posArr[n * 3] = (cell.cx + 0.5) / gCols * 2 - 1;
+    posArr[n * 3 + 1] = (1 - (cell.cy + 0.5) / gRows) * 2 - 1;
+    posArr[n * 3 + 2] = 0;
+    sizeArr[n] = gCellPx;
+    glyphArr[n] = Math.floor(hash01(cell.idx * 7 + 1, tick) * 24);
+    alphaArr[n] = 1;
+    n++;
   }
   glyphCount = n;
   posAttr.needsUpdate = sizeAttr.needsUpdate = glyphAttr.needsUpdate = alphaAttr.needsUpdate = true;
   glyphGeo.setDrawRange(0, n);
-  requestRender();
 }
 
 /* ─────────────────────────── Render loop ─────────────────────────── */
 const clock = new THREE.Clock();
 let bypass = false, dirty = true, vframe = 0;
 function requestRender() { dirty = true; }
-function animating() { return media.type === 'video'; }
+function animating() { return media.type === 'video' || (media.type && state.gOn); }
 function renderFrame() {
   if (!composer) return;
   if (bypass) { renderer.render(scene, camera); return; }
+  if (media.type === 'video' && state.gOn && (++vframe % 10 === 0)) buildGlyphMask();   // track moving content
+  if (state.gOn) updateGlyphFlicker(clock.elapsedTime);
   composer.render();
   if (glyphCount > 0) { renderer.autoClear = false; renderer.render(glyphScene, camera); renderer.autoClear = true; }
-  if (media.type === 'video') { vframe++; if (state.gOn && vframe % 15 === 0) computeGlyphField(); }
 }
 function tick() { requestAnimationFrame(tick); if (!media.type) return; if (animating() || dirty) { renderFrame(); dirty = false; } }
 tick();
@@ -386,42 +420,33 @@ tick();
 function applyState() {
   if (bloomPass) { bloomPass.strength = state.bloomStrength; bloomPass.radius = state.bloomRadius; bloomPass.threshold = state.bloomThreshold; }
   if (adjustPass) { const u = adjustPass.uniforms; u.uExposure.value = state.exposure; u.uContrast.value = state.contrast; u.uSaturation.value = state.saturation; }
-  if (dofPass) { const u = dofPass.uniforms; u.uBlur.value = state.blur; u.uFocusPt.value.set(state.focusPtX, state.focusPtY); u.uFocusR.value = state.focusSize; }
+  if (blurPass) { const u = blurPass.uniforms; u.uMode.value = state.blurMode; u.uAmount.value = state.blur; u.uAngle.value = state.blurAngle; u.uSmooth.value = state.blurSmooth; u.uCenter.value.set(state.zoomCx, state.zoomCy); }
   glyphMat.uniforms.uSizeMul.value = 1;
   glyphMat.uniforms.uGlow.value = state.gOpacity;
   updateFocusMarker(); requestRender();
 }
 
-/* ── Focus marker ── */
-function focusActive() { return state.blur > 0.001; }
+/* ── Zoom-centre marker ── */
+function zoomActive() { return state.blur > 0.001 && state.blurMode === 1; }
 function updateFocusMarker() {
-  if (!media.type || bypass || !focusActive()) { dom.focusRing.classList.add('hidden'); return; }
+  if (!media.type || bypass || !zoomActive()) { dom.focusRing.classList.add('hidden'); return; }
   const gr = dom.canvas.getBoundingClientRect(), sr = dom.stage.getBoundingClientRect();
-  const left = (gr.left - sr.left) + state.focusPtX * gr.width, top = (gr.top - sr.top) + (1 - state.focusPtY) * gr.height, diam = 2 * state.focusSize * gr.height;
+  const left = (gr.left - sr.left) + state.zoomCx * gr.width, top = (gr.top - sr.top) + (1 - state.zoomCy) * gr.height, diam = 0.12 * gr.height;
   dom.focusRing.style.left = left + 'px'; dom.focusRing.style.top = top + 'px'; dom.focusRing.style.width = diam + 'px'; dom.focusRing.style.height = diam + 'px';
   dom.focusRing.classList.remove('hidden');
 }
 
-/* ── Tap to focus (drag = move point, pinch = resize focus area) ── */
-const fptr = new Map(); let pinch = null, fmoved = false;
+/* ── Tap / drag to set the zoom centre (works for image and video) ── */
+let pressing = false;
 function uvFromXY(cx, cy) { const r = dom.canvas.getBoundingClientRect(); return [(cx - r.left) / r.width, (cy - r.top) / r.height]; }
-function setCenterXY(cx, cy) { const [u, vt] = uvFromXY(cx, cy); if (u < -0.05 || u > 1.05 || vt < -0.05 || vt > 1.05) return; state.focusPtX = Math.min(1, Math.max(0, u)); state.focusPtY = 1 - Math.min(1, Math.max(0, vt)); applyState(); }
+function setCenterXY(cx, cy) { const [u, vt] = uvFromXY(cx, cy); if (u < -0.05 || u > 1.05 || vt < -0.05 || vt > 1.05) return; state.zoomCx = Math.min(1, Math.max(0, u)); state.zoomCy = 1 - Math.min(1, Math.max(0, vt)); applyState(); }
 dom.canvas.addEventListener('pointerdown', e => {
-  if (!media.type) return; fptr.set(e.pointerId, { x: e.clientX, y: e.clientY }); fmoved = false;
-  try { dom.canvas.setPointerCapture(e.pointerId); } catch (_) {}
-  if (fptr.size === 2) { const p = [...fptr.values()]; pinch = { d: Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y), r: state.focusSize }; }
+  if (!media.type || !zoomActive()) return;
+  pressing = true; try { dom.canvas.setPointerCapture(e.pointerId); } catch (_) {}
+  setCenterXY(e.clientX, e.clientY);
 });
-dom.canvas.addEventListener('pointermove', e => {
-  if (!fptr.has(e.pointerId)) return; fptr.set(e.pointerId, { x: e.clientX, y: e.clientY }); fmoved = true;
-  const p = [...fptr.values()];
-  if (p.length >= 2) {
-    const cur = Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y);
-    if (pinch) state.focusSize = Math.min(0.9, Math.max(0.05, pinch.r * (cur / pinch.d)));
-    if (sliderEls.focusSize) { sliderEls.focusSize.input.value = state.focusSize; sliderEls.focusSize.paint(); }
-    setCenterXY((p[0].x + p[1].x) / 2, (p[0].y + p[1].y) / 2);
-  } else if (focusActive()) { setCenterXY(e.clientX, e.clientY); }
-});
-function endPtr(e) { if (!fptr.has(e.pointerId)) return; fptr.delete(e.pointerId); if (fptr.size < 2) pinch = null; if (fptr.size === 0 && !fmoved && focusActive()) setCenterXY(e.clientX, e.clientY); }
+dom.canvas.addEventListener('pointermove', e => { if (pressing && zoomActive()) setCenterXY(e.clientX, e.clientY); });
+function endPtr() { pressing = false; }
 dom.canvas.addEventListener('pointerup', endPtr);
 dom.canvas.addEventListener('pointercancel', endPtr);
 
@@ -444,7 +469,7 @@ function buildPanel() {
 }
 function onChange(key) {
   applyState();
-  if (GLYPH_KEYS.includes(key)) computeGlyphField();
+  if (MASK_KEYS.includes(key)) { buildGlyphMask(); updateGlyphFlicker(clock.elapsedTime); }
 }
 function buildSlider(c) {
   const wrap = document.createElement('label'); wrap.className = 'ctrl';
