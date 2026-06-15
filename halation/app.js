@@ -37,7 +37,7 @@ const dom = {
 
 const state = {
   // letters (signature effect)
-  gOn: true, gDensity: 0.5, gTol: 0.5, gSize: 0.55, gOpacity: 0.95,
+  gOn: true, gDensity: 0.42, gTol: 0.4, gSize: 0.55, gOpacity: 0.95,
   // bloom
   bloomStrength: 0.8, bloomRadius: 0.6, bloomThreshold: 0.75,
   // zoom blur
@@ -322,7 +322,7 @@ function setupMedia(type, el, w, h, tex) {
   dom.empty.classList.add('hidden');
   dom.compare.classList.remove('hidden'); dom.compare.disabled = false;
   dom.exportBtn.disabled = false; dom.exportBtn.textContent = type === 'video' ? 'Record' : 'Export';
-  buildGlyphMask(); updateGlyphFlicker(clock.elapsedTime);
+  buildGlyphMask(); updateGlyphFlicker(now());
   requestRender();
 }
 
@@ -347,7 +347,7 @@ function buildGlyphMask() {
   gCols = cols; gRows = rows; gCellPx = cellPx;
   const M = cols * rows;
   cellW = new Float32Array(M); cellRate = new Float32Array(M); cellPhase = new Float32Array(M); motAcc = new Float32Array(M); prevLum = null;
-  for (let i = 0; i < M; i++) { cellRate[i] = 9 + hash01(i, 7) * 26; cellPhase[i] = hash01(i, 3); }   // fast, varied rates
+  for (let i = 0; i < M; i++) { cellRate[i] = 13 + hash01(i, 7) * 30; cellPhase[i] = hash01(i, 3); }   // fast, varied rates
   sampleMask();
 }
 
@@ -364,21 +364,27 @@ function sampleMask() {
     lum[i] = L; if (L < mn) mn = L; if (L > mx) mx = L;
   }
   const range = Math.max(1e-3, mx - mn);
-  const cut = (1 - state.gTol) * 0.55;            // Tolerance: low → high cutoff (very selective), high → permissive
+  // Motion first: per-cell frame difference (velocity proxy) and overall scene motion.
+  const inst = new Float32Array(M);
+  let frameMot = 0;
+  if (prevLum) for (let i = 0; i < M; i++) { const m = Math.min(1, Math.abs(lum[i] - prevLum[i]) * 9); inst[i] = m; frameMot += m; }
+  for (let i = 0; i < M; i++) motAcc[i] = Math.max(inst[i], motAcc[i] * 0.80);   // short trail → temporary feel
+  const avgMot = frameMot / M;
+  // When the scene is moving, light barely matters (strict to movement); when it's
+  // basically still (or a photo), light takes over so something still shows.
+  const lightW = 0.12 + 0.63 * Math.max(0, 1 - avgMot * 45);
+  const cut = 0.06 + (1 - state.gTol) * 0.62;     // Tolerance: low → very strict gate, high → permissive
   for (let i = 0; i < M; i++) {
-    const L = lum[i];
-    const light = Math.pow((L - mn) / range, 1.6);                          // bright areas (drives stills)
-    const inst = prevLum ? Math.min(1, Math.abs(L - prevLum[i]) * 8) : 0;   // velocity proxy (frame difference)
-    motAcc[i] = Math.max(inst, motAcc[i] * 0.86);                            // accumulate → trail behind motion
-    const w = Math.min(1, motAcc[i] * 1.35 + light * 0.55);                  // motion weighted strongest
-    cellW[i] = smoothstep(cut, cut + 0.22, w);                               // hard-ish cutoff → empty off-target
+    const light = Math.pow((lum[i] - mn) / range, 1.8);
+    const w = Math.min(1, motAcc[i] * 1.9 + light * lightW);   // motion weighted strongest
+    cellW[i] = smoothstep(cut, cut + 0.2, w);                  // gate → empty off-target
   }
   prevLum = lum;
 }
 
 function updateGlyphFlicker(time) {
   if (!cellW || !state.gOn) { glyphCount = 0; glyphGeo.setDrawRange(0, 0); return; }
-  const cols = gCols, rows = gRows, M = cols * rows, dens = state.gDensity, sp = 4.2;   // natively very fast flicker
+  const cols = gCols, rows = gRows, M = cols * rows, dens = state.gDensity, sp = 6.0;   // natively very fast flicker
   let n = 0;
   for (let i = 0; i < M && n < MAX_LETTERS; i++) {
     if (cellW[i] <= 0.001) continue;             // off-target stays empty
@@ -400,7 +406,7 @@ function updateGlyphFlicker(time) {
 }
 
 /* ─────────────────────────── Render loop ─────────────────────────── */
-const clock = new THREE.Clock();
+const now = () => performance.now() * 0.001;   // seconds; advances every frame for the flicker
 let bypass = false, dirty = true;
 function requestRender() { dirty = true; }
 function animating() { return media.type === 'video' || (media.type && state.gOn); }
@@ -409,7 +415,7 @@ function renderFrame() {
   if (bypass) { renderer.render(scene, camera); return; }
   if (state.gOn) {
     if (media.type === 'video') sampleMask();   // re-track the live frame every frame
-    updateGlyphFlicker(clock.elapsedTime);
+    updateGlyphFlicker(now());
   }
   composer.render();
   if (glyphCount > 0) { renderer.autoClear = false; renderer.render(glyphScene, camera); renderer.autoClear = true; }
@@ -472,8 +478,8 @@ function buildPanel() {
 }
 function onChange(key) {
   applyState();
-  if (MASK_KEYS.includes(key)) { buildGlyphMask(); updateGlyphFlicker(clock.elapsedTime); }
-  else if (key === 'gTol') { sampleMask(); updateGlyphFlicker(clock.elapsedTime); }   // re-weight a still image live
+  if (MASK_KEYS.includes(key)) { buildGlyphMask(); updateGlyphFlicker(now()); }
+  else if (key === 'gTol') { sampleMask(); updateGlyphFlicker(now()); }   // re-weight a still image live
 }
 function buildSlider(c) {
   const wrap = document.createElement('label'); wrap.className = 'ctrl';
