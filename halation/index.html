@@ -28,20 +28,18 @@
 
     <main id="stage" class="stage">
       <canvas id="gl"></canvas>
-      <canvas id="overlay" class="overlay"></canvas>
       <div id="focusRing" class="focus-ring hidden"></div>
 
       <div id="empty" class="empty">
         <div class="empty__inner">
           <div class="empty__glow"></div>
           <p class="empty__title">Drop a photo or video</p>
-          <p class="empty__sub">Halation bloom · prism dispersion · finger-drag focus mask · procedural Greek-letter field · colour tracking — built for campaign content</p>
+          <p class="empty__sub">A procedural Greek-letter field over your image · bloom · tap-to-focus blur · saturation</p>
           <button id="emptyAdd" class="btn btn--accent btn--lg">Choose file</button>
           <button id="sampleBtn" class="btn btn--ghost">Try a sample</button>
         </div>
       </div>
 
-      <div id="loading" class="loading hidden"><span class="spinner"></span><span id="loadingText">Loading subject model…</span></div>
       <div id="recBadge" class="rec hidden"><span class="rec__dot"></span>REC</div>
       <button id="compareBtn" class="compare hidden" disabled>Hold to compare</button>
     </main>
@@ -49,11 +47,10 @@
     <section id="panel" class="panel">
       <button id="panelHandle" class="panel__handle" aria-label="Drag or tap to resize controls"></button>
       <nav class="tabs" id="tabs">
-        <button class="tab tab--active" data-tab="bloom">Bloom</button>
-        <button class="tab" data-tab="focus">Blur &amp; Focus</button>
-        <button class="tab" data-tab="dispersion">Dispersion</button>
-        <button class="tab" data-tab="particles">Letters</button>
-        <button class="tab" data-tab="track">Track</button>
+        <button class="tab tab--active" data-tab="letters">Letters</button>
+        <button class="tab" data-tab="bloom">Bloom</button>
+        <button class="tab" data-tab="blur">Blur</button>
+        <button class="tab" data-tab="image">Image</button>
       </nav>
       <div class="panes" id="panes"></div>
     </section>
