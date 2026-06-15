@@ -89,6 +89,26 @@ html, body {
 }
 #gl.empty { display: none; }
 
+/* ── Tracking overlay + focus marker ── */
+.overlay {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 4px;
+}
+.focus-ring {
+  position: absolute;
+  border: 1.5px solid var(--accent);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.5), 0 0 12px rgba(200,255,0,.25);
+}
+.focus-ring::after {
+  content: ''; position: absolute; inset: 50%;
+  width: 6px; height: 6px; margin: -3px;
+  background: var(--accent); border-radius: 50%;
+}
+
 /* ── Empty state ── */
 .empty {
   position: absolute; inset: 0;
@@ -164,12 +184,16 @@ html, body {
 }
 .panel__handle:active { cursor: grabbing; background: var(--accent); }
 
-/* ── Tabs ── */
-.tabs { display: flex; gap: 4px; padding: 4px; background: var(--surface-2); border-radius: 10px; flex: 0 0 auto; }
+/* ── Tabs (scrollable row) ── */
+.tabs {
+  display: flex; gap: 4px; padding: 4px; background: var(--surface-2); border-radius: 10px;
+  flex: 0 0 auto; overflow-x: auto; scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar { display: none; }
 .tab {
-  flex: 1; font-family: inherit; font-size: 12px; letter-spacing: 0.05em;
+  flex: 0 0 auto; font-family: inherit; font-size: 12px; letter-spacing: 0.04em;
   color: var(--muted); background: transparent; border: none; border-radius: 7px;
-  padding: 9px 0; min-height: 38px; cursor: pointer; transition: color .15s, background .15s;
+  padding: 9px 14px; min-height: 38px; white-space: nowrap; cursor: pointer; transition: color .15s, background .15s;
 }
 .tab--active { color: #0d0d0d; background: var(--accent); font-weight: 500; }
 
@@ -178,6 +202,7 @@ html, body {
 .pane { display: none; flex-direction: column; gap: 16px; }
 .pane--active { display: flex; }
 
+.note { font-size: 11px; line-height: 1.5; color: var(--muted); padding: 2px 2px 4px; }
 .ctrl { display: flex; flex-direction: column; gap: 8px; }
 .ctrl__row { display: flex; justify-content: space-between; align-items: baseline; }
 .ctrl__label { font-size: 12px; color: var(--fg); }

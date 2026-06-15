@@ -17,7 +17,6 @@
 </head>
 <body>
   <div id="app">
-    <!-- ── Top bar ── -->
     <header class="topbar">
       <a class="back" href="../index.html">← lab</a>
       <span class="brand">Halation</span>
@@ -27,38 +26,36 @@
       </div>
     </header>
 
-    <!-- ── Stage ── -->
     <main id="stage" class="stage">
       <canvas id="gl"></canvas>
+      <canvas id="overlay" class="overlay"></canvas>
+      <div id="focusRing" class="focus-ring hidden"></div>
 
       <div id="empty" class="empty">
         <div class="empty__inner">
           <div class="empty__glow"></div>
           <p class="empty__title">Drop a photo or video</p>
-          <p class="empty__sub">Natural halation bloom · chromatic dispersion · subject-tracked glitch</p>
+          <p class="empty__sub">Halation bloom · prism dispersion · focus · glitch · particles · color tracking — built for campaign content</p>
           <button id="emptyAdd" class="btn btn--accent btn--lg">Choose file</button>
           <button id="sampleBtn" class="btn btn--ghost">Try a sample</button>
         </div>
       </div>
 
-      <div id="loading" class="loading hidden">
-        <span class="spinner"></span><span id="loadingText">Loading subject model…</span>
-      </div>
-
+      <div id="loading" class="loading hidden"><span class="spinner"></span><span id="loadingText">Loading subject model…</span></div>
       <div id="recBadge" class="rec hidden"><span class="rec__dot"></span>REC</div>
       <button id="compareBtn" class="compare hidden" disabled>Hold to compare</button>
     </main>
 
-    <!-- ── Control panel (bottom sheet) ── -->
     <section id="panel" class="panel">
       <button id="panelHandle" class="panel__handle" aria-label="Drag or tap to resize controls"></button>
-
       <nav class="tabs" id="tabs">
-        <button class="tab tab--active" data-tab="blur">Blur</button>
+        <button class="tab tab--active" data-tab="bloom">Bloom</button>
+        <button class="tab" data-tab="focus">Blur &amp; Focus</button>
+        <button class="tab" data-tab="dispersion">Dispersion</button>
         <button class="tab" data-tab="glitch">Glitch</button>
         <button class="tab" data-tab="particles">Particles</button>
+        <button class="tab" data-tab="track">Track</button>
       </nav>
-
       <div class="panes" id="panes"></div>
     </section>
   </div>
