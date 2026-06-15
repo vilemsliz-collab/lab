@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
-import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { Pass, FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 // NOTE: MediaPipe is loaded lazily (dynamic import) inside getSegmenter() so a
 // CDN/network failure there can never take down the core preview + effects.
@@ -171,6 +171,108 @@ const GlitchShader = {
     }`,
 };
 
+/* ── Custom bloom (halation) — byte render targets only, so it works on
+   iOS Safari where half-float render targets used by UnrealBloomPass /
+   EffectComposer come out black. Bright-pass + iterative separable blur
+   at half resolution, additively composited over the sharp original. ── */
+const FS_VERT = `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
+
+const BrightShader = {
+  uniforms: { tDiffuse: { value: null }, uThreshold: { value: 0.8 } },
+  vertexShader: FS_VERT,
+  fragmentShader: `
+    uniform sampler2D tDiffuse; uniform float uThreshold; varying vec2 vUv;
+    void main(){
+      vec3 c = texture2D(tDiffuse, vUv).rgb;
+      float l = max(c.r, max(c.g, c.b));
+      float k = smoothstep(uThreshold, uThreshold + 0.2, l);
+      gl_FragColor = vec4(c * k, 1.0);
+    }`,
+};
+const BlurShader = {
+  uniforms: { tDiffuse: { value: null }, uDir: { value: new THREE.Vector2() }, uTexel: { value: new THREE.Vector2() }, uRadius: { value: 1 } },
+  vertexShader: FS_VERT,
+  fragmentShader: `
+    uniform sampler2D tDiffuse; uniform vec2 uDir, uTexel; uniform float uRadius; varying vec2 vUv;
+    void main(){
+      vec2 d = uDir * uTexel * uRadius;
+      vec3 c  = texture2D(tDiffuse, vUv).rgb * 0.227027;
+      c += (texture2D(tDiffuse, vUv + d).rgb       + texture2D(tDiffuse, vUv - d).rgb)       * 0.1945946;
+      c += (texture2D(tDiffuse, vUv + d*2.0).rgb   + texture2D(tDiffuse, vUv - d*2.0).rgb)   * 0.1216216;
+      c += (texture2D(tDiffuse, vUv + d*3.0).rgb   + texture2D(tDiffuse, vUv - d*3.0).rgb)   * 0.0540540;
+      c += (texture2D(tDiffuse, vUv + d*4.0).rgb   + texture2D(tDiffuse, vUv - d*4.0).rgb)   * 0.0162162;
+      gl_FragColor = vec4(c, 1.0);
+    }`,
+};
+const CompositeShader = {
+  uniforms: { tDiffuse: { value: null }, tBloom: { value: null }, uStrength: { value: 1 } },
+  vertexShader: FS_VERT,
+  fragmentShader: `
+    uniform sampler2D tDiffuse, tBloom; uniform float uStrength; varying vec2 vUv;
+    void main(){
+      vec3 base = texture2D(tDiffuse, vUv).rgb;
+      vec3 bloom = texture2D(tBloom, vUv).rgb;
+      gl_FragColor = vec4(base + bloom * uStrength, 1.0);
+    }`,
+};
+
+class HalationBloomPass extends Pass {
+  constructor(w, h) {
+    super();
+    this.strength = state.bloomStrength;
+    this.radius = state.bloomRadius;
+    this.threshold = state.bloomThreshold;
+    const opt = { type: THREE.UnsignedByteType, format: THREE.RGBAFormat, colorSpace: THREE.NoColorSpace };
+    this.rtBright = new THREE.WebGLRenderTarget(1, 1, opt);
+    this.rtA = new THREE.WebGLRenderTarget(1, 1, opt);
+    this.rtB = new THREE.WebGLRenderTarget(1, 1, opt);
+    this.brightQuad = new FullScreenQuad(new THREE.ShaderMaterial(BrightShader));
+    this.blurQuad = new FullScreenQuad(new THREE.ShaderMaterial(BlurShader));
+    this.compQuad = new FullScreenQuad(new THREE.ShaderMaterial(CompositeShader));
+    this.texel = new THREE.Vector2();
+    this.setSize(w, h);
+  }
+  setSize(w, h) {
+    const dw = Math.max(1, w >> 1), dh = Math.max(1, h >> 1);
+    this.rtBright.setSize(dw, dh); this.rtA.setSize(dw, dh); this.rtB.setSize(dw, dh);
+    this.texel.set(1 / dw, 1 / dh);
+  }
+  render(renderer, writeBuffer, readBuffer) {
+    if (this.strength <= 0.0001) { // bloom off → straight copy
+      this.compQuad.material.uniforms.tDiffuse.value = readBuffer.texture;
+      this.compQuad.material.uniforms.tBloom.value = readBuffer.texture;
+      this.compQuad.material.uniforms.uStrength.value = 0;
+      renderer.setRenderTarget(this.renderToScreen ? null : writeBuffer);
+      this.compQuad.render(renderer);
+      return;
+    }
+    const b = this.brightQuad.material.uniforms;
+    b.tDiffuse.value = readBuffer.texture; b.uThreshold.value = this.threshold;
+    renderer.setRenderTarget(this.rtBright); this.brightQuad.render(renderer);
+
+    const blur = this.blurQuad.material.uniforms;
+    blur.uTexel.value.copy(this.texel);
+    let src = this.rtBright;
+    for (let i = 0; i < 5; i++) {
+      const r = (1.0 + i) * (0.6 + this.radius * 2.4);
+      blur.tDiffuse.value = src.texture; blur.uDir.value.set(1, 0); blur.uRadius.value = r;
+      renderer.setRenderTarget(this.rtA); this.blurQuad.render(renderer);
+      blur.tDiffuse.value = this.rtA.texture; blur.uDir.value.set(0, 1);
+      renderer.setRenderTarget(this.rtB); this.blurQuad.render(renderer);
+      src = this.rtB;
+    }
+    const c = this.compQuad.material.uniforms;
+    c.tDiffuse.value = readBuffer.texture; c.tBloom.value = src.texture; c.uStrength.value = this.strength;
+    renderer.setRenderTarget(this.renderToScreen ? null : writeBuffer);
+    if (this.clear) renderer.clear();
+    this.compQuad.render(renderer);
+  }
+  dispose() {
+    this.rtBright.dispose(); this.rtA.dispose(); this.rtB.dispose();
+    this.brightQuad.dispose(); this.blurQuad.dispose(); this.compQuad.dispose();
+  }
+}
+
 /* ─────────────────────────── Renderer ─────────────────────────── */
 
 const renderer = new THREE.WebGLRenderer({
@@ -189,7 +291,13 @@ scene.add(quad);
 
 let composer, bloomPass, dispPass, glitchPass;
 function buildComposer(w, h) {
-  composer = new EffectComposer(renderer);
+  if (composer) { composer.dispose(); }
+  // byte render target — half-float targets render black on iOS Safari
+  const rt = new THREE.WebGLRenderTarget(w, h, {
+    type: THREE.UnsignedByteType, format: THREE.RGBAFormat,
+    minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
+  });
+  composer = new EffectComposer(renderer, rt);
   composer.setPixelRatio(1);
   composer.setSize(w, h);
   composer.addPass(new RenderPass(scene, camera));
@@ -197,7 +305,7 @@ function buildComposer(w, h) {
   dispPass = new ShaderPass(DispersionShader);
   composer.addPass(dispPass);
 
-  bloomPass = new UnrealBloomPass(new THREE.Vector2(w, h), state.bloomStrength, state.bloomRadius, state.bloomThreshold);
+  bloomPass = new HalationBloomPass(w, h);
   composer.addPass(bloomPass);
 
   glitchPass = new ShaderPass(GlitchShader);
