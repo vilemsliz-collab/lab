@@ -288,12 +288,28 @@ async function loadImage(src, revoke) {
   setupMedia('image', img, w, h, tex);
 }
 async function loadVideo(src) {
-  const v = dom.video; v.src = src; v.muted = true; v.loop = true; v.playsInline = true;
-  await new Promise((res, rej) => { v.onloadeddata = res; v.onerror = () => rej(new Error('This video format can’t be played by your browser. Try an MP4 (H.264).')); });
+  const v = dom.video;
+  v.muted = true; v.loop = true; v.playsInline = true;
+  v.setAttribute('playsinline', ''); v.setAttribute('webkit-playsinline', '');
+  v.src = src; v.load();
+  // iOS Safari won't decode frames until play() is called, so awaiting
+  // 'loadeddata' before playing can deadlock. Kick play() and resolve as
+  // soon as the dimensions are known (any of metadata / data / canplay).
+  await new Promise((res, rej) => {
+    let done = false;
+    const ok = () => { if (!done && v.videoWidth) { done = true; cleanup(); res(); } };
+    const fail = () => { if (!done) { done = true; cleanup(); rej(new Error('This video format can’t be played by your browser. Try an MP4 (H.264).')); } };
+    const cleanup = () => { clearTimeout(t); ['loadedmetadata', 'loadeddata', 'canplay'].forEach(e => v.removeEventListener(e, ok)); v.removeEventListener('error', fail); };
+    ['loadedmetadata', 'loadeddata', 'canplay'].forEach(e => v.addEventListener(e, ok));
+    v.addEventListener('error', fail);
+    v.play().then(ok).catch(() => {});
+    const t = setTimeout(fail, 12000);
+  });
   const [w, h] = capSize(v.videoWidth, v.videoHeight, MAX_SIDE_VIDEO);
   const tex = new THREE.VideoTexture(v); tex.colorSpace = THREE.SRGBColorSpace; tex.minFilter = THREE.LinearFilter; tex.generateMipmaps = false;
   setupMedia('video', v, w, h, tex);
   v.play().catch(() => {});
+  v.addEventListener('playing', () => computeGlyphField(), { once: true });
 }
 function setupMedia(type, el, w, h, tex) {
   media = { type, el, w, h };
@@ -482,10 +498,13 @@ dom.panel.addEventListener('transitionend', e => { if (e.propertyName === 'heigh
 
 /* ─────────────────────────── File input ─────────────────────────── */
 function pickFile() { dom.file.click(); }
+// Files from the iOS Photos library often arrive with an empty MIME type,
+// so fall back to the extension to tell video from image.
+function isVideoFile(f) { return f.type ? f.type.startsWith('video') : /\.(mp4|mov|m4v|webm|ogv|avi|mkv|3gp)$/i.test(f.name || ''); }
 dom.addBtn.onclick = pickFile; dom.emptyAdd.onclick = pickFile;
 dom.file.addEventListener('change', () => {
   const f = dom.file.files[0]; if (!f) return; const url = URL.createObjectURL(f); resetMedia();
-  (f.type.startsWith('video') ? loadVideo(url) : loadImage(url, true)).catch(err => showError(err.message || String(err)));
+  (isVideoFile(f) ? loadVideo(url) : loadImage(url, true)).catch(err => showError(err.message || String(err)));
   dom.file.value = '';
 });
 dom.sampleBtn.onclick = () => {
@@ -497,7 +516,7 @@ function resetMedia() { stopRecording(true); if (media.type === 'video') { dom.v
 ['dragover', 'drop'].forEach(ev => dom.stage.addEventListener(ev, e => e.preventDefault()));
 dom.stage.addEventListener('drop', e => {
   const f = e.dataTransfer.files[0]; if (!f) return; const url = URL.createObjectURL(f); resetMedia();
-  (f.type.startsWith('video') ? loadVideo(url) : loadImage(url, true)).catch(err => showError(err.message || String(err)));
+  (isVideoFile(f) ? loadVideo(url) : loadImage(url, true)).catch(err => showError(err.message || String(err)));
 });
 
 /* ─────────────────────────── Export (share to Photos) ─────────────────────────── */
