@@ -90,7 +90,6 @@ const CONTROLS = {
     { t: 'slider', key: 'gTol',       label: 'Colour tolerance',         min: 0, max: 1, step: 0.01 },
     { t: 'slider', key: 'gSize',      label: 'Letter size', min: 0, max: 1, step: 0.01 },
     { t: 'slider', key: 'gGlow',      label: 'Opacity',     min: 0, max: 1, step: 0.01 },
-    { t: 'slider', key: 'gTintHue',   label: 'Tint (0 = white)', min: 0, max: 1, step: 0.001 },
     { t: 'slider', key: 'gMotion',    label: 'Drift',       min: 0, max: 1, step: 0.01 },
   ],
   track: [
@@ -420,35 +419,48 @@ function rgbToHsv(r, g, b) {
   let h = 0; if (d) { if (mx === r) h = ((g - b) / d) % 6; else if (mx === g) h = (b - r) / d + 2; else h = (r - g) / d + 4; h /= 6; if (h < 0) h += 1; }
   return [h, mx ? d / mx : 0, mx];
 }
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function pickCell(prefix, r) { let lo = 0, hi = prefix.length - 1; while (lo < hi) { const mid = (lo + hi) >> 1; if (prefix[mid] < r) lo = mid + 1; else hi = mid; } return lo; }
 function computeGlyphField() {
+  // Content-weighted scatter: positions importance-sampled from a weight map
+  // derived from the image (dark / light / colour / uniform), seeded so a still
+  // image is stable while video tracks its content.
   if (!media.type || !state.gOn) { glyphCount = 0; glyphGeo.setDrawRange(0, 0); requestRender(); return; }
-  const ar = media.w / media.h;
-  let cols = Math.round(24 + state.gDensity * 86), rows = Math.max(1, Math.round(cols / ar));
-  if (cols * rows > MAX_LETTERS) { const s = Math.sqrt(MAX_LETTERS / (cols * rows)); cols = Math.max(2, Math.floor(cols * s)); rows = Math.max(1, Math.floor(rows * s)); }
-  gridCanvas.width = cols; gridCanvas.height = rows;
+  const A = 160, ar = media.w / media.h;
+  let aw, ah; if (ar >= 1) { aw = A; ah = Math.max(1, Math.round(A / ar)); } else { ah = A; aw = Math.max(1, Math.round(A * ar)); }
+  gridCanvas.width = aw; gridCanvas.height = ah;
   const gx = gridCanvas.getContext('2d', { willReadFrequently: true });
-  let d; try { gx.drawImage(media.el, 0, 0, cols, rows); d = gx.getImageData(0, 0, cols, rows).data; } catch (e) { glyphCount = 0; glyphGeo.setDrawRange(0, 0); return; }
-  const cellPx = media.h / rows, thr = state.gThreshold * 0.9, tol = 0.04 + state.gTol * 0.4;
+  let d; try { gx.drawImage(media.el, 0, 0, aw, ah); d = gx.getImageData(0, 0, aw, ah).data; } catch (e) { glyphCount = 0; glyphGeo.setDrawRange(0, 0); return; }
+  const M = aw * ah, wt = new Float32Array(M), prefix = new Float32Array(M);
+  const thr = state.gThreshold * 0.9, tol = 0.04 + state.gTol * 0.4;
+  let total = 0, maxW = 1e-4;
+  for (let i = 0; i < M; i++) {
+    const [h, s, v] = rgbToHsv(d[i * 4], d[i * 4 + 1], d[i * 4 + 2]);
+    let w;
+    if (state.gMode === 0) w = 1 - v;
+    else if (state.gMode === 1) w = v;
+    else if (state.gMode === 2) { let dh = Math.abs(h - state.gHue); dh = Math.min(dh, 1 - dh); w = Math.max(0, 1 - dh / tol) * s * (v > 0.1 ? 1 : 0); }
+    else w = 1;
+    if (w < thr) w = 0;
+    wt[i] = w; total += w; if (w > maxW) maxW = w;
+    prefix[i] = total;
+  }
+  if (total <= 0) { glyphCount = 0; glyphGeo.setDrawRange(0, 0); requestRender(); return; }
+  const N = Math.min(MAX_LETTERS, Math.round(180 + state.gDensity * 6200));
+  const basePx = media.h / (16 + state.gDensity * 42);
+  const rng = mulberry32(0x9E37 ^ state.gMode);
   let n = 0;
-  for (let cy = 0; cy < rows; cy++) {
-    for (let cx = 0; cx < cols; cx++) {
-      const i = (cy * cols + cx) * 4, [h, s, v] = rgbToHsv(d[i], d[i + 1], d[i + 2]);
-      let w;
-      if (state.gMode === 0) w = 1 - v;
-      else if (state.gMode === 1) w = v;
-      else if (state.gMode === 2) { let dh = Math.abs(h - state.gHue); dh = Math.min(dh, 1 - dh); w = Math.max(0, 1 - dh / tol) * s * (v > 0.1 ? 1 : 0); }
-      else w = 1;
-      if (w < thr) continue;
-      posArr[n * 3] = (cx + 0.5) / cols * 2 - 1;
-      posArr[n * 3 + 1] = (1 - (cy + 0.5) / rows) * 2 - 1;
-      posArr[n * 3 + 2] = 0;
-      sizeArr[n] = cellPx * (0.45 + 0.9 * w);
-      glyphArr[n] = (cx * 31 + cy * 17 + state.gMode * 5) % 24;
-      alphaArr[n] = Math.min(1, (w - thr) / Math.max(0.001, 1 - thr));
-      randArr[n] = ((cx * 7 + cy * 13) % 100) / 100;
-      if (++n >= MAX_LETTERS) break;
-    }
-    if (n >= MAX_LETTERS) break;
+  for (let k = 0; k < N; k++) {
+    const ci = pickCell(prefix, rng() * total);
+    const cx = ci % aw, cy = (ci / aw) | 0, wnorm = wt[ci] / maxW;
+    posArr[n * 3] = (cx + rng()) / aw * 2 - 1;
+    posArr[n * 3 + 1] = (1 - (cy + rng()) / ah) * 2 - 1;
+    posArr[n * 3 + 2] = 0;
+    sizeArr[n] = basePx * (0.55 + 0.85 * wnorm) * (0.75 + 0.55 * rng());
+    glyphArr[n] = (rng() * 24) | 0;
+    alphaArr[n] = 0.35 + 0.65 * wnorm;
+    randArr[n] = rng();
+    n++;
   }
   glyphCount = n;
   posAttr.needsUpdate = sizeAttr.needsUpdate = glyphAttr.needsUpdate = alphaAttr.needsUpdate = randAttr.needsUpdate = true;
@@ -561,7 +573,6 @@ function applyState() {
   glyphMat.uniforms.uSizeMul.value = 0.5 + state.gSize * 1.8;
   glyphMat.uniforms.uGlow.value = state.gGlow;
   glyphMat.uniforms.uMotion.value = state.gMotion;
-  if (state.gTintHue > 0.001) glyphMat.uniforms.uColor.value.setHSL(state.gTintHue, 0.7, 0.62); else glyphMat.uniforms.uColor.value.setRGB(1, 1, 1);
   updateFocusMarker(); requestRender();
 }
 
