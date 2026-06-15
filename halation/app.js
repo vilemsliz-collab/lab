@@ -8,13 +8,14 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 /* ─────────────────────────────────────────────────────────────
    Halation — campaign content lab. Bloom (+tint), prism dispersion,
-   manual focus point, lens blurs, glitch pack, particles, and a
-   HUD color-blob tracker. Full-resolution, subject-aware.
+   finger-adjustable feathered focus mask, lens blurs, a procedural
+   Greek-letter field placed from image data, and a HUD colour tracker.
    ───────────────────────────────────────────────────────────── */
 
-const MAX_SIDE_IMAGE = 3072;   // high quality, no practical degradation
+const MAX_SIDE_IMAGE = 3072;
 const MAX_SIDE_VIDEO = 1440;
-const MAX_PARTICLES = 3000;
+const MAX_LETTERS = 14000;
+const GREEK = 'αβγδεζηθικλμνξοπρστυφχψω'; // 24 lowercase
 
 const dom = {
   canvas:    document.getElementById('gl'),
@@ -39,20 +40,19 @@ const dom = {
 };
 
 const state = {
-  // bloom
   bloomStrength: 0.7, bloomRadius: 0.6, bloomThreshold: 0.8, bloomTintHue: 0.08, bloomTintAmt: 0,
-  // blur & focus
+  // blur & feathered focus mask
   soft: 0, zoom: 0, motion: 0, motionAngle: 0, dofBg: 0, focus: 0.1,
-  focusBlur: 0, focusRadius: 0.34, focusDark: 0, focusPtX: 0.5, focusPtY: 0.5,
-  // dispersion (colour-controllable / prismatic)
+  focusBlur: 0, focusRadius: 0.34, focusFeather: 0.6, focusDark: 0, focusPtX: 0.5, focusPtY: 0.5,
+  // dispersion
   dispAmount: 0.008, dispSpread: 0.66, dispHue: 0,
-  // glitch
-  glRgb: 0, glSlice: 0, glWave: 0, glPixel: 0, glCrush: 0, glNoise: 0, glScan: 0, glTrack: 0.5, maskInvert: false,
-  // particles
-  pType: 0, pCount: 0, pSize: 0.5, pSpeed: 0.5, pGlow: 0.6, pHue: 0,
+  // greek-letter field
+  gOn: false, gMode: 0, gHue: 0, gTol: 0.5, gDensity: 0.5, gThreshold: 0.15, gSize: 0.5, gGlow: 0.9, gTintHue: 0, gMotion: 0,
   // colour tracking
   trackOn: false, trackAuto: true, trackLabels: true, trackHue: 0, trackTol: 0.5, trackBoxes: 8, trackMinSize: 0.25,
+  maskInvert: false,
 };
+const GLYPH_PLACEMENT = ['gOn', 'gMode', 'gDensity', 'gThreshold', 'gHue', 'gTol'];
 
 const CONTROLS = {
   bloom: [
@@ -63,42 +63,35 @@ const CONTROLS = {
     { t: 'slider', key: 'bloomTintHue',   label: 'Tint hue',       min: 0, max: 1, step: 0.001 },
   ],
   focus: [
-    { t: 'note', text: 'Tap the image to place the focus point.' },
-    { t: 'slider', key: 'focusBlur',   label: 'Focus blur (outside)', min: 0, max: 1, step: 0.01 },
-    { t: 'slider', key: 'focusRadius', label: 'Focus radius',         min: 0.05, max: 0.9, step: 0.01 },
-    { t: 'slider', key: 'focusDark',   label: 'Darken outside',       min: 0, max: 1, step: 0.01 },
-    { t: 'slider', key: 'focus',       label: 'Subject focus (mask)', min: 0, max: 1, step: 0.01 },
-    { t: 'slider', key: 'dofBg',       label: 'Background DoF (mask)', min: 0, max: 1, step: 0.01 },
-    { t: 'slider', key: 'soft',        label: 'Gaussian blur',        min: 0, max: 1, step: 0.01 },
-    { t: 'slider', key: 'zoom',        label: 'Zoom blur',            min: 0, max: 1, step: 0.01 },
-    { t: 'slider', key: 'motion',      label: 'Motion blur',          min: 0, max: 1, step: 0.01 },
-    { t: 'slider', key: 'motionAngle', label: 'Motion angle',         min: 0, max: 6.283, step: 0.01 },
+    { t: 'note', text: 'Drag on the image to move the focus mask · pinch with two fingers to resize.' },
+    { t: 'slider', key: 'focusBlur',    label: 'Focus blur (outside)', min: 0, max: 1, step: 0.01 },
+    { t: 'slider', key: 'focusDark',    label: 'Darken outside',       min: 0, max: 1, step: 0.01 },
+    { t: 'slider', key: 'focusRadius',  label: 'Mask radius',          min: 0.05, max: 0.9, step: 0.01 },
+    { t: 'slider', key: 'focusFeather', label: 'Feather (centre→edge)', min: 0, max: 1, step: 0.01 },
+    { t: 'slider', key: 'focus',        label: 'Subject focus (mask)',  min: 0, max: 1, step: 0.01 },
+    { t: 'slider', key: 'dofBg',        label: 'Background DoF (mask)',  min: 0, max: 1, step: 0.01 },
+    { t: 'slider', key: 'soft',         label: 'Gaussian blur',         min: 0, max: 1, step: 0.01 },
+    { t: 'slider', key: 'zoom',         label: 'Zoom blur',             min: 0, max: 1, step: 0.01 },
+    { t: 'slider', key: 'motion',       label: 'Motion blur',           min: 0, max: 1, step: 0.01 },
+    { t: 'slider', key: 'motionAngle',  label: 'Motion angle',          min: 0, max: 6.283, step: 0.01 },
   ],
   dispersion: [
     { t: 'slider', key: 'dispAmount', label: 'Amount',        min: 0, max: 0.06, step: 0.001 },
     { t: 'slider', key: 'dispSpread', label: 'Colour spread', min: 0, max: 1, step: 0.01 },
     { t: 'slider', key: 'dispHue',    label: 'Hue offset',    min: 0, max: 1, step: 0.001 },
   ],
-  glitch: [
-    { t: 'slider', key: 'glRgb',   label: 'RGB shift',     min: 0, max: 1, step: 0.01 },
-    { t: 'slider', key: 'glSlice', label: 'Slice tear',    min: 0, max: 1, step: 0.01 },
-    { t: 'slider', key: 'glWave',  label: 'Wave warp',     min: 0, max: 1, step: 0.01 },
-    { t: 'slider', key: 'glPixel', label: 'Pixelate',      min: 0, max: 1, step: 0.01 },
-    { t: 'slider', key: 'glCrush', label: 'Color crush',   min: 0, max: 1, step: 0.01 },
-    { t: 'slider', key: 'glNoise', label: 'Digital noise', min: 0, max: 1, step: 0.01 },
-    { t: 'slider', key: 'glScan',  label: 'Scanlines',     min: 0, max: 1, step: 0.01 },
-    { t: 'slider', key: 'glTrack', label: 'Track subject', min: 0, max: 1, step: 0.01 },
-    { t: 'toggle', key: 'maskInvert', label: 'Invert subject mask' },
-    { t: 'burst' },
-  ],
   particles: [
-    { t: 'select', key: 'pType', label: 'Type', options: [
-      { label: 'Dust', val: 0 }, { label: 'Bokeh', val: 1 }, { label: 'Snow', val: 2 }, { label: 'Sparks', val: 3 } ] },
-    { t: 'slider', key: 'pCount', label: 'Amount',     min: 0, max: MAX_PARTICLES, step: 10 },
-    { t: 'slider', key: 'pSize',  label: 'Size',       min: 0, max: 1, step: 0.01 },
-    { t: 'slider', key: 'pSpeed', label: 'Speed',      min: 0, max: 1, step: 0.01 },
-    { t: 'slider', key: 'pGlow',  label: 'Brightness', min: 0, max: 1, step: 0.01 },
-    { t: 'slider', key: 'pHue',   label: 'Tint',       min: 0, max: 1, step: 0.01 },
+    { t: 'toggle', key: 'gOn', label: 'Greek-letter field' },
+    { t: 'select', key: 'gMode', label: 'Placed by', options: [
+      { label: 'Dark areas', val: 0 }, { label: 'Light areas', val: 1 }, { label: 'Colour', val: 2 }, { label: 'Uniform', val: 3 } ] },
+    { t: 'slider', key: 'gDensity',   label: 'Density',     min: 0, max: 1, step: 0.01 },
+    { t: 'slider', key: 'gThreshold', label: 'Threshold',   min: 0, max: 1, step: 0.01 },
+    { t: 'slider', key: 'gHue',       label: 'Colour hue (Colour mode)', min: 0, max: 1, step: 0.001 },
+    { t: 'slider', key: 'gTol',       label: 'Colour tolerance',         min: 0, max: 1, step: 0.01 },
+    { t: 'slider', key: 'gSize',      label: 'Letter size', min: 0, max: 1, step: 0.01 },
+    { t: 'slider', key: 'gGlow',      label: 'Opacity',     min: 0, max: 1, step: 0.01 },
+    { t: 'slider', key: 'gTintHue',   label: 'Tint (0 = white)', min: 0, max: 1, step: 0.001 },
+    { t: 'slider', key: 'gMotion',    label: 'Drift',       min: 0, max: 1, step: 0.01 },
   ],
   track: [
     { t: 'toggle', key: 'trackOn',     label: 'Colour tracking' },
@@ -147,22 +140,22 @@ const DispersionShader = {
 const LensBlurShader = {
   uniforms: {
     tDiffuse: { value: null }, tMask: { value: null }, uTexel: { value: new THREE.Vector2() },
-    uSoft: { value: 0 }, uZoom: { value: 0 }, uMotion: { value: 0 }, uAngle: { value: 0 }, uDofBg: { value: 0 },
-    uMaskInvert: { value: 0 },
-    uFocusPt: { value: new THREE.Vector2(0.5, 0.5) }, uFocusR: { value: 0.34 }, uFocusBlur: { value: 0 },
-    uFocusDark: { value: 0 }, uAspect: { value: 1 },
+    uSoft: { value: 0 }, uZoom: { value: 0 }, uMotion: { value: 0 }, uAngle: { value: 0 }, uDofBg: { value: 0 }, uMaskInvert: { value: 0 },
+    uFocusPt: { value: new THREE.Vector2(0.5, 0.5) }, uFocusR: { value: 0.34 }, uFeather: { value: 0.6 },
+    uFocusBlur: { value: 0 }, uFocusDark: { value: 0 }, uAspect: { value: 1 },
   },
   vertexShader: PASS_VERT,
   fragmentShader: `
     uniform sampler2D tDiffuse, tMask; uniform vec2 uTexel, uFocusPt;
-    uniform float uSoft, uZoom, uMotion, uAngle, uDofBg, uMaskInvert, uFocusR, uFocusBlur, uFocusDark, uAspect;
+    uniform float uSoft, uZoom, uMotion, uAngle, uDofBg, uMaskInvert, uFocusR, uFeather, uFocusBlur, uFocusDark, uAspect;
     varying vec2 vUv;
     ${MASK_SAMPLE}
     void main(){
       float m = maskAt(tMask, vUv, uMaskInvert);
       vec2 fd = (vUv - uFocusPt) * vec2(uAspect, 1.0);
-      float outside = smoothstep(uFocusR, uFocusR + 0.28, length(fd));
-      float soft = uSoft + uDofBg * (1.0 - m) + uFocusBlur * outside;
+      float inner = uFocusR * (1.0 - uFeather);
+      float grad = smoothstep(inner, uFocusR, length(fd));   // 0 at centre → 1 at edge
+      float soft = uSoft + uDofBg * (1.0 - m) + uFocusBlur * grad;
       vec3 col = texture2D(tDiffuse, vUv).rgb; float wsum = 1.0;
       if (soft > 0.002){
         for (int i = 0; i < 10; i++){
@@ -173,62 +166,17 @@ const LensBlurShader = {
           wsum += 2.0;
         }
       }
-      if (uZoom > 0.002){
-        vec2 d = 0.5 - vUv;
-        for (int i = 1; i <= 8; i++){ float s = float(i) / 8.0; col += texture2D(tDiffuse, vUv + d * s * uZoom * 0.3).rgb; wsum += 1.0; }
-      }
-      if (uMotion > 0.002){
-        vec2 d = vec2(cos(uAngle), sin(uAngle));
-        for (int i = -6; i <= 6; i++){ if (i == 0) continue; col += texture2D(tDiffuse, vUv + d * float(i) * uMotion * uTexel * 7.0).rgb; wsum += 1.0; }
-      }
+      if (uZoom > 0.002){ vec2 d = 0.5 - vUv;
+        for (int i = 1; i <= 8; i++){ float s = float(i) / 8.0; col += texture2D(tDiffuse, vUv + d * s * uZoom * 0.3).rgb; wsum += 1.0; } }
+      if (uMotion > 0.002){ vec2 d = vec2(cos(uAngle), sin(uAngle));
+        for (int i = -6; i <= 6; i++){ if (i == 0) continue; col += texture2D(tDiffuse, vUv + d * float(i) * uMotion * uTexel * 7.0).rgb; wsum += 1.0; } }
       vec3 outc = col / wsum;
-      outc *= 1.0 - uFocusDark * outside * 0.85;
+      outc *= 1.0 - uFocusDark * grad * 0.9;
       gl_FragColor = vec4(outc, 1.0);
     }`,
 };
 
-const GlitchShader = {
-  uniforms: {
-    tDiffuse: { value: null }, tMask: { value: null }, uTime: { value: 0 }, uRes: { value: new THREE.Vector2(1, 1) },
-    uRgb: { value: 0 }, uSlice: { value: 0 }, uScan: { value: 0 }, uNoise: { value: 0 },
-    uWave: { value: 0 }, uPixel: { value: 0 }, uCrush: { value: 0 }, uTrack: { value: state.glTrack }, uBurst: { value: 0 }, uMaskInvert: { value: 0 },
-  },
-  vertexShader: PASS_VERT,
-  fragmentShader: `
-    uniform sampler2D tDiffuse, tMask; uniform vec2 uRes;
-    uniform float uTime, uRgb, uSlice, uScan, uNoise, uWave, uPixel, uCrush, uTrack, uBurst, uMaskInvert;
-    varying vec2 vUv;
-    ${MASK_SAMPLE}
-    float hash(float n){ return fract(sin(n) * 43758.5453123); }
-    float hash2(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
-    void main(){
-      float m = maskAt(tMask, vUv, uMaskInvert);
-      float track = mix(1.0, m, uTrack);
-      float t = floor(uTime * 14.0);
-      vec2 uv = vUv;
-      if (uPixel > 0.002){ float cells = mix(1200.0, 22.0, uPixel); uv = (floor(uv * cells) + 0.5) / cells; }
-      uv.x += sin(uv.y * 38.0 + uTime * 3.0) * 0.02 * uWave * track;
-      uv.y += cos(uv.x * 26.0 + uTime * 2.2) * 0.012 * uWave * track;
-      float sl = floor(vUv.y * 26.0);
-      float sliceOn = step(0.7, hash(sl + t * 1.7));
-      uv.x += (hash(sl * 3.3 + t) - 0.5) * 0.16 * (uSlice + uBurst) * sliceOn * track;
-      float rgbAmt = 0.024 * (uRgb + uBurst) * track;
-      rgbAmt *= mix(1.0, 3.0, step(0.92, hash(t * 2.1)));
-      vec3 col;
-      col.r = texture2D(tDiffuse, uv + vec2(rgbAmt, 0.0)).r;
-      col.g = texture2D(tDiffuse, uv).g;
-      col.b = texture2D(tDiffuse, uv - vec2(rgbAmt, 0.0)).b;
-      vec2 blk = floor(vUv * (uRes / 8.0));
-      float hit = step(0.96, hash2(blk + t)) * (uNoise + uBurst) * track;
-      col = mix(col, vec3(hash2(blk * 1.31 + t)), clamp(hit, 0.0, 1.0) * 0.85);
-      if (uCrush > 0.002){ float levels = mix(255.0, 3.0, uCrush); col = floor(col * levels + 0.5) / levels; }
-      float scan = sin(vUv.y * uRes.y * 1.5) * 0.5 + 0.5;
-      col *= 1.0 - uScan * 0.25 * scan;
-      gl_FragColor = vec4(col, 1.0);
-    }`,
-};
-
-/* ── Custom bloom (byte targets only → iOS-safe), with tint ── */
+/* ── Custom bloom (byte targets → iOS-safe), with tint ── */
 const FS_VERT = `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 const BrightShader = {
   uniforms: { tDiffuse: { value: null }, uThreshold: { value: 0.8 } }, vertexShader: FS_VERT,
@@ -315,54 +263,57 @@ const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -1, 1);
 const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.MeshBasicMaterial({ map: null }));
 scene.add(quad);
 
-/* ── Particles ── */
-const particleScene = new THREE.Scene();
-let particleMat;
-function buildParticles() {
-  const pos = new Float32Array(MAX_PARTICLES * 3), rnd = new Float32Array(MAX_PARTICLES), idx = new Float32Array(MAX_PARTICLES);
-  for (let i = 0; i < MAX_PARTICLES; i++) {
-    pos[i * 3] = Math.random() * 2 - 1; pos[i * 3 + 1] = Math.random() * 2 - 1; pos[i * 3 + 2] = Math.random();
-    rnd[i] = Math.random(); idx[i] = i;
-  }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  geo.setAttribute('aRand', new THREE.BufferAttribute(rnd, 1));
-  geo.setAttribute('aIndex', new THREE.BufferAttribute(idx, 1));
-  particleMat = new THREE.ShaderMaterial({
-    transparent: true, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending,
-    uniforms: { uTime: { value: 0 }, uCount: { value: 0 }, uType: { value: 0 }, uSize: { value: 0.5 }, uSpeed: { value: 0.5 }, uGlow: { value: 0.6 }, uHue: { value: 0 }, uScale: { value: 1 } },
-    vertexShader: `
-      attribute float aRand; attribute float aIndex;
-      uniform float uTime, uCount, uType, uSize, uSpeed, uScale; varying float vType;
-      void main(){
-        vType = uType;
-        if (aIndex >= uCount){ gl_Position = vec4(2.0); gl_PointSize = 0.0; return; }
-        vec2 p = position.xy; float ph = position.z; float t = uTime; float sp = uSpeed;
-        if (uType < 0.5){ p.x += sin(t*0.3*sp + ph*6.28)*0.06; p.y += cos(t*0.23*sp + ph*9.42)*0.06; }
-        else if (uType < 1.5){ p.y = mod(p.y + 1.0 + t*0.05*sp*(0.5+aRand), 2.0) - 1.0; p.x += sin(t*0.2*sp + ph*6.28)*0.03; }
-        else if (uType < 2.5){ p.y = 1.0 - mod(ph*2.0 + t*0.18*sp*(0.5+aRand), 2.0); p.x += sin(t*0.8*sp + ph*12.0)*0.04; }
-        else { p.y = -1.0 + mod(ph*2.0 + t*0.5*sp*(0.6+aRand), 2.0); p.x += sin(t*2.0*sp + ph*20.0)*0.02; }
-        float typeSize = (uType < 0.5) ? 0.5 : (uType < 1.5) ? 2.2 : (uType < 2.5) ? 1.0 : 0.6;
-        gl_PointSize = uSize * (3.0 + aRand*26.0) * typeSize * uScale;
-        gl_Position = vec4(p, 0.0, 1.0);
-      }`,
-    fragmentShader: `
-      uniform float uGlow, uHue; varying float vType; ${HSV}
-      void main(){
-        vec2 q = gl_PointCoord - 0.5; float d = length(q); float a;
-        if (vType < 1.5){ a = smoothstep(0.5, 0.0, d); if (vType > 0.5) a = mix(a, smoothstep(0.5, 0.42, d), 0.4); }
-        else if (vType < 2.5){ a = smoothstep(0.5, 0.12, d); } else { a = smoothstep(0.5, 0.0, d); a *= a; }
-        if (a < 0.01) discard;
-        vec3 col = mix(vec3(1.0), hsv2rgb(vec3(uHue, 0.7, 1.0)), step(0.001, uHue));
-        gl_FragColor = vec4(col, a * uGlow);
-      }`,
-  });
-  particleScene.add(new THREE.Points(geo, particleMat));
+/* ── Greek-letter field (procedural placement from image data) ── */
+function buildGreekAtlas() {
+  const cell = 96, cols = 6, rows = 4;
+  const c = document.createElement('canvas'); c.width = cols * cell; c.height = rows * cell;
+  const x = c.getContext('2d');
+  x.fillStyle = '#fff'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.font = `${Math.round(cell * 0.68)}px "IBM Plex Mono", "Times New Roman", serif`;
+  for (let i = 0; i < GREEK.length; i++) x.fillText(GREEK[i], (i % cols) * cell + cell / 2, ((i / cols) | 0) * cell + cell / 2);
+  const tex = new THREE.CanvasTexture(c); tex.flipY = false; tex.minFilter = THREE.LinearFilter; tex.magFilter = THREE.LinearFilter; tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
 }
-buildParticles();
+const glyphScene = new THREE.Scene();
+const glyphGeo = new THREE.BufferGeometry();
+const posArr = new Float32Array(MAX_LETTERS * 3), sizeArr = new Float32Array(MAX_LETTERS), glyphArr = new Float32Array(MAX_LETTERS), alphaArr = new Float32Array(MAX_LETTERS), randArr = new Float32Array(MAX_LETTERS);
+const posAttr = new THREE.BufferAttribute(posArr, 3).setUsage(THREE.DynamicDrawUsage);
+const sizeAttr = new THREE.BufferAttribute(sizeArr, 1).setUsage(THREE.DynamicDrawUsage);
+const glyphAttr = new THREE.BufferAttribute(glyphArr, 1).setUsage(THREE.DynamicDrawUsage);
+const alphaAttr = new THREE.BufferAttribute(alphaArr, 1).setUsage(THREE.DynamicDrawUsage);
+const randAttr = new THREE.BufferAttribute(randArr, 1).setUsage(THREE.DynamicDrawUsage);
+glyphGeo.setAttribute('position', posAttr); glyphGeo.setAttribute('aSize', sizeAttr);
+glyphGeo.setAttribute('aGlyph', glyphAttr); glyphGeo.setAttribute('aAlpha', alphaAttr); glyphGeo.setAttribute('aRand', randAttr);
+glyphGeo.setDrawRange(0, 0);
+const glyphMat = new THREE.ShaderMaterial({
+  transparent: true, depthTest: false, depthWrite: false, blending: THREE.NormalBlending,
+  uniforms: { uAtlas: { value: buildGreekAtlas() }, uSizeMul: { value: 1 }, uGlow: { value: 0.9 }, uColor: { value: new THREE.Color(1, 1, 1) }, uTime: { value: 0 }, uMotion: { value: 0 } },
+  vertexShader: `
+    attribute float aSize, aGlyph, aAlpha, aRand;
+    uniform float uSizeMul, uTime, uMotion; varying float vGlyph, vAlpha;
+    void main(){
+      vGlyph = aGlyph; vAlpha = aAlpha;
+      vec2 p = position.xy;
+      if (uMotion > 0.0){ p.x += sin(uTime * 1.3 + aRand * 6.28) * 0.012 * uMotion; p.y += cos(uTime * 1.1 + aRand * 9.0) * 0.012 * uMotion; }
+      gl_PointSize = clamp(aSize * uSizeMul, 4.0, 480.0);
+      gl_Position = vec4(p, 0.0, 1.0);
+    }`,
+  fragmentShader: `
+    uniform sampler2D uAtlas; uniform vec3 uColor; uniform float uGlow; varying float vGlyph, vAlpha;
+    void main(){
+      float gi = vGlyph; vec2 cell = vec2(mod(gi, 6.0), floor(gi / 6.0));
+      vec2 guv = (cell + gl_PointCoord) / vec2(6.0, 4.0);
+      float a = texture2D(uAtlas, guv).a * vAlpha * uGlow;
+      if (a < 0.02) discard;
+      gl_FragColor = vec4(uColor, a);
+    }`,
+});
+glyphScene.add(new THREE.Points(glyphGeo, glyphMat));
+let glyphCount = 0;
+const gridCanvas = document.createElement('canvas');
 
 /* ── Composer ── */
-let composer, bloomPass, dispPass, blurPass, glitchPass;
+let composer, bloomPass, dispPass, blurPass;
 function buildComposer(w, h) {
   if (composer) composer.dispose();
   const rt = new THREE.WebGLRenderTarget(w, h, { type: THREE.UnsignedByteType, format: THREE.RGBAFormat, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });
@@ -372,9 +323,7 @@ function buildComposer(w, h) {
   dispPass = new ShaderPass(DispersionShader); composer.addPass(dispPass);
   blurPass = new ShaderPass(LensBlurShader); blurPass.uniforms.uTexel.value.set(1 / w, 1 / h); blurPass.uniforms.uAspect.value = w / h; composer.addPass(blurPass);
   bloomPass = new HalationBloomPass(w, h); composer.addPass(bloomPass);
-  glitchPass = new ShaderPass(GlitchShader); glitchPass.uniforms.uRes.value.set(w, h); composer.addPass(glitchPass);
   composer.addPass(new OutputPass());
-  particleMat.uniforms.uScale.value = h / 1000;
   applyState();
 }
 
@@ -386,11 +335,7 @@ function makeMaskTexture(data, w, h) {
   return tex;
 }
 let maskBuf = null;
-function setMaskUniforms() {
-  if (dispPass) dispPass.uniforms.tMask.value = maskTex;
-  if (blurPass) blurPass.uniforms.tMask.value = maskTex;
-  if (glitchPass) glitchPass.uniforms.tMask.value = maskTex;
-}
+function setMaskUniforms() { if (dispPass) dispPass.uniforms.tMask.value = maskTex; if (blurPass) blurPass.uniforms.tMask.value = maskTex; }
 function updateMaskFromResult(result) {
   const mask = result.confidenceMasks && result.confidenceMasks[0]; if (!mask) return;
   const w = mask.width, h = mask.height, f32 = mask.getAsFloat32Array();
@@ -424,22 +369,18 @@ async function getSegmenter(mode) {
 /* ─────────────────────────── Media loading ─────────────────────────── */
 let media = { type: null, el: null, w: 0, h: 0 };
 let lastVideoTs = -1;
-
 function fitCanvasStyle(w, h) {
   const sw = dom.stage.clientWidth, sh = dom.stage.clientHeight; if (!sw || !sh) return;
   const scale = Math.min(sw / w, sh / h);
-  const cw = Math.round(w * scale), ch = Math.round(h * scale);
-  dom.canvas.style.width = cw + 'px'; dom.canvas.style.height = ch + 'px';
+  dom.canvas.style.width = Math.round(w * scale) + 'px'; dom.canvas.style.height = Math.round(h * scale) + 'px';
   positionOverlay(); updateFocusMarker(); drawBlobs();
 }
 function positionOverlay() {
   const gr = dom.canvas.getBoundingClientRect(), sr = dom.stage.getBoundingClientRect();
   const dpr = Math.min(2, window.devicePixelRatio || 1);
-  dom.overlay.style.left = (gr.left - sr.left) + 'px';
-  dom.overlay.style.top = (gr.top - sr.top) + 'px';
+  dom.overlay.style.left = (gr.left - sr.left) + 'px'; dom.overlay.style.top = (gr.top - sr.top) + 'px';
   dom.overlay.style.width = gr.width + 'px'; dom.overlay.style.height = gr.height + 'px';
-  dom.overlay.width = Math.max(1, Math.round(gr.width * dpr));
-  dom.overlay.height = Math.max(1, Math.round(gr.height * dpr));
+  dom.overlay.width = Math.max(1, Math.round(gr.width * dpr)); dom.overlay.height = Math.max(1, Math.round(gr.height * dpr));
 }
 function capSize(w, h, maxSide) { const s = Math.min(1, maxSide / Math.max(w, h)); return [Math.round(w * s), Math.round(h * s)]; }
 
@@ -452,7 +393,6 @@ async function loadImage(src, revoke) {
   setupMedia('image', img, w, h, tex);
   const seg = await getSegmenter('IMAGE');
   if (seg) { try { updateMaskFromResult(seg.segment(img)); } catch (e) { console.warn(e); } }
-  if (state.trackOn) { computeBlobs(); drawBlobs(); }
 }
 async function loadVideo(src) {
   const v = dom.video; v.src = src; v.muted = true; v.loop = true; v.playsInline = true;
@@ -469,18 +409,56 @@ function setupMedia(type, el, w, h, tex) {
   dom.empty.classList.add('hidden');
   dom.compare.classList.remove('hidden'); dom.compare.disabled = false;
   dom.exportBtn.disabled = false; dom.exportBtn.textContent = type === 'video' ? 'Record' : 'Export';
+  computeGlyphField(); if (state.trackOn) { computeBlobs(); drawBlobs(); }
   requestRender();
 }
 
-/* ─────────────────────── Colour-blob tracker (HUD) ─────────────────────── */
-const analyzeCanvas = document.createElement('canvas');
-let blobs = [];
+/* ── Greek-letter procedural placement ── */
 function rgbToHsv(r, g, b) {
   r /= 255; g /= 255; b /= 255;
   const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
   let h = 0; if (d) { if (mx === r) h = ((g - b) / d) % 6; else if (mx === g) h = (b - r) / d + 2; else h = (r - g) / d + 4; h /= 6; if (h < 0) h += 1; }
   return [h, mx ? d / mx : 0, mx];
 }
+function computeGlyphField() {
+  if (!media.type || !state.gOn) { glyphCount = 0; glyphGeo.setDrawRange(0, 0); requestRender(); return; }
+  const ar = media.w / media.h;
+  let cols = Math.round(24 + state.gDensity * 86), rows = Math.max(1, Math.round(cols / ar));
+  if (cols * rows > MAX_LETTERS) { const s = Math.sqrt(MAX_LETTERS / (cols * rows)); cols = Math.max(2, Math.floor(cols * s)); rows = Math.max(1, Math.floor(rows * s)); }
+  gridCanvas.width = cols; gridCanvas.height = rows;
+  const gx = gridCanvas.getContext('2d', { willReadFrequently: true });
+  let d; try { gx.drawImage(media.el, 0, 0, cols, rows); d = gx.getImageData(0, 0, cols, rows).data; } catch (e) { glyphCount = 0; glyphGeo.setDrawRange(0, 0); return; }
+  const cellPx = media.h / rows, thr = state.gThreshold * 0.9, tol = 0.04 + state.gTol * 0.4;
+  let n = 0;
+  for (let cy = 0; cy < rows; cy++) {
+    for (let cx = 0; cx < cols; cx++) {
+      const i = (cy * cols + cx) * 4, [h, s, v] = rgbToHsv(d[i], d[i + 1], d[i + 2]);
+      let w;
+      if (state.gMode === 0) w = 1 - v;
+      else if (state.gMode === 1) w = v;
+      else if (state.gMode === 2) { let dh = Math.abs(h - state.gHue); dh = Math.min(dh, 1 - dh); w = Math.max(0, 1 - dh / tol) * s * (v > 0.1 ? 1 : 0); }
+      else w = 1;
+      if (w < thr) continue;
+      posArr[n * 3] = (cx + 0.5) / cols * 2 - 1;
+      posArr[n * 3 + 1] = (1 - (cy + 0.5) / rows) * 2 - 1;
+      posArr[n * 3 + 2] = 0;
+      sizeArr[n] = cellPx * (0.45 + 0.9 * w);
+      glyphArr[n] = (cx * 31 + cy * 17 + state.gMode * 5) % 24;
+      alphaArr[n] = Math.min(1, (w - thr) / Math.max(0.001, 1 - thr));
+      randArr[n] = ((cx * 7 + cy * 13) % 100) / 100;
+      if (++n >= MAX_LETTERS) break;
+    }
+    if (n >= MAX_LETTERS) break;
+  }
+  glyphCount = n;
+  posAttr.needsUpdate = sizeAttr.needsUpdate = glyphAttr.needsUpdate = alphaAttr.needsUpdate = randAttr.needsUpdate = true;
+  glyphGeo.setDrawRange(0, n);
+  requestRender();
+}
+
+/* ─────────────────────── Colour-blob tracker (HUD) ─────────────────────── */
+const analyzeCanvas = document.createElement('canvas');
+let blobs = [];
 function computeBlobs() {
   if (!media.type || !state.trackOn) { blobs = []; return; }
   const SAMPLE = 120, ar = media.w / media.h;
@@ -489,16 +467,14 @@ function computeBlobs() {
   const x = analyzeCanvas.getContext('2d', { willReadFrequently: true });
   let data; try { x.drawImage(media.el, 0, 0, sw, sh); data = x.getImageData(0, 0, sw, sh).data; } catch (e) { blobs = []; return; }
   const N = sw * sh, mask = new Uint8Array(N);
-  const satThr = state.trackAuto ? (0.34 - state.trackTol * 0.26) : 0.16;
-  const hueTol = 0.02 + state.trackTol * 0.22;
+  const satThr = state.trackAuto ? (0.34 - state.trackTol * 0.26) : 0.16, hueTol = 0.02 + state.trackTol * 0.22;
   for (let i = 0; i < N; i++) {
     const [h, s, v] = rgbToHsv(data[i * 4], data[i * 4 + 1], data[i * 4 + 2]);
     let hit = s > satThr && v > 0.12;
     if (hit && !state.trackAuto) { let dh = Math.abs(h - state.trackHue); dh = Math.min(dh, 1 - dh); hit = dh <= hueTol; }
     mask[i] = hit ? 1 : 0;
   }
-  // connected components (4-neighbour flood fill)
-  const seen = new Uint8Array(N), stack = new Int32Array(N); const found = [];
+  const seen = new Uint8Array(N), stack = new Int32Array(N), found = [];
   const minArea = Math.max(3, Math.round((0.0015 + state.trackMinSize * 0.05) * N));
   for (let i = 0; i < N; i++) {
     if (!mask[i] || seen[i]) continue;
@@ -531,9 +507,7 @@ function drawBlobs() {
   ctx.font = '600 10px "IBM Plex Mono", monospace'; ctx.textBaseline = 'bottom';
   blobs.forEach((b, i) => {
     const x = b.x0 * W, y = b.y0 * H, w = (b.x1 - b.x0) * W, h = (b.y1 - b.y0) * H;
-    ctx.strokeStyle = accent; ctx.lineWidth = 1.25; ctx.globalAlpha = 0.95;
-    ctx.strokeRect(x, y, w, h);
-    // corner ticks
+    ctx.strokeStyle = accent; ctx.lineWidth = 1.25; ctx.globalAlpha = 0.95; ctx.strokeRect(x, y, w, h);
     const t = Math.min(12, Math.min(w, h) * 0.3); ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(x, y + t); ctx.lineTo(x, y); ctx.lineTo(x + t, y);
@@ -541,13 +515,9 @@ function drawBlobs() {
     ctx.moveTo(x + w, y + h - t); ctx.lineTo(x + w, y + h); ctx.lineTo(x + w - t, y + h);
     ctx.moveTo(x + t, y + h); ctx.lineTo(x, y + h); ctx.lineTo(x, y + h - t);
     ctx.stroke();
-    // swatch + label
     if (state.trackLabels) {
-      const label = `${String(i + 1).padStart(2, '0')} ${b.hex}`;
-      const tw = ctx.measureText(label).width;
-      const ly = y > 16 ? y - 4 : y + h + 14;
-      ctx.globalAlpha = 0.85; ctx.fillStyle = 'rgba(8,8,8,0.8)';
-      ctx.fillRect(x, ly - 13, tw + 18, 15);
+      const label = `${String(i + 1).padStart(2, '0')} ${b.hex}`, tw = ctx.measureText(label).width, ly = y > 16 ? y - 4 : y + h + 14;
+      ctx.globalAlpha = 0.85; ctx.fillStyle = 'rgba(8,8,8,0.8)'; ctx.fillRect(x, ly - 13, tw + 18, 15);
       ctx.globalAlpha = 1; ctx.fillStyle = b.hex; ctx.fillRect(x + 3, ly - 11, 8, 8);
       ctx.fillStyle = accent; ctx.fillText(label, x + 14, ly);
     }
@@ -557,26 +527,23 @@ function drawBlobs() {
 
 /* ─────────────────────────── Render loop ─────────────────────────── */
 const clock = new THREE.Clock();
-let bypass = false, burst = 0, dirty = true, vframe = 0;
+let bypass = false, dirty = true, vframe = 0;
 function requestRender() { dirty = true; }
-function glitchActive() { return state.glRgb || state.glSlice || state.glWave || state.glNoise || state.glScan || state.glCrush || state.glPixel; }
-function animating() { return media.type === 'video' || state.pCount > 0 || burst > 0 || glitchActive(); }
-
+function animating() { return media.type === 'video' || (glyphCount > 0 && state.gMotion > 0); }
 function renderFrame() {
   if (media.type === 'video' && !dom.video.paused && segmenter && segmenterMode === 'VIDEO') {
     const ts = performance.now();
     if (ts !== lastVideoTs) { lastVideoTs = ts; try { segmenter.segmentForVideo(dom.video, ts, updateMaskFromResult); } catch (e) {} }
   }
-  if (burst > 0) burst = Math.max(0, burst - clock.getDelta() * 2.2);
-  if (glitchPass) { glitchPass.uniforms.uTime.value = clock.elapsedTime; glitchPass.uniforms.uBurst.value = burst; }
   if (!composer) return;
   if (bypass) { renderer.render(scene, camera); return; }
   composer.render();
-  if (state.pCount > 0) {
-    particleMat.uniforms.uTime.value = clock.elapsedTime;
-    renderer.autoClear = false; renderer.render(particleScene, camera); renderer.autoClear = true;
+  if (glyphCount > 0) { glyphMat.uniforms.uTime.value = clock.elapsedTime; renderer.autoClear = false; renderer.render(glyphScene, camera); renderer.autoClear = true; }
+  if (media.type === 'video') {
+    vframe++;
+    if (state.gOn && vframe % 15 === 0) computeGlyphField();
+    if (state.trackOn) { if (vframe % 8 === 0) computeBlobs(); drawBlobs(); }
   }
-  if (media.type === 'video' && state.trackOn) { if ((vframe++ % 8) === 0) computeBlobs(); drawBlobs(); }
 }
 function tick() { requestAnimationFrame(tick); if (!media.type) return; if (animating() || dirty) { renderFrame(); dirty = false; } }
 tick();
@@ -589,37 +556,47 @@ function applyState() {
   }
   if (dispPass) { const u = dispPass.uniforms; u.uAmount.value = state.dispAmount; u.uSpread.value = state.dispSpread; u.uHue.value = state.dispHue; u.uFocus.value = state.focus; u.uMaskInvert.value = state.maskInvert ? 1 : 0; }
   if (blurPass) { const u = blurPass.uniforms;
-    u.uSoft.value = state.soft; u.uZoom.value = state.zoom; u.uMotion.value = state.motion; u.uAngle.value = state.motionAngle; u.uDofBg.value = state.dofBg;
-    u.uMaskInvert.value = state.maskInvert ? 1 : 0;
-    u.uFocusPt.value.set(state.focusPtX, state.focusPtY); u.uFocusR.value = state.focusRadius; u.uFocusBlur.value = state.focusBlur; u.uFocusDark.value = state.focusDark; }
-  if (glitchPass) { const u = glitchPass.uniforms;
-    u.uRgb.value = state.glRgb; u.uSlice.value = state.glSlice; u.uScan.value = state.glScan; u.uNoise.value = state.glNoise;
-    u.uWave.value = state.glWave; u.uPixel.value = state.glPixel; u.uCrush.value = state.glCrush; u.uTrack.value = state.glTrack; u.uMaskInvert.value = state.maskInvert ? 1 : 0; }
-  const p = particleMat.uniforms;
-  p.uCount.value = state.pCount; p.uType.value = state.pType; p.uSize.value = state.pSize; p.uSpeed.value = state.pSpeed; p.uGlow.value = state.pGlow; p.uHue.value = state.pHue;
-  updateFocusMarker();
-  requestRender();
+    u.uSoft.value = state.soft; u.uZoom.value = state.zoom; u.uMotion.value = state.motion; u.uAngle.value = state.motionAngle; u.uDofBg.value = state.dofBg; u.uMaskInvert.value = state.maskInvert ? 1 : 0;
+    u.uFocusPt.value.set(state.focusPtX, state.focusPtY); u.uFocusR.value = state.focusRadius; u.uFeather.value = state.focusFeather; u.uFocusBlur.value = state.focusBlur; u.uFocusDark.value = state.focusDark; }
+  glyphMat.uniforms.uSizeMul.value = 0.5 + state.gSize * 1.8;
+  glyphMat.uniforms.uGlow.value = state.gGlow;
+  glyphMat.uniforms.uMotion.value = state.gMotion;
+  if (state.gTintHue > 0.001) glyphMat.uniforms.uColor.value.setHSL(state.gTintHue, 0.7, 0.62); else glyphMat.uniforms.uColor.value.setRGB(1, 1, 1);
+  updateFocusMarker(); requestRender();
 }
 
 /* ── Focus marker ── */
+function focusActive() { return state.focusBlur > 0.001 || state.focusDark > 0.001; }
 function updateFocusMarker() {
-  const show = media.type && !bypass && (state.focusBlur > 0.001 || state.focusDark > 0.001);
-  if (!show) { dom.focusRing.classList.add('hidden'); return; }
+  if (!media.type || bypass || !focusActive()) { dom.focusRing.classList.add('hidden'); return; }
   const gr = dom.canvas.getBoundingClientRect(), sr = dom.stage.getBoundingClientRect();
-  const left = (gr.left - sr.left) + state.focusPtX * gr.width;
-  const top = (gr.top - sr.top) + (1 - state.focusPtY) * gr.height;
-  const diam = 2 * state.focusRadius * gr.height;
-  dom.focusRing.style.left = left + 'px'; dom.focusRing.style.top = top + 'px';
-  dom.focusRing.style.width = diam + 'px'; dom.focusRing.style.height = diam + 'px';
+  const left = (gr.left - sr.left) + state.focusPtX * gr.width, top = (gr.top - sr.top) + (1 - state.focusPtY) * gr.height, diam = 2 * state.focusRadius * gr.height;
+  dom.focusRing.style.left = left + 'px'; dom.focusRing.style.top = top + 'px'; dom.focusRing.style.width = diam + 'px'; dom.focusRing.style.height = diam + 'px';
   dom.focusRing.classList.remove('hidden');
 }
-dom.canvas.addEventListener('pointerup', e => {
-  if (!media.type) return;
-  const gr = dom.canvas.getBoundingClientRect();
-  const u = (e.clientX - gr.left) / gr.width, vt = (e.clientY - gr.top) / gr.height;
-  if (u < 0 || u > 1 || vt < 0 || vt > 1) return;
-  state.focusPtX = u; state.focusPtY = 1 - vt; applyState();
+
+/* ── Finger-adjustable focus mask (drag = move, pinch = resize) ── */
+const fptr = new Map(); let pinch = null, fmoved = false;
+function uvFromXY(cx, cy) { const r = dom.canvas.getBoundingClientRect(); return [(cx - r.left) / r.width, (cy - r.top) / r.height]; }
+function setCenterXY(cx, cy) { const [u, vt] = uvFromXY(cx, cy); if (u < -0.05 || u > 1.05 || vt < -0.05 || vt > 1.05) return; state.focusPtX = Math.min(1, Math.max(0, u)); state.focusPtY = 1 - Math.min(1, Math.max(0, vt)); applyState(); }
+dom.canvas.addEventListener('pointerdown', e => {
+  if (!media.type) return; fptr.set(e.pointerId, { x: e.clientX, y: e.clientY }); fmoved = false;
+  try { dom.canvas.setPointerCapture(e.pointerId); } catch (_) {}
+  if (fptr.size === 2) { const p = [...fptr.values()]; pinch = { d: Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y), r: state.focusRadius }; }
 });
+dom.canvas.addEventListener('pointermove', e => {
+  if (!fptr.has(e.pointerId)) return; fptr.set(e.pointerId, { x: e.clientX, y: e.clientY }); fmoved = true;
+  const p = [...fptr.values()];
+  if (p.length >= 2) {
+    const cur = Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y);
+    if (pinch) state.focusRadius = Math.min(1.2, Math.max(0.05, pinch.r * (cur / pinch.d)));
+    if (sliderEls.focusRadius) { sliderEls.focusRadius.input.value = state.focusRadius; sliderEls.focusRadius.paint(); }
+    setCenterXY((p[0].x + p[1].x) / 2, (p[0].y + p[1].y) / 2);
+  } else if (focusActive()) { setCenterXY(e.clientX, e.clientY); }
+});
+function endPtr(e) { if (!fptr.has(e.pointerId)) return; fptr.delete(e.pointerId); if (fptr.size < 2) pinch = null; if (fptr.size === 0 && !fmoved && !focusActive()) setCenterXY(e.clientX, e.clientY); }
+dom.canvas.addEventListener('pointerup', endPtr);
+dom.canvas.addEventListener('pointercancel', endPtr);
 
 /* ─────────────────────────── Panel UI ─────────────────────────── */
 const sliderEls = {};
@@ -633,10 +610,14 @@ function buildPanel() {
       else if (c.t === 'select') pane.appendChild(buildSelect(c));
       else if (c.t === 'note') { const n = document.createElement('p'); n.className = 'note'; n.textContent = c.text; pane.appendChild(n); }
       else if (c.t === 'toggle') { if (!chipRow) { chipRow = document.createElement('div'); chipRow.className = 'chips'; pane.appendChild(chipRow); } chipRow.appendChild(buildToggle(c)); }
-      else if (c.t === 'burst') { const b = document.createElement('button'); b.className = 'burst'; b.textContent = '⚡ Glitch burst'; b.onclick = () => { burst = 1; }; pane.appendChild(b); }
     }
     dom.panes.appendChild(pane);
   }
+}
+function onChange(key) {
+  applyState();
+  if (GLYPH_PLACEMENT.includes(key)) computeGlyphField();
+  if (key.startsWith('track')) { computeBlobs(); drawBlobs(); }
 }
 function buildSlider(c) {
   const wrap = document.createElement('label'); wrap.className = 'ctrl';
@@ -646,7 +627,7 @@ function buildSlider(c) {
   const input = document.createElement('input'); input.type = 'range'; input.min = c.min; input.max = c.max; input.step = c.step; input.value = state[c.key];
   const fmt = v => (c.step >= 1 ? String(Math.round(v)) : c.step < 0.01 ? (+v).toFixed(3) : (+v).toFixed(2));
   const paint = () => { val.textContent = fmt(input.value); input.style.setProperty('--fill', ((input.value - c.min) / (c.max - c.min)) * 100 + '%'); };
-  input.addEventListener('input', () => { state[c.key] = parseFloat(input.value); paint(); applyState(); if (c.key.startsWith('track')) { computeBlobs(); drawBlobs(); } });
+  input.addEventListener('input', () => { state[c.key] = parseFloat(input.value); paint(); onChange(c.key); });
   paint(); row.append(lab, val); wrap.append(row, input); sliderEls[c.key] = { input, paint }; return wrap;
 }
 function buildSelect(c) {
@@ -655,17 +636,14 @@ function buildSelect(c) {
   const chips = document.createElement('div'); chips.className = 'chips';
   c.options.forEach(o => {
     const b = document.createElement('button'); b.className = 'chip' + (state[c.key] === o.val ? ' chip--on' : ''); b.textContent = o.label;
-    b.onclick = () => { state[c.key] = o.val; chips.querySelectorAll('.chip').forEach(x => x.classList.remove('chip--on')); b.classList.add('chip--on'); applyState(); };
+    b.onclick = () => { state[c.key] = o.val; chips.querySelectorAll('.chip').forEach(x => x.classList.remove('chip--on')); b.classList.add('chip--on'); onChange(c.key); };
     chips.appendChild(b);
   });
   wrap.append(lab, chips); return wrap;
 }
 function buildToggle(c) {
   const b = document.createElement('button'); b.className = 'chip' + (state[c.key] ? ' chip--on' : ''); b.textContent = c.label;
-  b.onclick = () => {
-    state[c.key] = !state[c.key]; b.classList.toggle('chip--on', state[c.key]); applyState();
-    if (c.key.startsWith('track')) { computeBlobs(); drawBlobs(); }
-  };
+  b.onclick = () => { state[c.key] = !state[c.key]; b.classList.toggle('chip--on', state[c.key]); onChange(c.key); };
   return b;
 }
 
@@ -678,23 +656,13 @@ dom.tabs.addEventListener('click', e => {
   dom.panes.querySelector(`[data-pane="${tab.dataset.tab}"]`).classList.add('pane--active');
 });
 
-/* ── Panel: drag/tap to resize (enlarges the viewport) ── */
-const PANEL_MIN = 46;
-let panelOpenH = Math.round(Math.min(window.innerHeight * 0.46, 460));
-let drag = null;
+/* ── Panel: drag/tap to resize ── */
+const PANEL_MIN = 46; let panelOpenH = Math.round(Math.min(window.innerHeight * 0.46, 460)); let drag = null;
 function setPanelHeight(h, animate) { dom.panel.classList.toggle('dragging', !animate); dom.panel.style.height = h + 'px'; if (media.w) fitCanvasStyle(media.w, media.h); }
 function snapPanel(open) { dom.panel.classList.remove('dragging'); dom.panel.style.height = (open ? panelOpenH : PANEL_MIN) + 'px'; dom.panel.classList.toggle('collapsed', !open); }
 dom.handle.addEventListener('pointerdown', e => { drag = { startY: e.clientY, startH: dom.panel.getBoundingClientRect().height, moved: false }; dom.handle.setPointerCapture(e.pointerId); });
-dom.handle.addEventListener('pointermove', e => {
-  if (!drag) return; const dy = e.clientY - drag.startY; if (Math.abs(dy) > 3) drag.moved = true;
-  const max = Math.round(window.innerHeight * 0.7); setPanelHeight(Math.max(PANEL_MIN, Math.min(max, drag.startH - dy)), false);
-});
-dom.handle.addEventListener('pointerup', () => {
-  if (!drag) return; const h = dom.panel.getBoundingClientRect().height;
-  if (!drag.moved) snapPanel(dom.panel.classList.contains('collapsed'));
-  else { const open = h > PANEL_MIN + 80; if (open) panelOpenH = Math.round(h); snapPanel(open); }
-  drag = null;
-});
+dom.handle.addEventListener('pointermove', e => { if (!drag) return; const dy = e.clientY - drag.startY; if (Math.abs(dy) > 3) drag.moved = true; const max = Math.round(window.innerHeight * 0.7); setPanelHeight(Math.max(PANEL_MIN, Math.min(max, drag.startH - dy)), false); });
+dom.handle.addEventListener('pointerup', () => { if (!drag) return; const h = dom.panel.getBoundingClientRect().height; if (!drag.moved) snapPanel(dom.panel.classList.contains('collapsed')); else { const open = h > PANEL_MIN + 80; if (open) panelOpenH = Math.round(h); snapPanel(open); } drag = null; });
 dom.panel.addEventListener('transitionend', e => { if (e.propertyName === 'height' && media.w) fitCanvasStyle(media.w, media.h); });
 
 /* ── Compare ── */
@@ -714,7 +682,7 @@ dom.sampleBtn.onclick = () => {
   loadImage('https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=1600&q=80&auto=format', false)
     .catch(() => showError('Could not load the sample (network/CORS). Try adding your own photo.'));
 };
-function resetMedia() { stopRecording(true); if (media.type === 'video') { dom.video.pause(); dom.video.removeAttribute('src'); dom.video.load(); } bypass = false; burst = 0; }
+function resetMedia() { stopRecording(true); if (media.type === 'video') { dom.video.pause(); dom.video.removeAttribute('src'); dom.video.load(); } bypass = false; }
 ['dragover', 'drop'].forEach(ev => dom.stage.addEventListener(ev, e => e.preventDefault()));
 dom.stage.addEventListener('drop', e => {
   const f = e.dataTransfer.files[0]; if (!f) return; const url = URL.createObjectURL(f); resetMedia();
@@ -735,7 +703,6 @@ async function shareOrDownload(blob, filename) {
 dom.exportBtn.onclick = () => { if (media.type === 'image') exportImage(); else if (media.type === 'video') toggleRecording(); };
 function exportImage() {
   bypass = false; renderFrame();
-  // bake the HUD overlay into the export
   const out = document.createElement('canvas'); out.width = dom.canvas.width; out.height = dom.canvas.height;
   const octx = out.getContext('2d'); octx.drawImage(dom.canvas, 0, 0);
   if (state.trackOn && blobs.length) octx.drawImage(dom.overlay, 0, 0, out.width, out.height);

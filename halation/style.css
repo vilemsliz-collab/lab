@@ -86,6 +86,7 @@ html, body {
   object-fit: contain;
   display: block;
   border-radius: 4px;
+  touch-action: none;
 }
 #gl.empty { display: none; }
 
