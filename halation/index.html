@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0d0d0d" />
+  <title>Halation — Lab</title>
+  <link rel="stylesheet" href="./style.css" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="app">
+    <!-- ── Top bar ── -->
+    <header class="topbar">
+      <a class="back" href="../index.html">← lab</a>
+      <span class="brand">Halation</span>
+      <div class="actions">
+        <button id="addBtn" class="btn">Add</button>
+        <button id="exportBtn" class="btn btn--accent" disabled>Export</button>
+      </div>
+    </header>
+
+    <!-- ── Stage ── -->
+    <main id="stage" class="stage">
+      <canvas id="gl"></canvas>
+
+      <div id="empty" class="empty">
+        <div class="empty__inner">
+          <div class="empty__glow"></div>
+          <p class="empty__title">Drop a photo or video</p>
+          <p class="empty__sub">Natural halation bloom · chromatic dispersion · subject-tracked glitch</p>
+          <button id="emptyAdd" class="btn btn--accent btn--lg">Choose file</button>
+          <button id="sampleBtn" class="btn btn--ghost">Try a sample</button>
+        </div>
+      </div>
+
+      <div id="loading" class="loading hidden">
+        <span class="spinner"></span><span id="loadingText">Loading subject model…</span>
+      </div>
+
+      <div id="recBadge" class="rec hidden"><span class="rec__dot"></span>REC</div>
+      <button id="compareBtn" class="compare hidden" disabled>Hold to compare</button>
+    </main>
+
+    <!-- ── Control panel (bottom sheet) ── -->
+    <section id="panel" class="panel">
+      <button id="panelHandle" class="panel__handle" aria-label="Toggle controls"></button>
+
+      <div class="presets" id="presets"></div>
+
+      <nav class="tabs" id="tabs">
+        <button class="tab tab--active" data-tab="bloom">Bloom</button>
+        <button class="tab" data-tab="dispersion">Dispersion</button>
+        <button class="tab" data-tab="glitch">Glitch</button>
+      </nav>
+
+      <div class="panes" id="panes"></div>
+    </section>
+  </div>
+
+  <input id="file" type="file" accept="image/*,video/*" hidden />
+  <video id="video" playsinline muted loop crossorigin="anonymous" class="hidden"></video>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
