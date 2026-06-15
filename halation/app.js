@@ -37,11 +37,11 @@ const dom = {
 
 const state = {
   // letters (signature effect)
-  gOn: true, gMode: 0, gDensity: 0.5, gSize: 0.55, gOpacity: 0.95, gSpeed: 0.6,
+  gOn: true, gMode: 1, gDensity: 0.5, gTol: 0.5, gSize: 0.55, gOpacity: 0.95,
   // bloom
   bloomStrength: 0.8, bloomRadius: 0.6, bloomThreshold: 0.75,
-  // blur — directional or zoom, with smoothing
-  blurMode: 0, blur: 0, blurAngle: 0, blurSmooth: 0.5, zoomCx: 0.5, zoomCy: 0.5,
+  // zoom blur
+  blur: 0, blurRadius: 0.15, blurSmooth: 0.5, zoomCx: 0.5, zoomCy: 0.5,
   // image tone
   exposure: 0, contrast: 0, saturation: 0,
 };
@@ -51,11 +51,11 @@ const CONTROLS = {
   letters: [
     { t: 'toggle', key: 'gOn', label: 'Greek-letter field' },
     { t: 'select', key: 'gMode', label: 'Track', options: [
-      { label: 'Dark blobs', val: 0 }, { label: 'Light blobs', val: 1 }, { label: 'Everywhere', val: 2 } ] },
-    { t: 'slider', key: 'gDensity', label: 'Density', min: 0, max: 1, step: 0.01 },
-    { t: 'slider', key: 'gSpeed',   label: 'Flicker', min: 0, max: 1, step: 0.01 },
-    { t: 'slider', key: 'gSize',    label: 'Size',    min: 0, max: 1, step: 0.01 },
-    { t: 'slider', key: 'gOpacity', label: 'Opacity', min: 0, max: 1, step: 0.01 },
+      { label: 'White / light', val: 1 }, { label: 'Dark', val: 0 }, { label: 'Everywhere', val: 2 } ] },
+    { t: 'slider', key: 'gTol',     label: 'Tolerance', min: 0, max: 1, step: 0.01 },
+    { t: 'slider', key: 'gDensity', label: 'Density',   min: 0, max: 1, step: 0.01 },
+    { t: 'slider', key: 'gSize',    label: 'Size',      min: 0, max: 1, step: 0.01 },
+    { t: 'slider', key: 'gOpacity', label: 'Opacity',   min: 0, max: 1, step: 0.01 },
   ],
   bloom: [
     { t: 'slider', key: 'bloomStrength',  label: 'Strength',  min: 0, max: 3, step: 0.01 },
@@ -63,10 +63,9 @@ const CONTROLS = {
     { t: 'slider', key: 'bloomThreshold', label: 'Threshold', min: 0, max: 1, step: 0.01 },
   ],
   blur: [
-    { t: 'select', key: 'blurMode', label: 'Type', options: [ { label: 'Directional', val: 0 }, { label: 'Zoom', val: 1 } ] },
-    { t: 'note', text: 'Drag on the image: Zoom sets the centre, Directional sets the angle (or use the slider).' },
+    { t: 'note', text: 'Zoom blur — tap or drag on the image to set the centre.' },
     { t: 'slider', key: 'blur',       label: 'Amount',    min: 0, max: 1, step: 0.01 },
-    { t: 'slider', key: 'blurAngle',  label: 'Angle',     min: 0, max: 6.2832, step: 0.01 },
+    { t: 'slider', key: 'blurRadius', label: 'Radius',    min: 0, max: 0.6, step: 0.01 },
     { t: 'slider', key: 'blurSmooth', label: 'Smoothing', min: 0, max: 1, step: 0.01 },
   ],
   image: [
@@ -97,31 +96,30 @@ const AdjustShader = {
     }`,
 };
 
-/* Directional (motion) or zoom blur, with a Smoothing control that
-   jitters the taps to remove banding. Sharp (early-out) when Amount = 0. */
-const BlurDirShader = {
+/* Zoom blur from a tap-set centre. Radius keeps a sharp central disc; blur
+   ramps up outside it. Smoothing jitters the taps to remove banding.
+   Sharp (early-out) when Amount = 0 or inside the sharp radius. */
+const BlurZoomShader = {
   uniforms: {
-    tDiffuse: { value: null }, uTexel: { value: new THREE.Vector2() },
-    uMode: { value: 0 }, uAmount: { value: 0 }, uAngle: { value: 0 }, uSmooth: { value: 0.5 },
-    uCenter: { value: new THREE.Vector2(0.5, 0.5) },
+    tDiffuse: { value: null }, uTexel: { value: new THREE.Vector2() }, uAspect: { value: 1 },
+    uAmount: { value: 0 }, uRadius: { value: 0.15 }, uSmooth: { value: 0.5 }, uCenter: { value: new THREE.Vector2(0.5, 0.5) },
   },
   vertexShader: PASS_VERT,
   fragmentShader: `
-    uniform sampler2D tDiffuse; uniform vec2 uTexel, uCenter; uniform float uMode, uAmount, uAngle, uSmooth;
+    uniform sampler2D tDiffuse; uniform vec2 uTexel, uCenter; uniform float uAmount, uRadius, uSmooth, uAspect;
     varying vec2 vUv;
     float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
     void main(){
-      if (uAmount < 0.002){ gl_FragColor = vec4(texture2D(tDiffuse, vUv).rgb, 1.0); return; }
+      float dist = length((vUv - uCenter) * vec2(uAspect, 1.0));
+      float coc = smoothstep(uRadius, uRadius + 0.25, dist);
+      float amt = uAmount * coc;
+      if (amt < 0.002){ gl_FragColor = vec4(texture2D(tDiffuse, vUv).rgb, 1.0); return; }
       const int N = 28;
       float jit = hash(vUv / max(uTexel, vec2(1e-4))) * uSmooth;
-      vec2 dirv = vec2(cos(uAngle), sin(uAngle));
       vec3 col = vec3(0.0);
       for (int i = 0; i < N; i++){
-        float tt = (float(i) + jit) / float(N);          // 0 → 1
-        vec2 off;
-        if (uMode < 0.5) off = (tt - 0.5) * uAmount * 220.0 * uTexel * dirv;   // directional, centred
-        else             off = (vUv - uCenter) * tt * uAmount * 1.1;           // zoom, from centre
-        col += texture2D(tDiffuse, vUv + off).rgb;
+        float tt = (float(i) + jit) / float(N);
+        col += texture2D(tDiffuse, vUv + (vUv - uCenter) * tt * amt * 1.1).rgb;
       }
       gl_FragColor = vec4(col / float(N), 1.0);
     }`,
@@ -270,7 +268,7 @@ function buildComposer(w, h) {
   composer.setPixelRatio(1); composer.setSize(w, h);
   composer.addPass(new RenderPass(scene, camera));
   adjustPass = new ShaderPass(AdjustShader); composer.addPass(adjustPass);
-  blurPass = new ShaderPass(BlurDirShader); blurPass.uniforms.uTexel.value.set(1 / w, 1 / h); composer.addPass(blurPass);
+  blurPass = new ShaderPass(BlurZoomShader); blurPass.uniforms.uTexel.value.set(1 / w, 1 / h); blurPass.uniforms.uAspect.value = w / h; composer.addPass(blurPass);
   bloomPass = new HalationBloomPass(w, h); composer.addPass(bloomPass);
   composer.addPass(new OutputPass());
   applyState();
@@ -366,10 +364,11 @@ function sampleMask() {
     if (base < mn) mn = base; if (base > mx) mx = base;
   }
   const range = Math.max(1e-3, mx - mn);
+  const gamma = 0.5 + (1 - state.gTol) * 3.5;   // Tolerance: low → only the whitest/darkest, high → broad
   for (let i = 0; i < M; i++) {
     const L = lum[i], base = state.gMode === 0 ? 1 - L : state.gMode === 1 ? L : 1;
     let norm = (base - mn) / range;          // 0 → 1, peak where it is most light/dark
-    norm = norm * norm;                       // gamma — concentrate density on the peak
+    norm = Math.pow(norm, gamma);             // selectivity
     const mo = prevLum ? Math.min(1, Math.abs(L - prevLum[i]) * 6) : 0;   // motion (frame difference)
     cellW[i] = Math.min(1, norm * 0.9 + mo * 0.7 + 0.04);
   }
@@ -378,7 +377,7 @@ function sampleMask() {
 
 function updateGlyphFlicker(time) {
   if (!cellW || !state.gOn) { glyphCount = 0; glyphGeo.setDrawRange(0, 0); return; }
-  const cols = gCols, rows = gRows, M = cols * rows, dens = state.gDensity, sp = 0.15 + state.gSpeed * 1.85;
+  const cols = gCols, rows = gRows, M = cols * rows, dens = state.gDensity, sp = 2.4;   // natively fast flicker
   let n = 0;
   for (let i = 0; i < M && n < MAX_LETTERS; i++) {
     const duty = Math.min(0.96, dens * (0.05 + 1.5 * cellW[i]));
@@ -420,44 +419,33 @@ tick();
 function applyState() {
   if (bloomPass) { bloomPass.strength = state.bloomStrength; bloomPass.radius = state.bloomRadius; bloomPass.threshold = state.bloomThreshold; }
   if (adjustPass) { const u = adjustPass.uniforms; u.uExposure.value = state.exposure; u.uContrast.value = state.contrast; u.uSaturation.value = state.saturation; }
-  if (blurPass) { const u = blurPass.uniforms; u.uMode.value = state.blurMode; u.uAmount.value = state.blur; u.uAngle.value = state.blurAngle; u.uSmooth.value = state.blurSmooth; u.uCenter.value.set(state.zoomCx, state.zoomCy); }
+  if (blurPass) { const u = blurPass.uniforms; u.uAmount.value = state.blur; u.uRadius.value = state.blurRadius; u.uSmooth.value = state.blurSmooth; u.uCenter.value.set(state.zoomCx, state.zoomCy); }
   glyphMat.uniforms.uSizeMul.value = 1;
   glyphMat.uniforms.uGlow.value = state.gOpacity;
   updateFocusMarker(); requestRender();
 }
 
-/* ── Blur interaction marker (zoom centre) ── */
+/* ── Zoom-centre marker (ring shows the sharp central radius) ── */
 function blurActive() { return state.blur > 0.001; }
-function zoomActive() { return blurActive() && state.blurMode === 1; }
 function updateFocusMarker() {
-  if (!media.type || bypass || !zoomActive()) { dom.focusRing.classList.add('hidden'); return; }
+  if (!media.type || bypass || !blurActive()) { dom.focusRing.classList.add('hidden'); return; }
   const gr = dom.canvas.getBoundingClientRect(), sr = dom.stage.getBoundingClientRect();
-  const left = (gr.left - sr.left) + state.zoomCx * gr.width, top = (gr.top - sr.top) + (1 - state.zoomCy) * gr.height, diam = 0.12 * gr.height;
+  const left = (gr.left - sr.left) + state.zoomCx * gr.width, top = (gr.top - sr.top) + (1 - state.zoomCy) * gr.height;
+  const diam = Math.max(0.05, 2 * state.blurRadius) * gr.height;
   dom.focusRing.style.left = left + 'px'; dom.focusRing.style.top = top + 'px'; dom.focusRing.style.width = diam + 'px'; dom.focusRing.style.height = diam + 'px';
   dom.focusRing.classList.remove('hidden');
 }
 
-/* ── Touch on the image drives the blur (image AND video): Zoom = set centre,
-      Directional = drag to set the angle. Pointer-capture makes it reliable. ── */
-let pressing = false, dragOrigin = null;
+/* ── Tap / drag on the image to set the zoom centre (image AND video). ── */
+let pressing = false;
 function uvFromXY(cx, cy) { const r = dom.canvas.getBoundingClientRect(); return [(cx - r.left) / r.width, (cy - r.top) / r.height]; }
 function setCenterXY(cx, cy) { const [u, vt] = uvFromXY(cx, cy); state.zoomCx = Math.min(1, Math.max(0, u)); state.zoomCy = 1 - Math.min(1, Math.max(0, vt)); applyState(); }
-function setAngleFromDrag(cx, cy) {
-  const dx = cx - dragOrigin.x, dy = cy - dragOrigin.y;
-  if (Math.hypot(dx, dy) < 6) return;
-  state.blurAngle = (Math.atan2(-dy, dx) + Math.PI * 2) % (Math.PI * 2);
-  if (sliderEls.blurAngle) { sliderEls.blurAngle.input.value = state.blurAngle; sliderEls.blurAngle.paint(); }
-  applyState();
-}
-function blurPointer(cx, cy) { if (state.blurMode === 1) setCenterXY(cx, cy); else setAngleFromDrag(cx, cy); }
 dom.canvas.addEventListener('pointerdown', e => {
   if (!media.type || !blurActive()) return;
-  pressing = true; dragOrigin = { x: e.clientX, y: e.clientY };
-  try { dom.canvas.setPointerCapture(e.pointerId); } catch (_) {}
-  if (state.blurMode === 1) setCenterXY(e.clientX, e.clientY);   // zoom centres on first touch
-  e.preventDefault();
+  pressing = true; try { dom.canvas.setPointerCapture(e.pointerId); } catch (_) {}
+  setCenterXY(e.clientX, e.clientY); e.preventDefault();
 });
-dom.canvas.addEventListener('pointermove', e => { if (pressing && blurActive()) blurPointer(e.clientX, e.clientY); });
+dom.canvas.addEventListener('pointermove', e => { if (pressing && blurActive()) setCenterXY(e.clientX, e.clientY); });
 function endPtr() { pressing = false; }
 dom.canvas.addEventListener('pointerup', endPtr);
 dom.canvas.addEventListener('pointercancel', endPtr);
@@ -483,6 +471,7 @@ function buildPanel() {
 function onChange(key) {
   applyState();
   if (MASK_KEYS.includes(key)) { buildGlyphMask(); updateGlyphFlicker(clock.elapsedTime); }
+  else if (key === 'gTol') { sampleMask(); updateGlyphFlicker(clock.elapsedTime); }   // re-weight a still image live
 }
 function buildSlider(c) {
   const wrap = document.createElement('label'); wrap.className = 'ctrl';
