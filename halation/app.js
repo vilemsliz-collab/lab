@@ -37,7 +37,7 @@ const dom = {
 
 const state = {
   // letters (signature effect)
-  gOn: true, gMode: 1, gDensity: 0.5, gTol: 0.5, gSize: 0.55, gOpacity: 0.95,
+  gOn: true, gDensity: 0.5, gTol: 0.5, gSize: 0.55, gOpacity: 0.95,
   // bloom
   bloomStrength: 0.8, bloomRadius: 0.6, bloomThreshold: 0.75,
   // zoom blur
@@ -45,13 +45,12 @@ const state = {
   // image tone
   exposure: 0, contrast: 0, saturation: 0,
 };
-const MASK_KEYS = ['gOn', 'gMode', 'gSize'];   // changing these rebuilds the letter mask
+const MASK_KEYS = ['gOn', 'gSize'];   // changing these rebuilds the letter mask
 
 const CONTROLS = {
   letters: [
     { t: 'toggle', key: 'gOn', label: 'Greek-letter field' },
-    { t: 'select', key: 'gMode', label: 'Track', options: [
-      { label: 'White / light', val: 1 }, { label: 'Dark', val: 0 }, { label: 'Everywhere', val: 2 } ] },
+    { t: 'note', text: 'Letters track movement (and bright areas on stills) — faster motion lights up more and leaves a trail.' },
     { t: 'slider', key: 'gTol',     label: 'Tolerance', min: 0, max: 1, step: 0.01 },
     { t: 'slider', key: 'gDensity', label: 'Density',   min: 0, max: 1, step: 0.01 },
     { t: 'slider', key: 'gSize',    label: 'Size',      min: 0, max: 1, step: 0.01 },
@@ -257,7 +256,7 @@ let glyphCount = 0;
 const gridCanvas = document.createElement('canvas');
 // Per-cell tracking weight (continuous), resampled in real time; flicker re-rolls every frame.
 let gCols = 0, gRows = 0, gCellPx = 0;
-let cellW = null, cellRate = null, cellPhase = null, prevLum = null;
+let cellW = null, cellRate = null, cellPhase = null, prevLum = null, motAcc = null;
 
 /* ── Composer ── */
 let composer, adjustPass, blurPass, bloomPass;
@@ -327,15 +326,18 @@ function setupMedia(type, el, w, h, tex) {
   requestRender();
 }
 
-/* ── Greek-letter field: real-time light/motion tracking + Ikeda flicker ──
+/* ── Greek-letter field: motion+light tracking + Ikeda flicker ──
    buildGlyphMask() sizes the monospace grid and seeds each cell's flicker.
-   sampleMask() runs in real time (every frame on video): it reads the current
-   frame downsampled to the grid, and gives each cell a weight that is the
-   contrast-normalised brightness (so light areas are genuinely denser) plus a
-   frame-difference motion term (so the field reacts to what moves over time).
-   updateGlyphFlicker() re-rolls which cells are lit and which glyph each shows,
-   every frame, at each cell's own fast random rate — density follows weight. */
+   sampleMask() runs in real time (every frame on video). Per cell it combines:
+     • motion — frame-difference magnitude (velocity proxy), accumulated with
+       decay so faster movement scores higher AND leaves a short fading trail;
+     • light — contrast-normalised brightness, so stills (no motion) still track
+       bright/white areas.
+   Motion is weighted strongest. A Tolerance-driven cutoff zeroes everything
+   below threshold, so untracked areas stay EMPTY (no random background letters).
+   updateGlyphFlicker() re-rolls which cells are lit + which glyph, every frame. */
 function hash01(a, b) { let h = (Math.imul(a, 374761393) + Math.imul(b, 668265263)) >>> 0; h = (h ^ (h >>> 13)) >>> 0; h = Math.imul(h, 1274126177) >>> 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
+function smoothstep(a, b, x) { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); }
 
 function buildGlyphMask() {
   if (!media.type || !state.gOn) { gCols = 0; cellW = null; glyphCount = 0; glyphGeo.setDrawRange(0, 0); requestRender(); return; }
@@ -344,7 +346,7 @@ function buildGlyphMask() {
   const cols = Math.max(2, Math.round(media.w / cellPx));
   gCols = cols; gRows = rows; gCellPx = cellPx;
   const M = cols * rows;
-  cellW = new Float32Array(M); cellRate = new Float32Array(M); cellPhase = new Float32Array(M); prevLum = null;
+  cellW = new Float32Array(M); cellRate = new Float32Array(M); cellPhase = new Float32Array(M); motAcc = new Float32Array(M); prevLum = null;
   for (let i = 0; i < M; i++) { cellRate[i] = 4 + hash01(i, 7) * 12; cellPhase[i] = hash01(i, 3); }
   sampleMask();
 }
@@ -359,18 +361,17 @@ function sampleMask() {
   let mn = 1e9, mx = -1e9;
   for (let i = 0; i < M; i++) {
     const L = (0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2]) / 255;
-    lum[i] = L;
-    const base = state.gMode === 0 ? 1 - L : state.gMode === 1 ? L : 1;   // track dark / light / everything
-    if (base < mn) mn = base; if (base > mx) mx = base;
+    lum[i] = L; if (L < mn) mn = L; if (L > mx) mx = L;
   }
   const range = Math.max(1e-3, mx - mn);
-  const gamma = 0.5 + (1 - state.gTol) * 3.5;   // Tolerance: low → only the whitest/darkest, high → broad
+  const cut = (1 - state.gTol) * 0.55;            // Tolerance: low → high cutoff (very selective), high → permissive
   for (let i = 0; i < M; i++) {
-    const L = lum[i], base = state.gMode === 0 ? 1 - L : state.gMode === 1 ? L : 1;
-    let norm = (base - mn) / range;          // 0 → 1, peak where it is most light/dark
-    norm = Math.pow(norm, gamma);             // selectivity
-    const mo = prevLum ? Math.min(1, Math.abs(L - prevLum[i]) * 6) : 0;   // motion (frame difference)
-    cellW[i] = Math.min(1, norm * 0.9 + mo * 0.7 + 0.04);
+    const L = lum[i];
+    const light = Math.pow((L - mn) / range, 1.6);                          // bright areas (drives stills)
+    const inst = prevLum ? Math.min(1, Math.abs(L - prevLum[i]) * 8) : 0;   // velocity proxy (frame difference)
+    motAcc[i] = Math.max(inst, motAcc[i] * 0.86);                            // accumulate → trail behind motion
+    const w = Math.min(1, motAcc[i] * 1.35 + light * 0.55);                  // motion weighted strongest
+    cellW[i] = smoothstep(cut, cut + 0.22, w);                               // hard-ish cutoff → empty off-target
   }
   prevLum = lum;
 }
@@ -380,7 +381,8 @@ function updateGlyphFlicker(time) {
   const cols = gCols, rows = gRows, M = cols * rows, dens = state.gDensity, sp = 2.4;   // natively fast flicker
   let n = 0;
   for (let i = 0; i < M && n < MAX_LETTERS; i++) {
-    const duty = Math.min(0.96, dens * (0.05 + 1.5 * cellW[i]));
+    if (cellW[i] <= 0.001) continue;             // off-target stays empty
+    const duty = Math.min(0.97, dens * cellW[i] * 1.7);
     const tick = Math.floor(time * cellRate[i] * sp + cellPhase[i] * 101);
     if (hash01(i, tick) > duty) continue;
     const cx = i % cols, cy = (i / cols) | 0;
