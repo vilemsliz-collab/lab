@@ -45,7 +45,7 @@ const state = {
   // image tone
   exposure: 0, contrast: 0, saturation: 0,
 };
-const GLYPH_KEYS = ['gOn', 'gMode', 'gDensity'];
+const GLYPH_KEYS = ['gOn', 'gMode', 'gDensity', 'gSize'];
 
 const CONTROLS = {
   letters: [
@@ -314,42 +314,36 @@ function rgbToHsv(r, g, b) {
   return [h, mx ? d / mx : 0, mx];
 }
 function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
-function pickCell(prefix, r) { let lo = 0, hi = prefix.length - 1; while (lo < hi) { const mid = (lo + hi) >> 1; if (prefix[mid] < r) lo = mid + 1; else hi = mid; } return lo; }
 function computeGlyphField() {
-  // Positions importance-sampled from a weight map (dark / light / everywhere),
-  // seeded so a still image is stable while video tracks its content.
+  // A fixed monospace grid — every letter is the same size and sits on its own
+  // cell, so letters never overlap. Which cells get filled (and which glyph)
+  // is random, weighted by image content (dark / light / everywhere). Seeded,
+  // so a still image is stable while video tracks its content.
   if (!media.type || !state.gOn) { glyphCount = 0; glyphGeo.setDrawRange(0, 0); requestRender(); return; }
-  const A = 160, ar = media.w / media.h;
-  let aw, ah; if (ar >= 1) { aw = A; ah = Math.max(1, Math.round(A / ar)); } else { ah = A; aw = Math.max(1, Math.round(A * ar)); }
-  gridCanvas.width = aw; gridCanvas.height = ah;
+  const rows = Math.max(4, Math.round(60 - state.gSize * 48));   // small → many tiny cells, large → few big cells
+  const cellPx = media.h / rows;
+  const cols = Math.max(2, Math.round(media.w / cellPx));
+  gridCanvas.width = cols; gridCanvas.height = rows;
   const gx = gridCanvas.getContext('2d', { willReadFrequently: true });
-  let d; try { gx.drawImage(media.el, 0, 0, aw, ah); d = gx.getImageData(0, 0, aw, ah).data; } catch (e) { glyphCount = 0; glyphGeo.setDrawRange(0, 0); return; }
-  const M = aw * ah, wt = new Float32Array(M), prefix = new Float32Array(M);
-  let total = 0, maxW = 1e-4;
-  for (let i = 0; i < M; i++) {
-    const v = Math.max(d[i * 4], d[i * 4 + 1], d[i * 4 + 2]) / 255;
-    let w;
-    if (state.gMode === 0) w = (1 - v) * (1 - v);      // dark areas
-    else if (state.gMode === 1) w = v * v;             // light areas
-    else w = 1;                                        // everywhere
-    wt[i] = w; total += w; if (w > maxW) maxW = w;
-    prefix[i] = total;
-  }
-  if (total <= 0) { glyphCount = 0; glyphGeo.setDrawRange(0, 0); requestRender(); return; }
-  const N = Math.min(MAX_LETTERS, Math.round(180 + state.gDensity * 6200));
-  const basePx = media.h / (16 + state.gDensity * 42);
-  const rng = mulberry32(0x9E37 ^ state.gMode);
+  let d; try { gx.drawImage(media.el, 0, 0, cols, rows); d = gx.getImageData(0, 0, cols, rows).data; } catch (e) { glyphCount = 0; glyphGeo.setDrawRange(0, 0); return; }
+  const rng = mulberry32(0x9E37 ^ state.gMode ^ (rows << 8));
   let n = 0;
-  for (let k = 0; k < N; k++) {
-    const ci = pickCell(prefix, rng() * total);
-    const cx = ci % aw, cy = (ci / aw) | 0, wnorm = wt[ci] / maxW;
-    posArr[n * 3] = (cx + rng()) / aw * 2 - 1;
-    posArr[n * 3 + 1] = (1 - (cy + rng()) / ah) * 2 - 1;
-    posArr[n * 3 + 2] = 0;
-    sizeArr[n] = basePx * (0.55 + 0.85 * wnorm) * (0.75 + 0.55 * rng());
-    glyphArr[n] = (rng() * 24) | 0;
-    alphaArr[n] = 0.35 + 0.65 * wnorm;
-    n++;
+  for (let cy = 0; cy < rows && n < MAX_LETTERS; cy++) {
+    for (let cx = 0; cx < cols && n < MAX_LETTERS; cx++) {
+      const i = (cy * cols + cx) * 4, v = Math.max(d[i], d[i + 1], d[i + 2]) / 255;
+      let w;
+      if (state.gMode === 0) w = (1 - v) * (1 - v);   // dark areas
+      else if (state.gMode === 1) w = v * v;          // light areas
+      else w = 1;                                     // everywhere
+      if (rng() >= state.gDensity * (0.15 + 0.85 * w)) continue;   // cell stays empty
+      posArr[n * 3] = (cx + 0.5) / cols * 2 - 1;
+      posArr[n * 3 + 1] = (1 - (cy + 0.5) / rows) * 2 - 1;
+      posArr[n * 3 + 2] = 0;
+      sizeArr[n] = cellPx;
+      glyphArr[n] = (rng() * 24) | 0;
+      alphaArr[n] = 1;
+      n++;
+    }
   }
   glyphCount = n;
   posAttr.needsUpdate = sizeAttr.needsUpdate = glyphAttr.needsUpdate = alphaAttr.needsUpdate = true;
@@ -377,7 +371,7 @@ function applyState() {
   if (bloomPass) { bloomPass.strength = state.bloomStrength; bloomPass.radius = state.bloomRadius; bloomPass.threshold = state.bloomThreshold; }
   if (adjustPass) { const u = adjustPass.uniforms; u.uExposure.value = state.exposure; u.uContrast.value = state.contrast; u.uSaturation.value = state.saturation; }
   if (dofPass) { const u = dofPass.uniforms; u.uBlur.value = state.blur; u.uFocusPt.value.set(state.focusPtX, state.focusPtY); u.uFocusR.value = state.focusSize; }
-  glyphMat.uniforms.uSizeMul.value = 0.5 + state.gSize * 1.8;
+  glyphMat.uniforms.uSizeMul.value = 1;
   glyphMat.uniforms.uGlow.value = state.gOpacity;
   updateFocusMarker(); requestRender();
 }
