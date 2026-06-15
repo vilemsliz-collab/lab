@@ -146,8 +146,8 @@ const GlitchShader = {
       // horizontal slice displacement
       float rows = 26.0;
       float sl = floor(vUv.y * rows);
-      float active = step(0.7, hash(sl + t * 1.7));
-      uv.x += (hash(sl * 3.3 + t) - 0.5) * 0.16 * amt * uSlice * active * track;
+      float sliceOn = step(0.7, hash(sl + t * 1.7));
+      uv.x += (hash(sl * 3.3 + t) - 0.5) * 0.16 * amt * uSlice * sliceOn * track;
       uv.x += (hash(t * 0.7) - 0.5) * 0.012 * amt * uSlice * step(0.85, hash(t)) * track;
 
       // chromatic RGB shift (with occasional bursts)
