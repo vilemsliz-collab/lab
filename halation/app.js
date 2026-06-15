@@ -50,7 +50,7 @@ const MASK_KEYS = ['gOn', 'gSize'];   // changing these rebuilds the letter mask
 const CONTROLS = {
   letters: [
     { t: 'toggle', key: 'gOn', label: 'Greek-letter field' },
-    { t: 'note', text: 'Letters track movement (and bright areas on stills) — faster motion lights up more and leaves a trail.' },
+    { t: 'note', text: 'Letters lock onto tracked blobs (bright regions / objects) and follow them. Tolerance = how much counts as a blob; Density = how full.' },
     { t: 'slider', key: 'gTol',     label: 'Tolerance', min: 0, max: 1, step: 0.01 },
     { t: 'slider', key: 'gDensity', label: 'Density',   min: 0, max: 1, step: 0.01 },
     { t: 'slider', key: 'gSize',    label: 'Size',      min: 0, max: 1, step: 0.01 },
@@ -254,9 +254,11 @@ const glyphMat = new THREE.ShaderMaterial({
 glyphScene.add(new THREE.Points(glyphGeo, glyphMat));
 let glyphCount = 0;
 const gridCanvas = document.createElement('canvas');
-// Per-cell tracking weight (continuous), resampled in real time; flicker re-rolls every frame.
+// Monospace grid + blob-tracking state. cellBlob[i] = id of the tracked blob a
+// cell belongs to (or -1); flicker re-rolls glyphs/visibility every frame.
 let gCols = 0, gRows = 0, gCellPx = 0;
-let cellW = null, cellRate = null, cellPhase = null, prevLum = null, motAcc = null;
+let cellBlob = null, cellRate = null, cellPhase = null, salSmooth = null, labelBuf = null, stackBuf = null;
+let tracks = [], nextTrackId = 1, gSampled = false;
 
 /* ── Composer ── */
 let composer, adjustPass, blurPass, bloomPass;
@@ -326,69 +328,89 @@ function setupMedia(type, el, w, h, tex) {
   requestRender();
 }
 
-/* ── Greek-letter field: motion+light tracking + Ikeda flicker ──
-   buildGlyphMask() sizes the monospace grid and seeds each cell's flicker.
-   sampleMask() runs in real time (every frame on video). Per cell it combines:
-     • motion — frame-difference magnitude (velocity proxy), accumulated with
-       decay so faster movement scores higher AND leaves a short fading trail;
-     • light — contrast-normalised brightness, so stills (no motion) still track
-       bright/white areas.
-   Motion is weighted strongest. A Tolerance-driven cutoff zeroes everything
-   below threshold, so untracked areas stay EMPTY (no random background letters).
-   updateGlyphFlicker() re-rolls which cells are lit + which glyph, every frame. */
+/* ── Greek-letter field: blob tracking, letters bonded to tracked blobs ──
+   Proven blob-tracking pipeline, run on the downsampled monospace grid:
+     1. segment — threshold a temporally-smoothed brightness saliency into a
+        foreground mask (Tolerance sets the threshold);
+     2. label — 8-connected components → discrete blobs (area + centroid + bbox);
+     3. track — associate blobs to persistent tracks by nearest centroid (with
+        EMA smoothing + a miss counter), so a blob keeps its identity and only
+        confirmed/again-seen blobs are drawn (rejects 1-frame noise);
+     4. bond — letters fill the cells of confirmed tracked blobs, and flicker
+        their glyphs fast. Letters therefore stick to coherent objects and move
+        with them, instead of scattering. */
 function hash01(a, b) { let h = (Math.imul(a, 374761393) + Math.imul(b, 668265263)) >>> 0; h = (h ^ (h >>> 13)) >>> 0; h = Math.imul(h, 1274126177) >>> 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
-function smoothstep(a, b, x) { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); }
 
 function buildGlyphMask() {
-  if (!media.type || !state.gOn) { gCols = 0; cellW = null; glyphCount = 0; glyphGeo.setDrawRange(0, 0); requestRender(); return; }
+  if (!media.type || !state.gOn) { gCols = 0; cellBlob = null; tracks = []; glyphCount = 0; glyphGeo.setDrawRange(0, 0); requestRender(); return; }
   const rows = Math.max(4, Math.round(60 - state.gSize * 48));   // small → many tiny cells, large → few big cells
   const cellPx = media.h / rows;
   const cols = Math.max(2, Math.round(media.w / cellPx));
   gCols = cols; gRows = rows; gCellPx = cellPx;
   const M = cols * rows;
-  cellW = new Float32Array(M); cellRate = new Float32Array(M); cellPhase = new Float32Array(M); motAcc = new Float32Array(M); prevLum = null;
-  for (let i = 0; i < M; i++) { cellRate[i] = 13 + hash01(i, 7) * 30; cellPhase[i] = hash01(i, 3); }   // fast, varied rates
+  cellBlob = new Int32Array(M); cellRate = new Float32Array(M); cellPhase = new Float32Array(M);
+  salSmooth = new Float32Array(M); labelBuf = new Int32Array(M); stackBuf = new Int32Array(M);
+  tracks = []; gSampled = false;
+  for (let i = 0; i < M; i++) { cellRate[i] = 13 + hash01(i, 7) * 30; cellPhase[i] = hash01(i, 3); }   // fast, varied glyph rates
   sampleMask();
 }
 
 function sampleMask() {
-  if (!cellW || !media.type) return;
+  if (!cellBlob || !media.type) return;
   const cols = gCols, rows = gRows, M = cols * rows;
   gridCanvas.width = cols; gridCanvas.height = rows;
   const gx = gridCanvas.getContext('2d', { willReadFrequently: true });
   let d; try { gx.drawImage(media.el, 0, 0, cols, rows); d = gx.getImageData(0, 0, cols, rows).data; } catch (e) { return; }
-  const lum = new Float32Array(M);
-  let mn = 1e9, mx = -1e9;
-  for (let i = 0; i < M; i++) {
-    const L = (0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2]) / 255;
-    lum[i] = L; if (L < mn) mn = L; if (L > mx) mx = L;
-  }
+  const firstSample = !gSampled; gSampled = true;
+  // 1 ─ saliency (brightness, contrast-normalised) with temporal smoothing for stability
+  let mn = 1e9, mx = -1e9; const lum = new Float32Array(M);
+  for (let i = 0; i < M; i++) { const L = (0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2]) / 255; lum[i] = L; if (L < mn) mn = L; if (L > mx) mx = L; }
   const range = Math.max(1e-3, mx - mn);
-  // Motion first: per-cell frame difference (velocity proxy) and overall scene motion.
-  const inst = new Float32Array(M);
-  let frameMot = 0;
-  if (prevLum) for (let i = 0; i < M; i++) { const m = Math.min(1, Math.abs(lum[i] - prevLum[i]) * 9); inst[i] = m; frameMot += m; }
-  for (let i = 0; i < M; i++) motAcc[i] = Math.max(inst[i], motAcc[i] * 0.80);   // short trail → temporary feel
-  const avgMot = frameMot / M;
-  // When the scene is moving, light barely matters (strict to movement); when it's
-  // basically still (or a photo), light takes over so something still shows.
-  const lightW = 0.12 + 0.63 * Math.max(0, 1 - avgMot * 45);
-  const cut = 0.06 + (1 - state.gTol) * 0.62;     // Tolerance: low → very strict gate, high → permissive
-  for (let i = 0; i < M; i++) {
-    const light = Math.pow((lum[i] - mn) / range, 1.8);
-    const w = Math.min(1, motAcc[i] * 1.9 + light * lightW);   // motion weighted strongest
-    cellW[i] = smoothstep(cut, cut + 0.2, w);                  // gate → empty off-target
+  for (let i = 0; i < M; i++) { const sal = Math.pow((lum[i] - mn) / range, 1.4); salSmooth[i] = firstSample ? sal : sal * 0.45 + salSmooth[i] * 0.55; labelBuf[i] = -1; }
+  const thr = 0.32 + (1 - state.gTol) * 0.52;     // Tolerance: high → lower threshold → bigger/more blobs
+  // 2 ─ connected components (8-connected flood fill) → blobs
+  const blobs = [], minArea = Math.max(2, Math.round(M * 0.004));
+  for (let s = 0; s < M; s++) {
+    if (labelBuf[s] !== -1 || salSmooth[s] <= thr) continue;
+    const id = blobs.length; let sp = 0; stackBuf[sp++] = s; labelBuf[s] = id;
+    let area = 0, sx = 0, sy = 0, x0 = cols, y0 = rows, x1 = 0, y1 = 0;
+    while (sp) {
+      const p = stackBuf[--sp], px = p % cols, py = (p / cols) | 0;
+      area++; sx += px; sy += py; if (px < x0) x0 = px; if (px > x1) x1 = px; if (py < y0) y0 = py; if (py > y1) y1 = py;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        if (!dx && !dy) continue; const nx = px + dx, ny = py + dy;
+        if (nx < 0 || ny < 0 || nx >= cols || ny >= rows) continue;
+        const q = ny * cols + nx; if (labelBuf[q] === -1 && salSmooth[q] > thr) { labelBuf[q] = id; stackBuf[sp++] = q; }
+      }
+    }
+    blobs.push({ area, cx: sx / area, cy: sy / area, keep: area >= minArea });
   }
-  prevLum = lum;
+  // 3 ─ track association (nearest centroid, EMA-smoothed, with persistence)
+  const kept = blobs.filter(b => b.keep).sort((a, b) => b.area - a.area).slice(0, 12);
+  const gate = 0.16;
+  for (const k of kept) { k.ncx = k.cx / cols; k.ncy = k.cy / rows; k.track = null; }
+  for (const t of tracks) {
+    let best = null, bd = gate;
+    for (const k of kept) { if (k.track) continue; const dd = Math.hypot(k.ncx - t.ncx, k.ncy - t.ncy); if (dd < bd) { bd = dd; best = k; } }
+    if (best) { best.track = t; t.vx = best.ncx - t.ncx; t.vy = best.ncy - t.ncy; t.ncx = t.ncx * 0.5 + best.ncx * 0.5; t.ncy = t.ncy * 0.5 + best.ncy * 0.5; t.hits++; t.missed = 0; }
+    else t.missed++;
+  }
+  for (const k of kept) { if (!k.track) { k.track = { id: nextTrackId++, ncx: k.ncx, ncy: k.ncy, vx: 0, vy: 0, hits: 0, missed: 0 }; tracks.push(k.track); } }
+  tracks = tracks.filter(t => t.missed <= 12);
+  // confirmed = first frame, or a track we've seen before, or an unmistakably large blob
+  for (const b of blobs) b.draw = false;
+  for (const k of kept) if (firstSample || k.track.hits >= 1 || k.area >= minArea * 2.5) { k.draw = true; k.bid = k.track.id; }
+  // 4 ─ bond cells to their confirmed blob
+  for (let i = 0; i < M; i++) { const li = labelBuf[i]; cellBlob[i] = (li >= 0 && blobs[li].draw) ? blobs[li].bid : -1; }
 }
 
 function updateGlyphFlicker(time) {
-  if (!cellW || !state.gOn) { glyphCount = 0; glyphGeo.setDrawRange(0, 0); return; }
-  const cols = gCols, rows = gRows, M = cols * rows, dens = state.gDensity, sp = 6.0;   // natively very fast flicker
+  if (!cellBlob || !state.gOn) { glyphCount = 0; glyphGeo.setDrawRange(0, 0); return; }
+  const cols = gCols, rows = gRows, M = cols * rows, sp = 6.0;          // natively very fast flicker
+  const duty = Math.min(0.96, 0.34 + state.gDensity * 0.62);            // how full each blob is
   let n = 0;
   for (let i = 0; i < M && n < MAX_LETTERS; i++) {
-    if (cellW[i] <= 0.001) continue;             // off-target stays empty
-    const duty = Math.min(0.97, dens * cellW[i] * 1.7);
+    if (cellBlob[i] < 0) continue;                                      // only inside tracked blobs
     const tick = Math.floor(time * cellRate[i] * sp + cellPhase[i] * 101);
     if (hash01(i, tick) > duty) continue;
     const cx = i % cols, cy = (i / cols) | 0;
