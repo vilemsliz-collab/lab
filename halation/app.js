@@ -4,7 +4,8 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { FilesetResolver, ImageSegmenter } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18';
+// NOTE: MediaPipe is loaded lazily (dynamic import) inside getSegmenter() so a
+// CDN/network failure there can never take down the core preview + effects.
 
 /* ─────────────────────────────────────────────────────────────
    Halation — natural bloom + chromatic dispersion + subject-tracked
@@ -179,7 +180,7 @@ renderer.setPixelRatio(1);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 const scene = new THREE.Scene();
-const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -1, 1);
 const quad = new THREE.Mesh(
   new THREE.PlaneGeometry(2, 2),
   new THREE.MeshBasicMaterial({ map: null })
@@ -244,6 +245,9 @@ async function getSegmenter(mode) {
   showLoading(true, 'Loading subject model…');
   try {
     if (!segmenter) {
+      const { FilesetResolver, ImageSegmenter } = await import(
+        'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18'
+      );
       const fileset = await FilesetResolver.forVisionTasks(
         'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm'
       );
@@ -290,7 +294,11 @@ async function loadImage(src, revoke) {
   const img = new Image();
   img.crossOrigin = 'anonymous';
   img.decoding = 'async';
-  await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = src; });
+  await new Promise((res, rej) => {
+    img.onload = res;
+    img.onerror = () => rej(new Error('This image format can’t be decoded by your browser (e.g. HEIC). Try a JPG or PNG.'));
+    img.src = src;
+  });
   if (revoke) URL.revokeObjectURL(src);
 
   const [w, h] = capSize(img.naturalWidth, img.naturalHeight, MAX_SIDE_IMAGE);
@@ -312,7 +320,10 @@ async function loadVideo(src) {
   const v = dom.video;
   v.src = src;
   v.muted = true; v.loop = true; v.playsInline = true;
-  await new Promise((res, rej) => { v.onloadeddata = res; v.onerror = rej; });
+  await new Promise((res, rej) => {
+    v.onloadeddata = res;
+    v.onerror = () => rej(new Error('This video format can’t be played by your browser. Try an MP4 (H.264).'));
+  });
 
   const [w, h] = capSize(v.videoWidth, v.videoHeight, MAX_SIDE_VIDEO);
   const tex = new THREE.VideoTexture(v);
@@ -515,15 +526,15 @@ dom.file.addEventListener('change', () => {
   const f = dom.file.files[0]; if (!f) return;
   const url = URL.createObjectURL(f);
   resetMedia();
-  if (f.type.startsWith('video')) loadVideo(url);
-  else loadImage(url, true);
+  const p = f.type.startsWith('video') ? loadVideo(url) : loadImage(url, true);
+  p.catch(err => showError(err.message || String(err)));
   dom.file.value = '';
 });
 
 dom.sampleBtn.onclick = () => {
   resetMedia();
   loadImage('https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=1600&q=80&auto=format', false)
-    .catch(() => alert('Could not load sample (network). Try adding your own photo.'));
+    .catch(() => showError('Could not load the sample (network/CORS). Try adding your own photo.'));
 };
 
 function resetMedia() {
@@ -538,7 +549,8 @@ dom.stage.addEventListener('drop', e => {
   const f = e.dataTransfer.files[0]; if (!f) return;
   const url = URL.createObjectURL(f);
   resetMedia();
-  if (f.type.startsWith('video')) loadVideo(url); else loadImage(url, true);
+  const p = f.type.startsWith('video') ? loadVideo(url) : loadImage(url, true);
+  p.catch(err => showError(err.message || String(err)));
 });
 
 /* ─────────────────────────── Export ─────────────────────────── */
@@ -603,6 +615,28 @@ function showLoading(on, text) {
   dom.loading.classList.toggle('hidden', !on);
 }
 
+/* ── On-screen error reporter (so failures are visible, not silent) ── */
+let errEl = null;
+function showError(msg) {
+  console.error('[halation]', msg);
+  if (!errEl) {
+    errEl = document.createElement('div');
+    errEl.style.cssText =
+      'position:absolute;left:50%;bottom:64px;transform:translateX(-50%);max-width:88%;' +
+      'background:rgba(40,8,8,.92);border:1px solid #5a1d1d;color:#ffb3b3;font-size:11.5px;' +
+      'line-height:1.5;padding:10px 14px;border-radius:10px;text-align:center;z-index:50;' +
+      'backdrop-filter:blur(8px);cursor:pointer';
+    errEl.title = 'Tap to dismiss';
+    errEl.onclick = () => errEl.classList.add('hidden');
+    dom.stage.appendChild(errEl);
+  }
+  errEl.textContent = msg;
+  errEl.classList.remove('hidden');
+}
+window.addEventListener('error', e => showError('Error: ' + (e.message || e.error)));
+window.addEventListener('unhandledrejection', e =>
+  showError('Error: ' + ((e.reason && e.reason.message) || e.reason)));
+
 /* ── Resize ── */
 let resizeRaf;
 window.addEventListener('resize', () => {
@@ -612,3 +646,6 @@ window.addEventListener('resize', () => {
 
 /* ── Init ── */
 buildPanel();
+if (!renderer.getContext()) {
+  showError('WebGL is not available in this browser — the effects need it.');
+}
