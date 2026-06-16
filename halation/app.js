@@ -45,12 +45,12 @@ const dom = {
 };
 
 const state = {
-  // letters (signature effect)
-  gOn: true, gDensity: 0.42, gTol: 0.4, gLayers: 2, gSize: 0.55, gOpacity: 0.95,
-  // bloom
-  bloomStrength: 0.8, bloomRadius: 0.6, bloomThreshold: 0.75,
-  // zoom blur
-  blur: 0, blurRadius: 0.15, blurSmooth: 0.5, zoomCx: 0.5, zoomCy: 0.5,
+  // letters (off by default now)
+  gOn: false, gDensity: 0.42, gTol: 0.4, gLayers: 2, gSize: 0.55, gOpacity: 0.95,
+  // bloom + spectral edge rainbow
+  bloomStrength: 0.8, bloomRadius: 0.6, bloomThreshold: 0.75, bloomRainbow: 0, bloomSpread: 0.5, bloomHue: 0,
+  // zoom blur + fisheye (share centre & radius)
+  blur: 0, blurRadius: 0.15, blurSmooth: 0.5, fish: 0, zoomCx: 0.5, zoomCy: 0.5,
   // image tone
   exposure: 0, contrast: 0, saturation: 0,
 };
@@ -70,11 +70,16 @@ const CONTROLS = {
     { t: 'slider', key: 'bloomStrength',  label: 'Strength',  min: 0, max: 3, step: 0.01 },
     { t: 'slider', key: 'bloomRadius',    label: 'Radius',    min: 0, max: 1, step: 0.01 },
     { t: 'slider', key: 'bloomThreshold', label: 'Threshold', min: 0, max: 1, step: 0.01 },
+    { t: 'note', text: 'Rainbow paints a spectrum into the bloom’s fade-out edge (not a flat tint). Spread = how many bands; Hue shifts the spectrum.' },
+    { t: 'slider', key: 'bloomRainbow', label: 'Rainbow', min: 0, max: 1, step: 0.01 },
+    { t: 'slider', key: 'bloomSpread',  label: 'Spread',  min: 0, max: 1, step: 0.01 },
+    { t: 'slider', key: 'bloomHue',     label: 'Hue',     min: 0, max: 1, step: 0.001 },
   ],
   blur: [
-    { t: 'note', text: 'Zoom blur — tap or drag on the image to set the centre.' },
-    { t: 'slider', key: 'blur',       label: 'Amount',    min: 0, max: 1, step: 0.01 },
-    { t: 'slider', key: 'blurRadius', label: 'Radius',    min: 0, max: 0.6, step: 0.01 },
+    { t: 'note', text: 'Zoom & fisheye share the centre and Radius — tap or drag the image to set the centre.' },
+    { t: 'slider', key: 'blur',       label: 'Zoom',      min: 0, max: 1, step: 0.01 },
+    { t: 'slider', key: 'fish',       label: 'Fisheye',   min: -1, max: 1, step: 0.01 },
+    { t: 'slider', key: 'blurRadius', label: 'Radius',    min: 0.02, max: 0.6, step: 0.01 },
     { t: 'slider', key: 'blurSmooth', label: 'Smoothing', min: 0, max: 1, step: 0.01 },
   ],
   image: [
@@ -111,24 +116,31 @@ const AdjustShader = {
 const BlurZoomShader = {
   uniforms: {
     tDiffuse: { value: null }, uTexel: { value: new THREE.Vector2() }, uAspect: { value: 1 },
-    uAmount: { value: 0 }, uRadius: { value: 0.15 }, uSmooth: { value: 0.5 }, uCenter: { value: new THREE.Vector2(0.5, 0.5) },
+    uAmount: { value: 0 }, uRadius: { value: 0.15 }, uSmooth: { value: 0.5 }, uFish: { value: 0 }, uCenter: { value: new THREE.Vector2(0.5, 0.5) },
   },
   vertexShader: PASS_VERT,
   fragmentShader: `
-    uniform sampler2D tDiffuse; uniform vec2 uTexel, uCenter; uniform float uAmount, uRadius, uSmooth, uAspect;
+    uniform sampler2D tDiffuse; uniform vec2 uTexel, uCenter; uniform float uAmount, uRadius, uSmooth, uFish, uAspect;
     varying vec2 vUv;
     float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
     void main(){
-      float dist = length((vUv - uCenter) * vec2(uAspect, 1.0));
+      vec2 cdir = (vUv - uCenter) * vec2(uAspect, 1.0);
+      float dist = length(cdir);
+      // Fisheye lens: a bulge (+) / pinch (-) inside the same Radius, seamless at its edge.
+      vec2 uv = vUv;
+      if (abs(uFish) > 0.001 && uRadius > 1e-3){
+        float fr = dist / uRadius;
+        if (fr < 1.0){ float f = 1.0 - uFish * 0.85 * (1.0 - fr * fr); uv = uCenter + (cdir * f) / vec2(uAspect, 1.0); }
+      }
       float coc = smoothstep(uRadius, uRadius + 0.25, dist);
       float amt = uAmount * coc;
-      if (amt < 0.002){ gl_FragColor = vec4(texture2D(tDiffuse, vUv).rgb, 1.0); return; }
+      if (amt < 0.002){ gl_FragColor = vec4(texture2D(tDiffuse, uv).rgb, 1.0); return; }
       const int N = 28;
       float jit = hash(vUv / max(uTexel, vec2(1e-4))) * uSmooth;
       vec3 col = vec3(0.0);
       for (int i = 0; i < N; i++){
         float tt = (float(i) + jit) / float(N);
-        col += texture2D(tDiffuse, vUv + (vUv - uCenter) * tt * amt * 1.1).rgb;
+        col += texture2D(tDiffuse, uv + (uv - uCenter) * tt * amt * 1.1).rgb;
       }
       gl_FragColor = vec4(col / float(N), 1.0);
     }`,
@@ -154,17 +166,31 @@ const BlurShader = {
       gl_FragColor = vec4(c, 1.0); }`,
 };
 const CompositeShader = {
-  uniforms: { tDiffuse: { value: null }, tBloom: { value: null }, uStrength: { value: 1 } },
+  uniforms: { tDiffuse: { value: null }, tBloom: { value: null }, uStrength: { value: 1 }, uRainbow: { value: 0 }, uSpread: { value: 0.5 }, uHue: { value: 0 } },
   vertexShader: FS_VERT,
-  fragmentShader: `uniform sampler2D tDiffuse, tBloom; uniform float uStrength; varying vec2 vUv;
-    void main(){ vec3 base = texture2D(tDiffuse, vUv).rgb; vec3 bloom = texture2D(tBloom, vUv).rgb * uStrength;
-      gl_FragColor = vec4(base + bloom, 1.0); }`,
+  fragmentShader: `uniform sampler2D tDiffuse, tBloom; uniform float uStrength, uRainbow, uSpread, uHue; varying vec2 vUv;
+    vec3 hsv2rgb(vec3 c){ vec4 K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0); vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www); return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y); }
+    void main(){
+      vec3 base = texture2D(tDiffuse, vUv).rgb;
+      vec3 bloom = texture2D(tBloom, vUv).rgb * uStrength;
+      if (uRainbow > 0.001){
+        float lb = clamp(max(bloom.r, max(bloom.g, bloom.b)), 0.0, 1.0);
+        // hue cycles as the bloom fades → concentric spectral rings; Spread = cycles
+        float hue = fract(uHue + lb * (1.0 + uSpread * 9.0));
+        vec3 rb = hsv2rgb(vec3(hue, 1.0, 1.0)) * lb * 2.2;
+        // fringe weight: ~0 in the bright core and where there's no bloom, peaks in the fade-out edge
+        float fringe = smoothstep(0.015, 0.16, lb) * (1.0 - smoothstep(0.45, 1.0, lb));
+        bloom = mix(bloom, rb, uRainbow * fringe);
+      }
+      gl_FragColor = vec4(base + bloom, 1.0);
+    }`,
 };
 
 class HalationBloomPass extends Pass {
   constructor(w, h) {
     super();
     this.strength = state.bloomStrength; this.radius = state.bloomRadius; this.threshold = state.bloomThreshold;
+    this.rainbow = state.bloomRainbow; this.spread = state.bloomSpread; this.hue = state.bloomHue;
     const opt = { type: THREE.UnsignedByteType, format: THREE.RGBAFormat, colorSpace: THREE.NoColorSpace };
     this.rtBright = new THREE.WebGLRenderTarget(1, 1, opt);
     this.rtA = new THREE.WebGLRenderTarget(1, 1, opt);
@@ -199,6 +225,7 @@ class HalationBloomPass extends Pass {
       src = this.rtB;
     }
     c.tDiffuse.value = readBuffer.texture; c.tBloom.value = src.texture; c.uStrength.value = this.strength;
+    c.uRainbow.value = this.rainbow; c.uSpread.value = this.spread; c.uHue.value = this.hue;
     renderer.setRenderTarget(this.renderToScreen ? null : writeBuffer);
     if (this.clear) renderer.clear();
     this.compQuad.render(renderer);
@@ -473,16 +500,16 @@ tick();
 
 /* ─────────────────────────── State → uniforms ─────────────────────────── */
 function applyState() {
-  if (bloomPass) { bloomPass.strength = state.bloomStrength; bloomPass.radius = state.bloomRadius; bloomPass.threshold = state.bloomThreshold; }
+  if (bloomPass) { bloomPass.strength = state.bloomStrength; bloomPass.radius = state.bloomRadius; bloomPass.threshold = state.bloomThreshold; bloomPass.rainbow = state.bloomRainbow; bloomPass.spread = state.bloomSpread; bloomPass.hue = state.bloomHue; }
   if (adjustPass) { const u = adjustPass.uniforms; u.uExposure.value = state.exposure; u.uContrast.value = state.contrast; u.uSaturation.value = state.saturation; }
-  if (blurPass) { const u = blurPass.uniforms; u.uAmount.value = state.blur; u.uRadius.value = state.blurRadius; u.uSmooth.value = state.blurSmooth; u.uCenter.value.set(state.zoomCx, state.zoomCy); }
+  if (blurPass) { const u = blurPass.uniforms; u.uAmount.value = state.blur; u.uRadius.value = state.blurRadius; u.uSmooth.value = state.blurSmooth; u.uFish.value = state.fish; u.uCenter.value.set(state.zoomCx, state.zoomCy); }
   glyphMat.uniforms.uSizeMul.value = 1;
   glyphMat.uniforms.uGlow.value = state.gOpacity;
   updateFocusMarker(); requestRender();
 }
 
 /* ── Zoom-centre marker (ring shows the sharp central radius) ── */
-function blurActive() { return state.blur > 0.001; }
+function blurActive() { return state.blur > 0.001 || Math.abs(state.fish) > 0.001; }
 function updateFocusMarker() {
   if (!media.type || bypass || !blurActive()) { dom.focusRing.classList.add('hidden'); return; }
   const gr = dom.canvas.getBoundingClientRect(), sr = dom.stage.getBoundingClientRect();
@@ -510,10 +537,9 @@ dom.canvas.addEventListener('lostpointercapture', endPtr);
 /* ─────────────────────────── Panel UI ─────────────────────────── */
 const sliderEls = {};
 function buildPanel() {
-  let first = true;
   for (const [tab, controls] of Object.entries(CONTROLS)) {
     const pane = document.createElement('div');
-    pane.className = 'pane' + (first ? ' pane--active' : ''); pane.dataset.pane = tab; first = false;
+    pane.className = 'pane' + (tab === 'bloom' ? ' pane--active' : ''); pane.dataset.pane = tab;
     let chipRow = null;
     for (const c of controls) {
       if (c.t === 'slider') pane.appendChild(buildSlider(c));
