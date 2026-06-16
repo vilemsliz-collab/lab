@@ -14,7 +14,16 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 const MAX_SIDE_IMAGE = 3072;
 const MAX_SIDE_VIDEO = 1440;
 const MAX_LETTERS = 14000;
-const GREEK = 'αβγδεζηθικλμνξοπρστυφχψω'; // 24 lowercase
+// Opening of Homer's Odyssey (Book 1). Diacritics are stripped (NFD → drop
+// combining marks) so the base Greek letters render in IBM Plex Mono; the words
+// still read as the Odyssey. The letter field streams this text through the blobs.
+const ODYSSEY_RAW = 'ἄνδρα μοι ἔννεπε μοῦσα πολύτροπον ὃς μάλα πολλὰ πλάγχθη ἐπεὶ Τροίης ἱερὸν πτολίεθρον ἔπερσεν πολλῶν δ’ ἀνθρώπων ἴδεν ἄστεα καὶ νόον ἔγνω πολλὰ δ’ ὅ γ’ ἐν πόντῳ πάθεν ἄλγεα ὃν κατὰ θυμόν ἀρνύμενος ἥν τε ψυχὴν καὶ νόστον ἑταίρων ἀλλ’ οὐδ’ ὧς ἑτάρους ἐρρύσατο ἱέμενός περ αὐτῶν γὰρ σφετέρῃσιν ἀτασθαλίῃσιν ὄλοντο νήπιοι οἳ κατὰ βοῦς ὑπερίονος ἠελίοιο ἤσθιον αὐτὰρ ὁ τοῖσιν ἀφείλετο νόστιμον ἦμαρ';
+const TEXT = ODYSSEY_RAW.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^α-ω ]/g, ' ').replace(/\s+/g, ' ').trim();
+const CHARSET = [...new Set(TEXT)];                       // unique chars incl. space
+const CHAR_INDEX = {}; CHARSET.forEach((c, i) => (CHAR_INDEX[c] = i));
+const SPACE_CODE = CHAR_INDEX[' '];
+const TEXT_CODES = [...TEXT].map(c => CHAR_INDEX[c]);
+const ATLAS_COLS = 8, ATLAS_ROWS = Math.ceil(CHARSET.length / ATLAS_COLS);
 
 const dom = {
   canvas:    document.getElementById('gl'),
@@ -49,7 +58,7 @@ const MASK_KEYS = ['gOn', 'gSize'];   // changing these rebuilds the letter mask
 
 const CONTROLS = {
   letters: [
-    { t: 'toggle', key: 'gOn', label: 'Greek-letter field' },
+    { t: 'toggle', key: 'gOn', label: 'Odyssey letters' },
     { t: 'note', text: 'Letters lock onto tracked blobs (bright regions / objects) and follow them. Tolerance = how much counts as a blob; Density = how full.' },
     { t: 'slider', key: 'gTol',     label: 'Tolerance', min: 0, max: 1, step: 0.01 },
     { t: 'slider', key: 'gDensity', label: 'Density',   min: 0, max: 1, step: 0.01 },
@@ -210,13 +219,13 @@ const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.MeshBasicMa
 scene.add(quad);
 
 /* ── Greek-letter field (procedural placement from image data) ── */
-function buildGreekAtlas() {
-  const cell = 96, cols = 6, rows = 4;
-  const c = document.createElement('canvas'); c.width = cols * cell; c.height = rows * cell;
+function buildTextAtlas() {
+  const cell = 96;
+  const c = document.createElement('canvas'); c.width = ATLAS_COLS * cell; c.height = ATLAS_ROWS * cell;
   const x = c.getContext('2d');
   x.fillStyle = '#fff'; x.textAlign = 'center'; x.textBaseline = 'middle';
-  x.font = `${Math.round(cell * 0.68)}px "IBM Plex Mono", "Times New Roman", serif`;
-  for (let i = 0; i < GREEK.length; i++) x.fillText(GREEK[i], (i % cols) * cell + cell / 2, ((i / cols) | 0) * cell + cell / 2);
+  x.font = `${Math.round(cell * 0.62)}px "IBM Plex Mono", "Times New Roman", serif`;
+  for (let i = 0; i < CHARSET.length; i++) { if (CHARSET[i] === ' ') continue; x.fillText(CHARSET[i], (i % ATLAS_COLS) * cell + cell / 2, ((i / ATLAS_COLS) | 0) * cell + cell / 2); }
   const tex = new THREE.CanvasTexture(c); tex.flipY = false; tex.minFilter = THREE.LinearFilter; tex.magFilter = THREE.LinearFilter; tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
 }
@@ -232,7 +241,7 @@ glyphGeo.setAttribute('aGlyph', glyphAttr); glyphGeo.setAttribute('aAlpha', alph
 glyphGeo.setDrawRange(0, 0);
 const glyphMat = new THREE.ShaderMaterial({
   transparent: true, depthTest: false, depthWrite: false, blending: THREE.NormalBlending,
-  uniforms: { uAtlas: { value: buildGreekAtlas() }, uSizeMul: { value: 1 }, uGlow: { value: 0.95 } },
+  uniforms: { uAtlas: { value: buildTextAtlas() }, uAtlasDim: { value: new THREE.Vector2(ATLAS_COLS, ATLAS_ROWS) }, uSizeMul: { value: 1 }, uGlow: { value: 0.95 } },
   vertexShader: `
     attribute float aSize, aGlyph, aAlpha;
     uniform float uSizeMul; varying float vGlyph, vAlpha;
@@ -242,10 +251,10 @@ const glyphMat = new THREE.ShaderMaterial({
       gl_Position = vec4(position.xy, 0.0, 1.0);
     }`,
   fragmentShader: `
-    uniform sampler2D uAtlas; uniform float uGlow; varying float vGlyph, vAlpha;
+    uniform sampler2D uAtlas; uniform vec2 uAtlasDim; uniform float uGlow; varying float vGlyph, vAlpha;
     void main(){
-      float gi = vGlyph; vec2 cell = vec2(mod(gi, 6.0), floor(gi / 6.0));
-      vec2 guv = (cell + gl_PointCoord) / vec2(6.0, 4.0);
+      vec2 cell = vec2(mod(vGlyph, uAtlasDim.x), floor(vGlyph / uAtlasDim.x));
+      vec2 guv = (cell + gl_PointCoord) / uAtlasDim;
       float a = texture2D(uAtlas, guv).a * vAlpha * uGlow;
       if (a < 0.02) discard;
       gl_FragColor = vec4(1.0, 1.0, 1.0, a);
@@ -406,19 +415,22 @@ function sampleMask() {
 
 function updateGlyphFlicker(time) {
   if (!cellBlob || !state.gOn) { glyphCount = 0; glyphGeo.setDrawRange(0, 0); return; }
-  const cols = gCols, rows = gRows, M = cols * rows, sp = 6.0;          // natively very fast flicker
+  const cols = gCols, rows = gRows, M = cols * rows, sp = 6.0;          // natively very fast on/off flicker
   const duty = Math.min(0.96, 0.34 + state.gDensity * 0.62);            // how full each blob is
+  const scroll = Math.floor(time * 7.0);                               // Odyssey streams through the blobs
   let n = 0;
   for (let i = 0; i < M && n < MAX_LETTERS; i++) {
     if (cellBlob[i] < 0) continue;                                      // only inside tracked blobs
     const tick = Math.floor(time * cellRate[i] * sp + cellPhase[i] * 101);
     if (hash01(i, tick) > duty) continue;
     const cx = i % cols, cy = (i / cols) | 0;
+    const code = TEXT_CODES[((cy * cols + cx + scroll) % TEXT_CODES.length + TEXT_CODES.length) % TEXT_CODES.length];
+    if (code === SPACE_CODE) continue;                                  // word gaps stay blank
     posArr[n * 3] = (cx + 0.5) / cols * 2 - 1;
     posArr[n * 3 + 1] = (1 - (cy + 0.5) / rows) * 2 - 1;
     posArr[n * 3 + 2] = 0;
     sizeArr[n] = gCellPx;
-    glyphArr[n] = Math.floor(hash01(i * 7 + 1, tick) * 24);
+    glyphArr[n] = code;
     alphaArr[n] = 1;
     n++;
   }
