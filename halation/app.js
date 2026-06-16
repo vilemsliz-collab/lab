@@ -46,7 +46,7 @@ const dom = {
 
 const state = {
   // letters (signature effect)
-  gOn: true, gDensity: 0.42, gTol: 0.4, gSize: 0.55, gOpacity: 0.95,
+  gOn: true, gDensity: 0.42, gTol: 0.4, gLayers: 2, gSize: 0.55, gOpacity: 0.95,
   // bloom
   bloomStrength: 0.8, bloomRadius: 0.6, bloomThreshold: 0.75,
   // zoom blur
@@ -59,9 +59,10 @@ const MASK_KEYS = ['gOn', 'gSize'];   // changing these rebuilds the letter mask
 const CONTROLS = {
   letters: [
     { t: 'toggle', key: 'gOn', label: 'Odyssey letters' },
-    { t: 'note', text: 'Letters lock onto tracked blobs (bright regions / objects) and follow them. Tolerance = how much counts as a blob; Density = how full.' },
+    { t: 'note', text: 'Letters lock onto tracked blobs and stream the Odyssey. Layers stacks offset/overlapping grids so it reads less grid-ish.' },
     { t: 'slider', key: 'gTol',     label: 'Tolerance', min: 0, max: 1, step: 0.01 },
     { t: 'slider', key: 'gDensity', label: 'Density',   min: 0, max: 1, step: 0.01 },
+    { t: 'slider', key: 'gLayers',  label: 'Layers',    min: 1, max: 4, step: 1 },
     { t: 'slider', key: 'gSize',    label: 'Size',      min: 0, max: 1, step: 0.01 },
     { t: 'slider', key: 'gOpacity', label: 'Opacity',   min: 0, max: 1, step: 0.01 },
   ],
@@ -413,26 +414,39 @@ function sampleMask() {
   for (let i = 0; i < M; i++) { const li = labelBuf[i]; cellBlob[i] = (li >= 0 && blobs[li].draw) ? blobs[li].bid : -1; }
 }
 
+// Stacked grids: each layer is offset / scaled / faded / scrolled differently,
+// so letters overlap and the field reads less grid-ish (back layers are bigger
+// or smaller and fainter, scrolling at their own speed/direction).
+const LAYERS = [
+  { ox: 0.00, oy: 0.00, sc: 1.00, a: 1.00, spd: 7,   ph: 0 },
+  { ox: 0.50, oy: 0.42, sc: 0.74, a: 0.55, spd: -5,  ph: 13 },
+  { ox: 0.27, oy: 0.66, sc: 1.30, a: 0.40, spd: 11,  ph: 29 },
+  { ox: 0.70, oy: 0.18, sc: 0.58, a: 0.5,  spd: -3,  ph: 47 },
+];
 function updateGlyphFlicker(time) {
   if (!cellBlob || !state.gOn) { glyphCount = 0; glyphGeo.setDrawRange(0, 0); return; }
   const cols = gCols, rows = gRows, M = cols * rows, sp = 6.0;          // natively very fast on/off flicker
   const duty = Math.min(0.96, 0.34 + state.gDensity * 0.62);            // how full each blob is
-  const scroll = Math.floor(time * 7.0);                               // Odyssey streams through the blobs
+  const layers = Math.max(1, Math.round(state.gLayers));
+  const len = TEXT_CODES.length;
   let n = 0;
-  for (let i = 0; i < M && n < MAX_LETTERS; i++) {
-    if (cellBlob[i] < 0) continue;                                      // only inside tracked blobs
-    const tick = Math.floor(time * cellRate[i] * sp + cellPhase[i] * 101);
-    if (hash01(i, tick) > duty) continue;
-    const cx = i % cols, cy = (i / cols) | 0;
-    const code = TEXT_CODES[((cy * cols + cx + scroll) % TEXT_CODES.length + TEXT_CODES.length) % TEXT_CODES.length];
-    if (code === SPACE_CODE) continue;                                  // word gaps stay blank
-    posArr[n * 3] = (cx + 0.5) / cols * 2 - 1;
-    posArr[n * 3 + 1] = (1 - (cy + 0.5) / rows) * 2 - 1;
-    posArr[n * 3 + 2] = 0;
-    sizeArr[n] = gCellPx;
-    glyphArr[n] = code;
-    alphaArr[n] = 1;
-    n++;
+  for (let l = 0; l < layers && n < MAX_LETTERS; l++) {
+    const L = LAYERS[l], scroll = Math.floor(time * L.spd + L.ph), seed = l * 9973;
+    for (let i = 0; i < M && n < MAX_LETTERS; i++) {
+      if (cellBlob[i] < 0) continue;                                    // only inside tracked blobs
+      const tick = Math.floor(time * cellRate[i] * sp + cellPhase[i] * 101 + L.ph * 7);
+      if (hash01(i + seed, tick) > duty) continue;
+      const cx = i % cols, cy = (i / cols) | 0;
+      const code = TEXT_CODES[(((cy * cols + cx + scroll + l * 7) % len) + len) % len];
+      if (code === SPACE_CODE) continue;                                // word gaps stay blank
+      posArr[n * 3] = (cx + 0.5 + L.ox) / cols * 2 - 1;
+      posArr[n * 3 + 1] = (1 - (cy + 0.5 + L.oy) / rows) * 2 - 1;
+      posArr[n * 3 + 2] = 0;
+      sizeArr[n] = gCellPx * L.sc;
+      glyphArr[n] = code;
+      alphaArr[n] = L.a;
+      n++;
+    }
   }
   glyphCount = n;
   posAttr.needsUpdate = sizeAttr.needsUpdate = glyphAttr.needsUpdate = alphaAttr.needsUpdate = true;
