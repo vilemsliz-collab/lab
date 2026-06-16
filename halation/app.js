@@ -592,14 +592,19 @@ dom.tabs.addEventListener('click', e => {
   dom.panes.querySelector(`[data-pane="${tab.dataset.tab}"]`).classList.add('pane--active');
 });
 
-/* ── Panel: drag/tap to resize ── */
-const PANEL_MIN = 46; let panelOpenH = Math.round(Math.min(window.innerHeight * 0.46, 460)); let drag = null;
-function setPanelHeight(h, animate) { dom.panel.classList.toggle('dragging', !animate); dom.panel.style.height = h + 'px'; if (media.w) fitCanvasStyle(media.w, media.h); }
-function snapPanel(open) { dom.panel.classList.remove('dragging'); dom.panel.style.height = (open ? panelOpenH : PANEL_MIN) + 'px'; dom.panel.classList.toggle('collapsed', !open); }
+/* ── Panel: drag handle to resize · tap handle or ⌄ to hide · ⌃ to reveal ── */
+const hideBtn = document.getElementById('hideBtn'), revealBtn = document.getElementById('revealBtn');
+const PANEL_MIN = 108, PANEL_DEFAULT = 196; let panelOpenH = PANEL_DEFAULT; let drag = null;
+function refitCanvas() { if (media.w) fitCanvasStyle(media.w, media.h); }
+function setPanelHeight(h, dragging) { dom.panel.classList.toggle('dragging', dragging); dom.panel.style.height = h + 'px'; refitCanvas(); }
+function showPanel() { dom.panel.classList.remove('dragging', 'panel--hidden'); dom.panel.style.height = panelOpenH + 'px'; revealBtn.classList.add('hidden'); }
+function hidePanel() { dom.panel.classList.remove('dragging'); dom.panel.classList.add('panel--hidden'); revealBtn.classList.remove('hidden'); }
+hideBtn.onclick = hidePanel;
+revealBtn.onclick = showPanel;
 dom.handle.addEventListener('pointerdown', e => { drag = { startY: e.clientY, startH: dom.panel.getBoundingClientRect().height, moved: false }; dom.handle.setPointerCapture(e.pointerId); });
-dom.handle.addEventListener('pointermove', e => { if (!drag) return; const dy = e.clientY - drag.startY; if (Math.abs(dy) > 3) drag.moved = true; const max = Math.round(window.innerHeight * 0.7); setPanelHeight(Math.max(PANEL_MIN, Math.min(max, drag.startH - dy)), false); });
-dom.handle.addEventListener('pointerup', () => { if (!drag) return; const h = dom.panel.getBoundingClientRect().height; if (!drag.moved) snapPanel(dom.panel.classList.contains('collapsed')); else { const open = h > PANEL_MIN + 80; if (open) panelOpenH = Math.round(h); snapPanel(open); } drag = null; });
-dom.panel.addEventListener('transitionend', e => { if (e.propertyName === 'height' && media.w) fitCanvasStyle(media.w, media.h); });
+dom.handle.addEventListener('pointermove', e => { if (!drag) return; const dy = e.clientY - drag.startY; if (Math.abs(dy) > 3) drag.moved = true; const max = Math.round(window.innerHeight * 0.72); setPanelHeight(Math.max(PANEL_MIN, Math.min(max, drag.startH - dy)), true); });
+dom.handle.addEventListener('pointerup', () => { if (!drag) return; if (!drag.moved) hidePanel(); else { panelOpenH = Math.round(dom.panel.getBoundingClientRect().height); dom.panel.classList.remove('dragging'); } drag = null; });
+dom.panel.addEventListener('transitionend', e => { if (e.propertyName === 'height') refitCanvas(); });
 
 /* ── Compare ── */
 ['pointerdown', 'pointerleave', 'pointerup', 'pointercancel'].forEach(ev =>
@@ -704,5 +709,5 @@ let resizeRaf;
 window.addEventListener('resize', () => { cancelAnimationFrame(resizeRaf); resizeRaf = requestAnimationFrame(() => { if (media.w) fitCanvasStyle(media.w, media.h); }); });
 
 /* ── Init ── */
-buildPanel(); snapPanel(true);
+buildPanel(); showPanel();
 if (!renderer.getContext()) showError('WebGL is not available in this browser — the effects need it.');

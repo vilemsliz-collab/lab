@@ -42,16 +42,20 @@
 
       <div id="recBadge" class="rec hidden"><span class="rec__dot"></span>REC</div>
       <button id="compareBtn" class="compare hidden" disabled>Hold to compare</button>
+      <button id="revealBtn" class="reveal hidden" aria-label="Show controls">⌃</button>
     </main>
 
     <section id="panel" class="panel">
-      <button id="panelHandle" class="panel__handle" aria-label="Drag or tap to resize controls"></button>
-      <nav class="tabs" id="tabs">
-        <button class="tab" data-tab="letters">Letters</button>
-        <button class="tab tab--active" data-tab="bloom">Bloom</button>
-        <button class="tab" data-tab="blur">Blur</button>
-        <button class="tab" data-tab="image">Image</button>
-      </nav>
+      <button id="panelHandle" class="panel__handle" aria-label="Drag to resize · tap to hide"></button>
+      <div class="panel__top">
+        <nav class="tabs" id="tabs">
+          <button class="tab" data-tab="letters">Letters</button>
+          <button class="tab tab--active" data-tab="bloom">Bloom</button>
+          <button class="tab" data-tab="blur">Blur</button>
+          <button class="tab" data-tab="image">Image</button>
+        </nav>
+        <button id="hideBtn" class="icon-btn" aria-label="Hide controls">⌄</button>
+      </div>
       <div class="panes" id="panes"></div>
     </section>
   </div>
